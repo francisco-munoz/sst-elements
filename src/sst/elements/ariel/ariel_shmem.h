@@ -37,6 +37,10 @@ enum ArielShmemCmd_t {
     ARIEL_SWITCH_POOL = 110,
     ARIEL_NOOP = 128,
     ARIEL_OUTPUT_STATS = 140,
+    ARIEL_START_TRANSACTION = 312,
+    ARIEL_END_TRANSACTION = 314,
+    ARIEL_ABORT_TRANSACTION = 316,
+    ARIEL_COMMIT_TRANSACTION = 318
 };
 
 struct ArielCommand {
@@ -94,7 +98,6 @@ public:
         sharedData->cycles = 0;
         sharedData->child_attached = 0;
     }
-
 
     /**
      * Attach to an existing Ariel Tunnel (Created in another process

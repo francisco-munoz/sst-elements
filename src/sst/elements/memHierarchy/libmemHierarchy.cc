@@ -118,6 +118,7 @@ static const ElementInfoParam cache_params[] = {
     {"coherence_protocol",      "Optional, string - Coherence protocol. Options: MESI, MSI, NONE", "MESI"},
     {"replacement_policy",      "Optional, string - Replacement policy of the cache array. Options:  LRU[least-recently-used], LFU[least-frequently-used], Random, MRU[most-recently-used], or NMRU[not-most-recently-used]. ", "lru"},
     {"cache_type",              "Optional, string - Cache type. Options: inclusive cache ('inclusive', required for L1s), non-inclusive cache ('noninclusive') or non-inclusive cache with a directory ('noninclusive_with_directory', required for non-inclusive caches with multiple upper level caches directly above them),", "inclusive"},
+    {"htm_support",            "stuff goes here", "false"},
     {"max_requests_per_cycle",  "Maximum number of requests to accept per cycle. 0 or negative is unlimited.", "-1"},
     {"request_link_width",      "Optional, string - Limits number of request bytes sent per cycle. Use 'B' units. '0B' is unlimited.", "0B"},
     {"response_link_width",     "Optional, string - Limits number of response bytes sent per cycle. Use 'B' units. '0B' is unlimited.", "0B"},

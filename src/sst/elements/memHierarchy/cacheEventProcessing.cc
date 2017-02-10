@@ -198,9 +198,10 @@ bool Cache::processEvent(MemEvent* event, bool replay) {
     bool noncacheable   = event->queryFlag(MemEvent::F_NONCACHEABLE) || cf_.allNoncacheableRequests_;
     MemEvent* origEvent;
     
-    /* Set requestor field if this is the first cache that's seen this event */
-    if (event->getRqstr() == "None") { event->setRqstr(this->getName()); }
-
+    // Set requestor field if this is the first cache that's seen this event
+    if (event->getRqstr() == "None") {
+       event->setRqstr(this->getName());
+    }
     
     if (!replay) { 
         statTotalEventsReceived->addData(1);
@@ -245,12 +246,12 @@ bool Cache::processEvent(MemEvent* event, bool replay) {
         case GetX:
         case GetSEx:
             // Determine if request should be NACKed: Request cannot be handled immediately and there are no free MSHRs to buffer the request
-            if (!replay && mshr_->isAlmostFull()) { 
+            if (!replay && mshr_->isAlmostFull()) {
                 // Requests can cause deadlock because requests and fwd requests (inv, fetch, etc) share mshrs -> always leave one mshr free for fwd requests
                 if (!cf_.L1_) {
                     sendNACK(event);
                     break;
-                } else if (canStall) {
+                } else if (canStall)  {
                     d_->debug(_L6_,"Stalling request...MSHR almost full\n");
                     return false;
                 }
@@ -263,9 +264,12 @@ bool Cache::processEvent(MemEvent* event, bool replay) {
                     delete event;
                     break;
                 }
+
                 if (processRequestInMSHR(baseAddr, event)) {
 #ifdef __SST_DEBUG_OUTPUT__
-                    if (DEBUG_ALL || DEBUG_ADDR == baseAddr) d_->debug(_L9_,"Added event to MSHR queue.  Wait till blocking event completes to proceed with this event.\n");
+                     if (DEBUG_ALL || DEBUG_ADDR == baseAddr)  {
+                        d_->debug(_L9_,"Added event to MSHR queue.  Wait till blocking event completes to proceed with this event.\n");
+                     }
 #endif
                     event->setBlocked(true);
                 }
@@ -315,9 +319,18 @@ bool Cache::processEvent(MemEvent* event, bool replay) {
         case FlushLineInv:
             processCacheFlush(event, baseAddr, replay);
             break;
+        case BeginTx:
+            coherenceMgr_->txManager_->beginTransaction();
+            delete event;
+            break;
+        case EndTx:
+            coherenceMgr_->txManager_->commitTransaction();
+            delete event;
+            break;
         default:
             d_->fatal(CALL_INFO, -1, "Command not supported, cmd = %s", CommandString[cmd]);
     }
+
     return true;
 }
 
@@ -548,7 +561,7 @@ void Cache::processIncomingEvent(SST::Event* ev) {
         } else {
             requestsThisCycle_++;
             if (!processEvent(event, false)) {
-                requestBuffer_.push(event);   
+                requestBuffer_.push(event);
             }
         }
     }

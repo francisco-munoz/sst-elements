@@ -273,6 +273,7 @@ private:
         bool allNoncacheableRequests_;
         SimTime_t maxWaitTime_;
         string type_;
+        uint64_t htmSupport;
     };
     
     CacheConfig             cf_;

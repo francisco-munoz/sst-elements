@@ -16,6 +16,8 @@
 #include <sst_config.h>
 #include "trivialCPU.h"
 
+#include <assert.h>
+
 #include <sst/core/params.h>
 #include <sst/core/simulation.h>
 #include <sst/core/interfaces/stringEvent.h>
@@ -173,7 +175,7 @@ bool trivialCPU::clockTic( Cycle_t )
             
                 bool noncacheable = ( addr >= noncacheableRangeStart && addr < noncacheableRangeEnd );
                 if ( noncacheable ) {
-                    req->flags |= Interfaces::SimpleMem::Request::F_NONCACHEABLE;
+                    req->set_flags(Interfaces::SimpleMem::Request::F_NONCACHEABLE);
                     if ( cmd == Interfaces::SimpleMem::Request::Write ) { ++noncacheableWrites; } 
                     else if (cmd == Interfaces::SimpleMem::Request::Read ) { ++noncacheableReads; }
                 }

@@ -110,8 +110,9 @@ inline void fixupParams( Params& params, const std::string oldKey, const std::st
  *  DONE - this request finished, should retry
  *  STALL - this request is being handled and should be stalled in the MSHRs
  *  BLOCK - this request is blocked by a current outstanding request and should stall in the MSHRs
+ *  ABORT - this request is superceeded by another transaction
  */
-typedef enum {IGNORE, DONE, STALL, BLOCK } CacheAction;
+typedef enum {IGNORE, DONE, STALL, BLOCK, ABORT} CacheAction;
 
 enum class CoherenceProtocol {MSI, MESI, NONE};
 

@@ -44,6 +44,9 @@ CoherenceController::CoherenceController(Component * comp, Params &params) : Sub
     /* Get line size - already error checked by cacheFactory */
     lineSize_ = params.find<unsigned int>("cache_line_size", 64, found);
 
+    /* ---------------- HTM Initialization ---------------- */
+    txManager_ = new TxManager(params.find<int>("htm_enabled", 0));
+
     /* Get throughput parameters */
     UnitAlgebra packetSize = UnitAlgebra(params.find<std::string>("min_packet_size", "8B"));
     UnitAlgebra downLinkBW = UnitAlgebra(params.find<std::string>("request_link_width", "0B"));

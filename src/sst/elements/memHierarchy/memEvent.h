@@ -64,7 +64,12 @@ using namespace std;
     X(NACK,         NULLCMD,        Response,   Ack,            0, 0)   /* NACK response to a message */\
     X(AckInv,       NULLCMD,        Response,   Ack,            0, 0)   /* Acknowledgement response to an invalidation request */\
     X(AckPut,       NULLCMD,        Response,   Ack,            0, 0)   /* Acknowledgement response to a replacement (Put*) request */\
+    /* HTM Commands */\
+    X(BeginTx,      NULLCMD,        Response,   Ack,            0, 0)   /* NACK response to a message */\
+    X(EndTx,        NULLCMD,        Response,   Ack,            0, 0)   /* Acknowledgement response to an invalidation request */\
+    X(AbortTx,      NULLCMD,        Response,   Ack,            0, 0)   /* Send Abort back up the chain */ \
     X(LAST_CMD,     NULLCMD,        Request,    Request,        0, 0)
+
 
 /** Valid commands for the MemEvent */
 enum Command {
@@ -124,8 +129,8 @@ static const ElementInfoStatistic networkMemoryInspector_statistics[] = {
 #undef X_TYPES
 
 
-/* Coherence states 
- * Not all protocols use all states 
+/* Coherence states
+ * Not all protocols use all states
  */
 #define STATE_TYPES \
     X(NP)    /* Invalid */\
@@ -192,6 +197,7 @@ public:
     static const uint32_t F_LLSC          = 0x00000100;  /* Load Link / Store Conditional */
     static const uint32_t F_SUCCESS       = 0x00001000;  /* Indicates a successful response (used for flushes, TODO use for LLSC) */
     static const uint32_t F_NORESPONSE    = 0x00010000;
+    static const uint32_t F_TRANSACTION   = 0x00100000;  /* Indicates that this access is part of a transactions */
 
     typedef std::vector<uint8_t> dataVec;       /** Data Payload type */
 
@@ -334,23 +340,23 @@ public:
     uint32_t getSize(void) const { return size_; }
     /** Sets the size in bytes that this MemEvent represents */
     void setSize(uint32_t size) { size_ = size; }
-   
+
     /** Increments the number of retries */
     void incrementRetries() { retries_++; }
     int getRetries() { return retries_; }
 
     bool blocked() { return blocked_; }
     void setBlocked(bool value) { blocked_ = value; }
-    
+
     bool inProgress() { return inProgress_; }
     void setInProgress(bool value) { inProgress_ = value; }
 
     void setLoadLink() { setFlag(MemEvent::F_LLSC); }
     bool isLoadLink() { return cmd_ == GetS && queryFlag(MemEvent::F_LLSC); }
-    
+
     void setStoreConditional() { setFlag(MemEvent::F_LLSC); }
     bool isStoreConditional() { return cmd_ == GetX && queryFlag(MemEvent::F_LLSC); }
-    
+
     void setSuccess(bool b) { b ? setFlag(MemEvent::F_SUCCESS) : clearFlag(MemEvent::F_SUCCESS); }
     bool success() { return queryFlag(MemEvent::F_SUCCESS); }
 
@@ -363,7 +369,7 @@ public:
         if ( payload_.size() < size_ )  payload_.resize(size_);
         return payload_;
     }
-    
+
 
     /** Sets the data payload and payload size.
      * @param[in] data  Vector from which to copy data
@@ -372,7 +378,7 @@ public:
         setSize(data.size());
         payload_ = data;
     }
-    
+
     /** Sets the data payload and payload size.
      * @param[in] size  How many bytes to copy from data
      * @param[in] data  Data array to set as payload
@@ -398,7 +404,7 @@ public:
     void setPrefetchFlag(bool prefetch) { prefetch_ = prefetch;}
     /** Returns true if this is a prefetch command */
     bool isPrefetch() { return prefetch_; }
-    
+
 // Information about command types
     /** Returns true if this is a request that needs to access the data array (Get/Put/Flush) */
     bool isDataRequest(void) const { return MemCommandClass[cmd_] == CommandClass::Request; }
@@ -452,7 +458,7 @@ public:
 
     /** Return the BaseAddr */
     Addr getBaseAddr() { return baseAddr_; }
-    
+
 private:
     id_type         eventID_;           // Unique ID for this event
     id_type         responseToID_;      // For responses, holds the ID to which this event matches
@@ -505,8 +511,8 @@ public:
         ser & vAddr_;
         ser & inProgress_;
     }
-     
-    ImplementSerializable(SST::MemHierarchy::MemEvent);     
+
+    ImplementSerializable(SST::MemHierarchy::MemEvent);
 };
 
 }}

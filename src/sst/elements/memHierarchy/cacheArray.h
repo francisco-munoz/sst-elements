@@ -24,7 +24,7 @@
 
 #include <vector>
 #include <cstdlib>
-#include <bitset>
+#include <boost/dynamic_bitset.hpp>
 #include "hash.h"
 #include "memEvent.h"
 #include "sst/core/output.h"
@@ -51,6 +51,7 @@ public:
 
         vector<uint8_t> data_;
         CacheArray::CacheLine * dirLine_;
+        
     public:
         DataLine(unsigned int size, int index, Output * dbg) : size_(size), index_(index), dbg_(dbg), dirLine_(nullptr) {
             data_.resize(size_/sizeof(uint8_t));
@@ -82,16 +83,19 @@ public:
     /* Cache line type - didn't bother splitting into different types (L1/lower-level/dir) because space overhead is small */
     class CacheLine {
     protected:
-        const uint32_t      size_;
-        const int           index_;
-        Output *            dbg_;
+        const uint32_t          size_;              // Cache line size in Bytes
+        const int               index_;
+        Output *                dbg_;
         
-        Addr                baseAddr_;
-        State               state_;
-        set<std::string>    sharers_;
-        std::string         owner_;
+        Addr                    baseAddr_;
+        State                   state_;
+        set<std::string>        sharers_;
+        std::string             owner_;
+
+        boost::dynamic_bitset<> txWriteBits;
+        boost::dynamic_bitset<> txReadBits;
         
-        uint64_t            lastSendTimestamp_; // Use to force sequential timing for subsequent accesses to the line
+        uint64_t                lastSendTimestamp_; // Use to force sequential timing for subsequent accesses to the line
 
         /* L1 specific */
         unsigned int userLock_;
@@ -107,17 +111,28 @@ public:
     public:
         CacheLine (unsigned int size, int index, Output * dbg, bool cache) : size_(size), index_(index), dbg_(dbg), baseAddr_(0), state_(I) {
             reset();
-            if (cache) data_.resize(size_/sizeof(uint8_t));
+            if(cache)
+            {
+               data_.resize(size_/sizeof(uint8_t));
+
+               txWriteBits.resize(size_/4);
+               txReadBits.resize(size_/4);
+            }
+
         }
         
         virtual ~CacheLine() {}
 
-        void reset() {
+        void reset()
+        {
             state_ = I;
             sharers_.clear();
             owner_.clear();
             
             lastSendTimestamp_      = 0;
+
+            txWriteBits.reset();
+            txReadBits.reset();
 
             /* Dir specific */
             dataLine_ = NULL;
@@ -131,35 +146,46 @@ public:
 
         /** Getter for size. Constant field - no setter */
         unsigned int getSize() { return size_; }
+
         /** Getter for index. Constant field - no setter */
         int getIndex() { return index_; }
 
         /** Setter for line address */
         void setBaseAddr(Addr addr) { baseAddr_ = addr; }
+
         /** Getter for line address */
         Addr getBaseAddr() { return baseAddr_; }
 
         /** Setter for line state */
-        virtual void setState(State state) { 
+        virtual void setState(State state)
+        {
             state_ = state; 
-            if (state == I) {
+            if(state == I)
+            {
                 clearAtomics();
                 sharers_.clear();
                 owner_.clear();
+
+                clearAll_TxWriteBits();
+                clearAll_TxReadBits();
             }
         }
 
         /** Getter for line state */
         State getState() { return state_; }
+
         /** Getter for line state - return whether state is stable (true) or not (false) */
         bool inTransition() { return (state_ != I) && (state_ != S) && (state_ != E) && (state_ != M) && (state_ != NP); }
+
         /** Getter for line state - return whether state is valid (!I) */
         bool valid() { return state_ != I; }
 
         /** Getter for sharer field - return whether sharer field is empty */
         bool isShareless() { return sharers_.empty(); }
+
         /** Getter for sharer field */
         set<std::string>* getSharers() { return &sharers_; }
+
         /** Getter for sharer field - return number of sharers in set*/
         unsigned int numSharers() { return sharers_.size(); }
         
@@ -185,17 +211,42 @@ public:
 
         /** Setter for owner field */
         void setOwner(std::string owner) { owner_ = owner; }
+
         /** Getter for owner field */
         std::string getOwner() { return owner_; }
+
         /** Setter for owner field - clear field */
         void clearOwner() { owner_.clear(); }
+
         /** Getter for owner field - return whether field is set */
         bool ownerExists() { return !owner_.empty(); }
 
         /** Setter for timestamp field */
         void setTimestamp(uint64_t timestamp) { lastSendTimestamp_ = timestamp; }
+
         /** Getter for timestamp field */
         uint64_t getTimestamp() { return lastSendTimestamp_; }
+
+        /** HTM Fields **/
+        void set_TxWriteBits(Addr addressIn) {
+           uint32_t offset = (addressIn - baseAddr_) >> 2;
+           txWriteBits.set(offset,1);
+        }
+
+        void set_TxReadBits(Addr addressIn) {
+           uint32_t offset = (addressIn - baseAddr_) >> 2;
+           txReadBits.set(offset,1);
+        }
+
+        boost::dynamic_bitset<>  get_TxWritebits(void) { return txWriteBits; };
+        boost::dynamic_bitset<>  get_TxReadbits(void) { return txReadBits; };
+
+        bool test_TxWriteBits(void) { return txWriteBits.any(); };
+        bool test_TxReadBits(void) { return txReadBits.any(); };
+
+        void clearAll_TxWriteBits(void) { txWriteBits.reset(); }
+        void clearAll_TxReadBits(void) { txReadBits.reset(); }
+
 
         /****** L1 specific fields ******/
         
@@ -210,20 +261,25 @@ public:
         
         /** Setter for LLSCAtomic - set true */
         void atomicStart() { LLSCAtomic_ = true; }
+
         /** Setter for LLSCAtomic - set false */
         void atomicEnd() { LLSCAtomic_ = false; }
+
         /** Getter for LLSCAtomic */
         bool isAtomic() { return LLSCAtomic_; }
 
         /** Getter for userLock - return whether userLock > 0 */
         bool isLocked() { return (userLock_ > 0) ? true : false; }
+
         /** Setter for userLock - increment */
         void incLock() { userLock_++; }
+
         /** Setter for userLock - decrement */
         void decLock() { userLock_--; }
 
         /** Getter for eventsWaitingForLock */
         bool getEventsWaitingForLock() { return eventsWaitingForLock_; }
+
         /** Setter for eventsWaitingForLock */
         void setEventsWaitingForLock(bool eventsWaiting) { eventsWaitingForLock_ = eventsWaiting; }
         
@@ -245,6 +301,7 @@ public:
         /***** Dir specific fields *****/
         /** Setter for directory dataline */
         void setDataLine(DataLine * line) { dataLine_ = line; }
+
         /** Getter for directory dataline */
         DataLine * getDataLine() { return dataLine_; }
 
@@ -270,7 +327,8 @@ public:
     Addr toLineAddr(Addr addr) { return (Addr) ((addr >> lineOffset_) / slices_); }
     
     /** Destructor - Delete all cache line objects */
-    virtual ~CacheArray() {
+    virtual ~CacheArray()
+    {
         for (unsigned int i = 0; i < lines_.size(); i++)
             delete lines_[i];
         delete replacementMgr_;
@@ -278,7 +336,8 @@ public:
     }
 
     vector<CacheLine *> lines_;
-    void setSliceAware(unsigned int numSlices) {
+    void setSliceAware(unsigned int numSlices)
+    {
         slices_ = numSlices;
     }
 

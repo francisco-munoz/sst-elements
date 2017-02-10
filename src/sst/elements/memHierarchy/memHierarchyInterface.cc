@@ -28,9 +28,8 @@ using namespace SST::Interfaces;
 
 
 MemHierarchyInterface::MemHierarchyInterface(SST::Component *_comp, Params &_params) :
-    SimpleMem(_comp, _params), owner_(_comp), recvHandler_(NULL), link_(NULL)
-{ 
-    output.init("", 1, 0, Output::STDOUT);
+    SimpleMem(_comp, _params), owner_(_comp), recvHandler_(NULL), link_(NULL) {
+      output.init("", 1, 0, Output::STDOUT);
 }
 
 
@@ -61,49 +60,65 @@ SimpleMem::Request* MemHierarchyInterface::recvResponse(void){
 
 MemEvent* MemHierarchyInterface::createMemEvent(SimpleMem::Request *req) const{
     Command cmd = NULLCMD;
-    
-    switch ( req->cmd ) {
-        case SimpleMem::Request::Read:          cmd = GetS;         break;
-        case SimpleMem::Request::Write:         cmd = GetX;         break;
-        case SimpleMem::Request::ReadResp:      cmd = GetXResp;     break;
-        case SimpleMem::Request::WriteResp:     cmd = GetSResp;     break;
-        case SimpleMem::Request::FlushLine:     cmd = FlushLine;    break;
-        case SimpleMem::Request::FlushLineInv:  cmd = FlushLineInv; break;
+
+    switch(req->cmd) {
+        case SimpleMem::Request::Read:          cmd = GetS;          break;
+        case SimpleMem::Request::Write:         cmd = GetX;          break;
+        case SimpleMem::Request::ReadResp:      cmd = GetXResp;      break;
+        case SimpleMem::Request::WriteResp:     cmd = GetSResp;      break;
+        case SimpleMem::Request::FlushLine:     cmd = FlushLine;     break;
+        case SimpleMem::Request::FlushLineInv:  cmd = FlushLineInv;  break;
         case SimpleMem::Request::FlushLineResp: cmd = FlushLineResp; break;
+        case SimpleMem::Request::TxBegin:       cmd = BeginTx;       break;
+        case SimpleMem::Request::TxEnd:         cmd = EndTx;         break;
         default: output.fatal(CALL_INFO, -1, "Unknown req->cmd in createMemEvent()\n");
     }
-    
+
     MemEvent *me = new MemEvent(owner_, req->addrs[0], req->addrs[0], cmd);
-    
+
+    // This is a dummy request to start the TM coherence manager, so exit early
+    if(cmd == BeginTx || cmd == EndTx) {
+       return me;
+    }
+
     me->setSize(req->size);
 
     if (SimpleMem::Request::Write == req->cmd)  {
         if (req->data.size() == 0) {
-            req->data.resize(req->size, 0);    
+            req->data.resize(req->size, 0);
         }
-        if (req->data.size() != req->size) 
-            output.output("Warning: In memHierarchyInterface, write request size does not match payload size. Request size: %zu. Payload size: %zu. MemEvent will use payload size\n", req->size, req->data.size());
+
+        if (req->data.size() != req->size) {
+            output.output("Warning: In memHierarchyInterface, write request size does not match payload size. Request size: %u. Payload size: %zu. MemEvent will use payload size\n", req->size, req->data.size());
+        }
 
         me->setPayload(req->data);
     }
 
-    if(req->flags & SimpleMem::Request::F_NONCACHEABLE)
+    if(req->get_flags() & SimpleMem::Request::F_TRANSACTION) {
+        me->setFlag(MemEvent::F_TRANSACTION);
+    }
+
+    if(req->get_flags() & SimpleMem::Request::F_NONCACHEABLE) {
         me->setFlag(MemEvent::F_NONCACHEABLE);
-    
-    if(req->flags & SimpleMem::Request::F_LOCKED) {
+    }
+
+    if(req->get_flags() & SimpleMem::Request::F_LOCKED) {
         me->setFlag(MemEvent::F_LOCKED);
         if (req->cmd == SimpleMem::Request::Read)
-            me->setCmd(GetSEx);
+        {
+           me->setCmd(GetSEx);
+        }
     }
-    
-    if(req->flags & SimpleMem::Request::F_LLSC){
+
+    if(req->get_flags() & SimpleMem::Request::F_LLSC) {
         me->setFlag(MemEvent::F_LLSC);
     }
 
     me->setVirtualAddress(req->getVirtualAddress());
     me->setInstructionPointer(req->getInstructionPointer());
 
-    me->setMemFlags(req->memFlags);
+    me->setMemFlags(req->get_memFlags());
 
     //totalRequests_++;
     return me;
@@ -122,9 +137,12 @@ SimpleMem::Request* MemHierarchyInterface::processIncoming(MemEvent *ev){
     SimpleMem::Request *req = NULL;
     Command cmd = ev->getCmd();
     MemEvent::id_type origID = ev->getResponseToID();
-    
+
+    BOOST_ASSERT_MSG(MemEvent::isResponse(cmd), "Interal Error: Request Type event (eg GetS, GetX, etc) should not be sent by MemHierarchy to CPU. " \
+    "Make sure you L1's cache 'high network port' is connected to the CPU, and the L1's 'low network port' is connected to the next level cache.");
+
     std::map<MemEvent::id_type, SimpleMem::Request*>::iterator i = requests_.find(origID);
-    if(i != requests_.end()){
+    if(i != requests_.end()) {
         req = i->second;
         requests_.erase(i);
         updateRequest(req, ev);
@@ -145,18 +163,21 @@ void MemHierarchyInterface::updateRequest(SimpleMem::Request* req, MemEvent *me)
         break;
     case GetXResp:
         req->cmd   = SimpleMem::Request::WriteResp;
-        if(me->success()) req->flags |= (SimpleMem::Request::F_LLSC_RESP);
+        if(me->success())
+	   req->set_flags(SimpleMem::Request::F_LLSC_RESP);
         break;
     case FlushLineResp:
         req->cmd = SimpleMem::Request::FlushLineResp;
-        if (me->success()) req->flags |= (SimpleMem::Request::F_FLUSH_SUCCESS);
+        if (me->success())
+	   req->set_flags(SimpleMem::Request::F_FLUSH_SUCCESS);
         break;
     default:
         fprintf(stderr, "Don't know how to deal with command %s\n", CommandString[me->getCmd()]);
     }
    // Always update memFlags to faciliate mem->processor communication
-    req->memFlags = me->getMemFlags();
-    
+    req->clear_memFlags();
+    req->set_memFlags(me->getMemFlags());
+
 }
 
 bool MemHierarchyInterface::initialize(const std::string &linkName, HandlerBase *handler){
