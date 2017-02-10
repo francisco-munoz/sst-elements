@@ -15,6 +15,17 @@
 
 #include <stdio.h>
 
-void ariel_enable() {
-	printf("ARIEL: ENABLE called in Ariel API.\n");
+void ariel_enable()
+{
+    printf("ARIEL: ENABLE called in Ariel API.\n");
+}
+
+void txBegin()
+{
+    printf("ARIEL: txBegin called in Ariel API.\n");
+}
+
+void txEnd()
+{
+    printf("ARIEL: txEnd called in Ariel API.\n");
 }

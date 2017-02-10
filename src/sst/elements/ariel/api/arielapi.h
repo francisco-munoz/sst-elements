@@ -19,4 +19,7 @@
 
 void ariel_enable();
 
+void txBegin();
+void txEnd();
+
 #endif
