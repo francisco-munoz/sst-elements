@@ -16,10 +16,14 @@
 #ifndef SST_ARIEL_SHMEM_H
 #define SST_ARIEL_SHMEM_H 1
 
+#include <atomic>
 #include <inttypes.h>
+#include <boost/concept_check.hpp>
 
 #include <sst/core/interprocess/ipctunnel.h>
 #include "ariel_inst_class.h"
+
+#define MAX_PROCS 2048
 
 namespace SST {
 namespace ArielComponent {
@@ -41,6 +45,12 @@ enum ArielShmemCmd_t {
     ARIEL_END_TRANSACTION = 314,
     ARIEL_ABORT_TRANSACTION = 316,
     ARIEL_COMMIT_TRANSACTION = 318
+};
+
+enum TransactionState_t {
+    TX_RUN,
+    TX_ABORT,
+    TX_COMMIT
 };
 
 struct ArielCommand {
@@ -74,11 +84,12 @@ struct ArielCommand {
 
 
 struct ArielSharedData {
-    size_t numCores;
-    uint64_t simTime;
-    uint64_t cycles;
-    volatile uint32_t child_attached;
-    uint8_t __pad[ 256 - sizeof(uint32_t) - sizeof(size_t) - sizeof(uint64_t) - sizeof(uint64_t)];
+    std::atomic<size_t> numCores;
+    std::atomic<uint64_t> simTime;
+    std::atomic<uint64_t> cycles;
+    std::atomic<TransactionState_t> txState[MAX_PROCS];
+    volatile std::atomic<uint32_t> child_attached;
+    uint8_t __pad[ 256 - sizeof(uint32_t) - sizeof(size_t) - sizeof(uint64_t) - sizeof(uint64_t) - (sizeof(txState) % 256) ];
 };
 
 
@@ -97,6 +108,11 @@ public:
         sharedData->simTime = 0;
         sharedData->cycles = 0;
         sharedData->child_attached = 0;
+
+        for(uint32_t i = 0; i < MAX_PROCS; i++) {
+           sharedData->txState[i] = TX_RUN;
+        }
+
     }
 
     /**
@@ -128,13 +144,23 @@ public:
 
     uint64_t getCycles() const
     {
-        return sharedData->cycles;
+        return sharedData->cycles.load();
+    }
+
+    void updateTransactionState(uint32_t coreID, TransactionState_t stateIn)
+    {
+       sharedData->txState[coreID] = stateIn;
+    }
+
+    TransactionState_t getTransactionState(uint32_t coreID) const
+    {
+       return sharedData->txState[coreID].load();
     }
 
     /** Return the current time (in seconds) of the simulation */
     void getTime(struct timeval *tp)
     {
-        uint64_t cTime = sharedData->simTime;
+        uint64_t cTime = sharedData->simTime.load();
         tp->tv_sec = cTime / 1e9;
         tp->tv_usec = (cTime - (tp->tv_sec * 1e9)) / 1e3;
     }
@@ -142,7 +168,7 @@ public:
     /** Return the current time in nanoseconds of the simulation */
     void getTimeNs(struct timespec *tp)
     {
-        uint64_t cTime = sharedData->simTime;
+        uint64_t cTime = sharedData->simTime.load();
         tp->tv_sec = cTime / 1e9;
         tp->tv_nsec = cTime - (tp->tv_sec * 1e9);
     }
