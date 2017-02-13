@@ -89,6 +89,7 @@ void Cache::processCacheRequest(MemEvent* event, Command cmd, Addr baseAddr, boo
         processRequestInMSHR(baseAddr, event);
         return;
     }
+
     if (cf_.type_ == "inclusive" && miss && !allocateLine(event, baseAddr)) {
         processRequestInMSHR(baseAddr, event);
         return;
@@ -293,6 +294,20 @@ void Cache::processCacheFlush(MemEvent* event, Addr baseAddr, bool replay) {
         }
     }
 }
+
+
+void Cache::processHTMEvent(MemEvent* event, Command cmd) {
+
+//    if(cmd == BeginTx) {
+//       coherenceMgr_->txManager_->beginTransaction();
+//    } else if(cmd == EndTx) {
+//       coherenceMgr_->txManager_->commitTransaction();
+//    }
+
+   coherenceMgr_->handleHTMEvent(event, cmd);
+
+}
+
 
 
 /*************************

@@ -47,6 +47,7 @@
 #include "arielnoop.h"
 #include "arielswitchpool.h"
 #include "arielalloctrackev.h"
+#include "arielhtm.h"
 
 #include "ariel_shmem.h"
 #include "arieltracegen.h"
@@ -67,7 +68,15 @@ class ArielCore {
                 Output* out, uint32_t maxIssuePerCyc, uint32_t maxQLen,
                 uint64_t cacheLineSz, SST::Component* owner,
 			ArielMemoryManager* memMgr, const uint32_t perform_address_checks, Params& params);
+
+                ArielCore(ArielTunnel *tunnel, ArielTunnel *pin_tunnel, SimpleMem *coreToCacheLink,
+                uint32_t thisCoreID, uint32_t maxPendTans,
+                Output* out, uint32_t maxIssuePerCyc, uint32_t maxQLen,
+                uint64_t cacheLineSz, SST::Component* owner,
+                        ArielMemoryManager* memMgr, const uint32_t perform_address_checks, Params& params);
+
 		~ArielCore();
+
 		bool isCoreHalted() const;
 		void tick();
 		void halt();
@@ -81,12 +90,16 @@ class ArielCore {
 		void createSwitchPoolEvent(uint32_t pool);
 
                 void setCacheLink(SimpleMem* newCacheLink, Link* allocLink);
+
 		void handleEvent(SimpleMem::Request* event);
 		void handleReadRequest(ArielReadEvent* wEv);
 		void handleWriteRequest(ArielWriteEvent* wEv);
 		void handleAllocationEvent(ArielAllocateEvent* aEv);
 		void handleFreeEvent(ArielFreeEvent* aFE);
 		void handleSwitchPoolEvent(ArielSwitchPoolEvent* aSPE);
+
+		void handleTxBeginEvent();
+		void handleTxEndEvent();
 
 		void commitReadEvent(const uint64_t address, const uint64_t virtAddr, const uint32_t length);
 		void commitWriteEvent(const uint64_t address, const uint64_t virtAddr, const uint32_t length);
@@ -96,6 +109,13 @@ class ArielCore {
 
 		void printCoreStatistics();
 		void printTraceEntry(const bool isRead, const uint64_t address, const uint32_t length);
+
+                void createTxBeginEvent(void);
+                void createTxEndEvent(void);
+                void commitTxBeginEvent(const uint32_t depth);
+                void commitTxEndEvent(const uint32_t depth);
+		void set_isTransaction(bool inValue);
+		bool get_isTransaction(void);
 
 	private:
 		bool processNextEvent();
@@ -108,6 +128,7 @@ class ArielCore {
 		SimpleMem* cacheLink;
                 Link* allocLink;
 		ArielTunnel *tunnel;
+                ArielTunnel *pin_tunnel;
 		std::unordered_map<SimpleMem::Request::id_t, SimpleMem::Request*>* pendingTransactions;
 		uint32_t maxIssuePerCycle;
 		uint32_t maxQLength;
@@ -124,6 +145,9 @@ class ArielCore {
 
 		// This indicates the max number of instructions before halting the simulation
 		long long int max_insts;
+
+                bool bloop;
+		bool isTransaction_;
 
 		ArielTraceGenerator* traceGen;
 

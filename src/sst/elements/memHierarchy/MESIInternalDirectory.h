@@ -271,7 +271,9 @@ public:
 
     /** Process responses - GetSResp, GetXResp, FetchResp */
     CacheAction handleResponse(MemEvent* responseEvent, CacheLine* dirLine, MemEvent* origRequest);
-    
+
+    /* Stuff */
+    CacheAction handleHTMEvent(MemEvent * event, Command cmd);
 
 /* Miscellaneous */
     

@@ -97,6 +97,7 @@ Cache* Cache::cacheFactory(ComponentId_t id, Params &params) {
     string dirReplacement       = params.find<std::string>("noninclusive_directory_repl", "LRU");
     int dirAssociativity        = params.find<int>("noninclusive_directory_associativity", 1);
     int dirNumEntries           = params.find<int>("noninclusive_directory_entries", 0);
+    uint64_t htmSupport         = params.find<uint64_t>("htm_support", 0);
     
     /* Convert all strings to lower case */
     to_lower(coherenceProtocol);
@@ -130,7 +131,7 @@ Cache* Cache::cacheFactory(ComponentId_t id, Params &params) {
     }
 
     /* NACKing to from L1 to the CPU doesnt really happen in CPUs*/
-    //if (L1 && mshrSize != -1)   dbg->fatal(CALL_INFO, -1, "Invalid param: mshr_num_entries - must be -1 for L1s, memHierarchy assumes L1 MSHR is sized to match the CPU's load/store queue. You specified %d\n", mshrSize);
+    if (L1 && mshrSize != -1)   dbg->fatal(CALL_INFO, -1, "Invalid param: mshr_num_entries - must be -1 for L1s, memHierarchy assumes L1 MSHR is sized to match the CPU's load/store queue. You specified %d\n", mshrSize);
     
     /* Ensure mshr size is large enough to avoid deadlock*/
     if (-1 == mshrSize) mshrSize = HUGE_MSHR;
@@ -155,15 +156,20 @@ Cache* Cache::cacheFactory(ComponentId_t id, Params &params) {
     uint numLines = cacheSize/lineSize;
     CoherenceProtocol protocol = CoherenceProtocol::MSI;
     
-    if (coherenceProtocol == "mesi")      protocol = CoherenceProtocol::MESI;
-    else if (coherenceProtocol == "msi")  protocol = CoherenceProtocol::MSI;
-    else if (coherenceProtocol == "none") protocol = CoherenceProtocol::NONE;
-    else dbg->fatal(CALL_INFO,-1, "Invalid param: coherence_protocol - must be 'msi', 'mesi', or 'none'\n");
+    if (coherenceProtocol == "mesi")
+       protocol = CoherenceProtocol::MESI;
+    else if (coherenceProtocol == "msi")
+       protocol = CoherenceProtocol::MSI;
+    else if (coherenceProtocol == "none")
+       protocol = CoherenceProtocol::NONE;
+    else
+       dbg->fatal(CALL_INFO,-1, "Invalid param: coherence_protocol - must be 'msi', 'mesi', or 'none'\n");
 
     CacheArray * cacheArray = NULL;
     CacheArray * dirArray = NULL;
     ReplacementMgr* replManager = NULL;
     ReplacementMgr* dirReplManager = NULL;
+
     if (cacheType == "inclusive" || cacheType == "noninclusive") {
         if (SST::strcasecmp(replacement, "lru")) replManager = new LRUReplacementMgr(dbg, numLines, associativity, true);
         else if (SST::strcasecmp(replacement, "lfu"))    replManager = new LFUReplacementMgr(dbg, numLines, associativity);
@@ -192,7 +198,7 @@ Cache* Cache::cacheFactory(ComponentId_t id, Params &params) {
     CacheConfig config = {frequency, cacheArray, dirArray, protocol, dbg, replManager, numLines,
 	static_cast<uint>(lineSize),
 	static_cast<uint>(mshrSize), L1,
-	noncacheableRequests, maxWaitTime, cacheType};
+	noncacheableRequests, maxWaitTime, cacheType, htmSupport};
     return new Cache(id, params, config);
 }
 
@@ -216,40 +222,66 @@ Cache::Cache(ComponentId_t id, Params &params, CacheConfig config) : Component(i
     string prefetcher           = params.find<std::string>("prefetcher");
     mshrLatency_                = params.find<uint64_t>("mshr_latency_cycles", 0);
     maxRequestsPerCycle_        = params.find<int>("max_requests_per_cycle",-1);
+    string reqWidth             = params.find<std::string>("request_link_width","0B");
+    string respWidth            = params.find<std::string>("response_link_width","0B");
     string packetSize           = params.find<std::string>("min_packet_size", "8B");
     bool snoopL1Invs            = false;
     if (cf_.L1_) snoopL1Invs    = params.find<bool>("snoop_l1_invalidations", false);
     int64_t dAddr               = params.find<int64_t>("debug_addr",-1);
-    if (dAddr != -1) DEBUG_ALL = false;
-    else DEBUG_ALL = true;
-    DEBUG_ADDR = (Addr)dAddr;
     bool found;
-    
+
+    if (dAddr != -1)
+       DEBUG_ALL = false;
+    else
+       DEBUG_ALL = true;
+    DEBUG_ADDR = (Addr)dAddr;
+
     maxOutstandingPrefetch_     = params.find<int>("max_outstanding_prefetch", cf_.MSHRSize_ / 2, found);
     dropPrefetchLevel_          = params.find<int>("drop_prefetch_mshr_level", cf_.MSHRSize_ - 2, found);
-    if (!found && cf_.MSHRSize_ == 2) { // MSHR min size is 2
+
+
+    // MSHR min size is 2
+    if (!found && cf_.MSHRSize_ == 2)  {
         dropPrefetchLevel_ = cf_.MSHRSize_ - 1;
-    } else if (found && dropPrefetchLevel_ >= cf_.MSHRSize_) {
+    }
+    else if (found && dropPrefetchLevel_ >= cf_.MSHRSize_)  {
         dropPrefetchLevel_ = cf_.MSHRSize_ - 1; // Always have to leave one free for deadlock avoidance
     }
 
-    if (maxRequestsPerCycle_ == 0) {
+    if (maxRequestsPerCycle_ == 0)  {
         maxRequestsPerCycle_ = -1;  // Simplify compare
     }
+
     requestsThisCycle_ = 0;
 
     /* --------------- Check parameters -------------*/
-    if (accessLatency_ < 1) d_->fatal(CALL_INFO,-1, "%s, Invalid param: access_latency_cycles - must be at least 1. You specified %" PRIu64 "\n", 
+    if (accessLatency_ < 1) {
+       d_->fatal(CALL_INFO,-1, "%s, Invalid param: access_latency_cycles - must be at least 1. You specified %" PRIu64 "\n",
             this->Component::getName().c_str(), accessLatency_);
+    }
   
-    if (stats != 0) {
+    if (stats != 0)  {
         out.output("%s, **WARNING** The 'statistics' parameter is deprecated: memHierarchy statistics have been moved to the Statistics API. Please see sst-info for available statistics and update your configuration accordingly.\nNO statistics will be printed otherwise!\n", this->Component::getName().c_str());
     }
+
     UnitAlgebra packetSize_ua(packetSize);
+
     if (!packetSize_ua.hasUnits("B")) {
         d_->fatal(CALL_INFO, -1, "%s, Invalid param: min_packet_size - must have units of bytes (B). Ex: '8B'. SI units are ok. You specified '%s'\n", this->Component::getName().c_str(), packetSize.c_str());
     }
 
+    /* Check link widths */
+    UnitAlgebra reqWidth_ua(reqWidth);
+    UnitAlgebra respWidth_ua(respWidth);
+    if (!reqWidth_ua.hasUnits("B"))  {
+        d_->fatal(CALL_INFO, -1, "%s, Invalid param: request_link_width - must have units of bytes (B). Ex: '32B'. SI units are ok. You specified '%s'\n", this->Component::getName().c_str(), reqWidth.c_str());
+    }
+
+    if (!respWidth_ua.hasUnits("B")) {
+        d_->fatal(CALL_INFO, -1, "%s, Invalid param: response_link_width - must have units of bytes (B). Ex: '32B'. SI units are ok. You specified '%s'\n", this->Component::getName().c_str(), respWidth.c_str());
+    }
+
+    
     /* --------------- Prefetcher ---------------*/
     if (prefetcher.empty()) {
 	Params emptyParams;
@@ -262,12 +294,15 @@ Cache::Cache(ComponentId_t id, Params &params, CacheConfig config) : Component(i
     listener_->registerResponseCallback(new Event::Handler<Cache>(this, &Cache::handlePrefetchEvent));
 
     /* ---------------- Latency ---------------- */
-    if (mshrLatency_ < 1) intrapolateMSHRLatency();
+    if (mshrLatency_ < 1)  {
+       intrapolateMSHRLatency();
+    }
     
     /* ----------------- MSHR ----------------- */
     mshr_               = new MSHR(d_, cf_.MSHRSize_, this->getName(), DEBUG_ALL, DEBUG_ADDR);
     mshrNoncacheable_   = new MSHR(d_, HUGE_MSHR, this->getName(), DEBUG_ALL, DEBUG_ADDR);
     
+
     /* ---------------- Clock ---------------- */
     clockHandler_       = new Clock::Handler<Cache>(this, &Cache::clockTick);
     defaultTimeBase_    = registerClock(cf_.cacheFrequency_, clockHandler_);
@@ -275,21 +310,27 @@ Cache::Cache(ComponentId_t id, Params &params, CacheConfig config) : Component(i
     registerTimeBase("2 ns", true);       //  TODO:  Is this right?
 
     clockIsOn_ = true;
-    
+
+
     /* ------------- Member variables intialization ------------- */
     configureLinks(params);
     timestamp_              = 0;
+
     // Figure out interval to check max wait time and associated delay for one shot if we're asleep
     checkMaxWaitInterval_   = cf_.maxWaitTime_ / 4;
+
     // Doubtful that this corner case will occur but just in case...
-    if (cf_.maxWaitTime_ > 0 && checkMaxWaitInterval_ == 0) checkMaxWaitInterval_ = cf_.maxWaitTime_;
+    if (cf_.maxWaitTime_ > 0 && checkMaxWaitInterval_ == 0)  {
+       checkMaxWaitInterval_ = cf_.maxWaitTime_;
+    }
+
     if (cf_.maxWaitTime_ > 0) {
         ostringstream oss;
         oss << checkMaxWaitInterval_;
         string interval = oss.str() + "ns";
         maxWaitWakeupExists_ = false;
         maxWaitSelfLink_ = configureSelfLink("maxWait", interval, new Event::Handler<Cache>(this, &Cache::maxWaitWakeup));
-    } else {
+    } else  {
         maxWaitWakeupExists_ = true;
     }
     
@@ -323,11 +364,13 @@ Cache::Cache(ComponentId_t id, Params &params, CacheConfig config) : Component(i
     statInv_recv                = registerStatistic<uint64_t>("Inv_recv");
     statNACK_recv               = registerStatistic<uint64_t>("NACK_recv");
     statMSHROccupancy           = registerStatistic<uint64_t>("MSHR_occupancy");
+
     if (!prefetcher.empty()) {
         statPrefetchRequest         = registerStatistic<uint64_t>("Prefetch_requests");
         statPrefetchHit             = registerStatistic<uint64_t>("Prefetch_hits");
         statPrefetchDrop            = registerStatistic<uint64_t>("Prefetch_drops");
     }
+
     /* --------------- Coherence Controllers --------------- */
     coherenceMgr_ = NULL;
     std::string inclusive = (cf_.type_ == "inclusive") ? "true" : "false";
@@ -348,24 +391,26 @@ Cache::Cache(ComponentId_t id, Params &params, CacheConfig config) : Component(i
     coherenceParams.insert("request_link_width", params.find<std::string>("request_link_width", "0B"));
     coherenceParams.insert("response_link_width", params.find<std::string>("response_link_width", "0B"));
     coherenceParams.insert("min_packet_size", params.find<std::string>("min_packet_size", "8B"));
+    coherenceParams.insert("htm_enabled", std::to_string(cf_.htmSupport));
 
-    if (!cf_.L1_) {
+    if (!cf_.L1_)  {
         if (cf_.protocol_ != CoherenceProtocol::NONE) {
             if (cf_.type_ != "noninclusive_with_directory") {
                 coherenceMgr_ = dynamic_cast<CoherenceController*>( loadSubComponent("memHierarchy.MESICoherenceController", this, coherenceParams));
-            } else {
+            } else  {
                 coherenceMgr_ = dynamic_cast<CoherenceController*>( loadSubComponent("memHierarchy.MESICacheDirectoryCoherenceController", this, coherenceParams));
             }
         } else {
-            coherenceMgr_ = dynamic_cast<CoherenceController*>( loadSubComponent("memHierarchy.IncoherentController", this, coherenceParams));
+                coherenceMgr_ = dynamic_cast<CoherenceController*>( loadSubComponent("memHierarchy.IncoherentController", this, coherenceParams));
         }
-    } else {
+    } else  {
         if (cf_.protocol_ != CoherenceProtocol::NONE) {
-            coherenceMgr_ = dynamic_cast<CoherenceController*>( loadSubComponent("memHierarchy.L1CoherenceController", this, coherenceParams));
+                coherenceMgr_ = dynamic_cast<CoherenceController*>( loadSubComponent("memHierarchy.L1CoherenceController", this, coherenceParams));
         } else {
-            coherenceMgr_ = dynamic_cast<CoherenceController*>( loadSubComponent("memHierarchy.L1IncoherentController", this, coherenceParams));
+                coherenceMgr_ = dynamic_cast<CoherenceController*>( loadSubComponent("memHierarchy.L1IncoherentController", this, coherenceParams));
         }
     }
+    
     if (coherenceMgr_ == NULL) {
         d_->fatal(CALL_INFO, -1, "%s, Failed to load CoherenceController.\n", this->Component::getName().c_str());
     }
@@ -375,6 +420,8 @@ Cache::Cache(ComponentId_t id, Params &params, CacheConfig config) : Component(i
     coherenceMgr_->setCacheListener(listener_);
     coherenceMgr_->setDebug(DEBUG_ALL, DEBUG_ADDR);
 
+
+    /*---------------  Misc --------------- */
 }
 
 

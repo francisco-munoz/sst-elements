@@ -110,6 +110,9 @@ public:
     /** Process responses - GetSResp, GetXResp, FetchResp */
     CacheAction handleResponse(MemEvent* _responseEvent, CacheLine* cacheLine, MemEvent* _origRequest);
 
+    /** Stuff */
+    CacheAction handleHTMEvent(MemEvent * event, Command cmd);
+
 /* Miscellaneous */
 
     /** Determine in advance if a request will miss (and what kind of miss). Used for stats */

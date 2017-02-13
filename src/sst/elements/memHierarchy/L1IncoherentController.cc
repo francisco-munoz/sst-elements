@@ -149,7 +149,8 @@ CacheAction L1IncoherentController::handleResponse(MemEvent * respEvent, CacheLi
     return DONE;
 }
 
-
+CacheAction L1IncoherentController::handleHTMEvent(MemEvent * event, Command cmd) {
+}
 
 bool L1IncoherentController::isRetryNeeded(MemEvent * event, CacheLine * cacheLine) {
     return true;    // No coherence races to resolve a request

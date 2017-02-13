@@ -274,19 +274,20 @@ ArielCPU::ArielCPU(ComponentId_t id, Params& params) :
     execute_args[arg++] = (char*) malloc(sizeof(char) * (executable.size() + 1));
     strcpy(execute_args[arg-1], executable.c_str());
 
-	char* argv_buffer = (char*) malloc(sizeof(char) * 256);
-	for(uint32_t aa = 0; aa < app_argc ; ++aa) {
-		sprintf(argv_buffer, "apparg%" PRIu32, aa);
-		std::string argv_i = params.find<std::string>(argv_buffer, "");
+    char* argv_buffer = (char*) malloc(sizeof(char) * 256);
+    for(uint32_t aa = 0; aa < app_argc ; ++aa) {
+            sprintf(argv_buffer, "apparg%" PRIu32, aa);
+            std::string argv_i = params.find<std::string>(argv_buffer, "");
 
-		output->verbose(CALL_INFO, 1, 0, "Found application argument %" PRIu32 " (%s) = %s\n", 
-			aa, argv_buffer, argv_i.c_str());
-		execute_args[arg] = (char*) malloc(sizeof(char) * (argv_i.size() + 1));
-		strcpy(execute_args[arg], argv_i.c_str());
-        arg++;
-	}
+            output->verbose(CALL_INFO, 1, 0, "Found application argument %" PRIu32 " (%s) = %s\n",
+                  aa, argv_buffer, argv_i.c_str());
+            execute_args[arg] = (char*) malloc(sizeof(char) * (argv_i.size() + 1));
+            strcpy(execute_args[arg], argv_i.c_str());
+    arg++;
+    }
+
     execute_args[arg] = NULL;
-	free(argv_buffer);
+    free(argv_buffer);
 
 	const int32_t pin_env_count = params.find<int32_t>("envparamcount", -1);
 	if(pin_env_count > -1) {
@@ -548,48 +549,54 @@ int ArielCPU::forkPINChild(const char* app, char** args, std::map<std::string, s
 }
 
 bool ArielCPU::tick( SST::Cycle_t cycle) {
-	stopTicking = false;
-	output->verbose(CALL_INFO, 16, 0, "Main processor tick, will issue to individual cores...\n");
+   stopTicking = false;
+   output->verbose(CALL_INFO, 16, 0, "Main processor tick, will issue to individual cores...\n");
 
-        tunnel->updateTime(getCurrentSimTimeNano());
-	tunnel->incrementCycles();
+   tunnel->updateTime(getCurrentSimTimeNano());
+   tunnel->incrementCycles();
 
-	// Keep ticking unless one of the cores says it is time to stop.
-	for(uint32_t i = 0; i < core_count; ++i) {
-		cpu_cores[i]->tick();
-		
-		if(cpu_cores[i]->isCoreHalted()) {
-			stopTicking = true;
-			break;
-		}
-	}
-	
-	// Its time to end, that's all folks
-	if(stopTicking) {
-		primaryComponentOKToEndSim();
-	}
-	
-	return stopTicking;
+   // Keep ticking unless one of the cores says it is time to stop.
+   for(uint32_t i = 0; i < core_count; ++i)
+   {
+      cpu_cores[i]->tick();
+
+      if(cpu_cores[i]->isCoreHalted())
+      {
+            stopTicking = true;
+            break;
+      }
+   }
+
+   // Its time to end, that's all folks
+   if(stopTicking) {
+            primaryComponentOKToEndSim();
+   }
+
+   return stopTicking;
 }
 
 ArielCPU::~ArielCPU() {
-	// Delete all of the cores
-	for(uint32_t i = 0; i < core_count; i++) {
-		delete cpu_cores[i];
-	}
+   // Delete all of the cores
+   for(uint32_t i = 0; i < core_count; i++)
+   {
+            delete cpu_cores[i];
+   }
 
-	delete tunnel;
+   delete tunnel;
 }
 
 void ArielCPU::emergencyShutdown() {
-    tunnel->shutdown(true);
-    // If child_pid = 0, dont kill (this would kill all processes of the group)
-    if (child_pid != 0) {
-        kill(child_pid, SIGKILL);
-    }
+   tunnel->shutdown(true);
 
-    /* Ask the cores to finish up.  This should flush logging */
-	for(uint32_t i = 0; i < core_count; ++i) {
-		cpu_cores[i]->finishCore();
-	}
+   // If child_pid = 0, dont kill (this would kill all processes of the group)
+   if (child_pid != 0)
+   {
+      kill(child_pid, SIGKILL);
+   }
+
+   /* Ask the cores to finish up.  This should flush logging */
+   for(uint32_t i = 0; i < core_count; ++i)
+   {
+            cpu_cores[i]->finishCore();
+   }
 }

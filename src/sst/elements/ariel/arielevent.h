@@ -31,7 +31,9 @@ enum ArielEventType {
 	NOOP,
 	MALLOC,
 	FREE,
-	SWITCH_POOL
+	SWITCH_POOL,
+	START_TRANSACTION,
+	END_TRANSACTION
 };
 
 class ArielEvent {

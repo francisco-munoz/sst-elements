@@ -247,6 +247,8 @@ CacheAction MESIInternalDirectory::handleResponse(MemEvent * respEvent, CacheLin
     return DONE;    // Eliminate compiler warning
 }
 
+CacheAction MESIInternalDirectory::handleHTMEvent(MemEvent * event, Command cmd) {
+}
 
 
 bool MESIInternalDirectory::isRetryNeeded(MemEvent * event, CacheLine * dirLine) {

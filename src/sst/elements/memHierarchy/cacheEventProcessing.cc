@@ -320,11 +320,8 @@ bool Cache::processEvent(MemEvent* event, bool replay) {
             processCacheFlush(event, baseAddr, replay);
             break;
         case BeginTx:
-            coherenceMgr_->txManager_->beginTransaction();
-            delete event;
-            break;
         case EndTx:
-            coherenceMgr_->txManager_->commitTransaction();
+            processHTMEvent(event, cmd);
             delete event;
             break;
         default:

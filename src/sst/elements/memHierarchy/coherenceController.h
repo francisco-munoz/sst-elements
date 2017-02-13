@@ -30,6 +30,8 @@
 #include "mshr.h"
 #include "memNIC.h"
 
+#include "TxManager.h"
+
 namespace SST { namespace MemHierarchy {
 using namespace std;
 
@@ -62,6 +64,9 @@ public:
 
     /* Determine whether an event needs to be retried after a NACK */
     virtual bool isRetryNeeded(MemEvent * event, CacheLine * line) =0;
+
+    /* Stuff */
+    virtual CacheAction handleHTMEvent(MemEvent * event, Command cmd) =0;
 
     /* Update timestamp in lockstep with parent */
     void updateTimestamp(uint64_t newTS) { timestamp_ = newTS; }
@@ -118,6 +123,9 @@ public:
     virtual void recordEventSentUp(Command cmd) =0;
     virtual void recordEventSentDown(Command cmd) =0;
     
+    /* HTM Interface */
+    TxManager*   txManager_;
+
 protected:
     struct Response {
         MemEvent* event;

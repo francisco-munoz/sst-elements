@@ -267,6 +267,8 @@ CacheAction MESIController::handleResponse(MemEvent * respEvent, CacheLine * cac
     return DONE;
 }
 
+CacheAction MESIController::handleHTMEvent(MemEvent * event, Command cmd) {
+}
 
 bool MESIController::isRetryNeeded(MemEvent* event, CacheLine* cacheLine) {
     Command cmd = event->getCmd();

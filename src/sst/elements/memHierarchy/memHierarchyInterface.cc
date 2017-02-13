@@ -40,6 +40,13 @@ void MemHierarchyInterface::sendInitData(SimpleMem::Request *req){
 
 
 void MemHierarchyInterface::sendRequest(SimpleMem::Request *req){
+    if (req->cmd == SimpleMem::Request::TxBegin || req->cmd == SimpleMem::Request::TxEnd)
+    {
+       int boop = 33;
+       std::cout << boop << std::endl;
+    }
+
+
     MemEvent *me = createMemEvent(req);
     requests_[me->getID()] = req;
     link_->send(me);

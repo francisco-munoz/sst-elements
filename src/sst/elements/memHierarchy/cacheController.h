@@ -104,6 +104,9 @@ private:
         to Top and Bottom controllers appropriately  */
     void processCacheInvalidate(MemEvent *event, Addr baseAddr, bool mshrHit);
 
+    /** blablablab */
+    void processHTMEvent(MemEvent *event, Command cmd);
+
     /** Function processes incomming GetS/GetX responses.  
         Redirects message to Top Controller */
     void processCacheResponse(MemEvent* ackEvent, Addr baseAddr);
@@ -151,7 +154,6 @@ private:
     /** In charge of processng incoming NACK.  
         Currently, it simply retries event */
     void processIncomingNACK(MemEvent* _origReqEvent);
-    
     
     /** Verify that input parameters are valid */
     void errorChecking();

@@ -56,6 +56,7 @@ class ArielCPU : public SST::Component {
 
         uint32_t core_count;
         ArielTunnel* tunnel;
+        ArielTunnel* tunnel_to_pin;
         bool stopTicking;
 	std::string appLauncher;
         bool useAllocTracker;

@@ -256,6 +256,10 @@ public:
     /** Process responses - GetSResp, GetXResp, FetchResp */
     CacheAction handleResponse(MemEvent* responseEvent, CacheLine* cacheLine, MemEvent* origRequest);
 
+    /* Stuff */
+    CacheAction handleHTMEvent(MemEvent * event, Command cmd);
+    
+
 /* Message send */
     /** Forward a message up, used for non-inclusive caches */
     void forwardMessageUp(MemEvent * event);

@@ -36,6 +36,7 @@
 #ifdef HAVE_LIBZ
 
 #include "zlib.h"
+#include <boost/concept_check.hpp>
 #define BT_PRINTF(fmt, args...) gzprintf(btfiles[thr], fmt, ##args);
 
 #else 
@@ -51,6 +52,8 @@
 
 #include "ariel_shmem.h"
 #include "ariel_inst_class.h"
+
+#define MAX_PROC 2048
 
 #undef __STDC_FORMAT_MACROS
 
@@ -79,7 +82,7 @@ KNOB<UINT32> DefaultMemoryPool(KNOB_MODE_WRITEONCE, "pintool",
    ({ __typeof__ (a) _a = (a); __typeof__ (b) _b = (b); _a > _b ? _a : _b; })
 
 typedef struct {
-	int64_t insExecuted;
+      int64_t insExecuted;
 } ArielFunctionRecord;
 
 UINT32 funcProfileLevel;
@@ -96,6 +99,11 @@ UINT64* lastMallocLoc;
 std::vector< std::set<ADDRINT> > instPtrsList;
 UINT32 overridePool;
 bool shouldOverride;
+
+ADDRINT txBeginAddr;
+ADDRINT txEndAddr;
+CONTEXT threadCheckPoint[255];
+BOOL    committing[MAX_PROC];
 
 
 /****************************************************************/
@@ -240,41 +248,43 @@ VOID InstrumentTrace (TRACE trace, VOID* args) {
 
 VOID Fini(INT32 code, VOID* v)
 {
-	if(SSTVerbosity.Value() > 0) {
-		std::cout << "SSTARIEL: Execution completed, shutting down." << std::endl;
-	}
+           std::cout << "SSTARIEL-F: Execution completed, shutting down." << std::endl;
 
-    ArielCommand ac;
-    ac.command = ARIEL_PERFORM_EXIT;
-    ac.instPtr = (uint64_t) 0;
-    tunnel->writeMessage(0, ac);
+   if(SSTVerbosity.Value() > 0) {
+           std::cout << "SSTARIEL-F: Execution completed, shutting down." << std::endl;
+   }
 
-    delete tunnel;
+   ArielCommand ac;
+   ac.command = ARIEL_PERFORM_EXIT;
+   ac.instPtr = (uint64_t) 0;
+   tunnel->writeMessage(0, ac);
 
-    if(funcProfileLevel > 0) {
-    	FILE* funcProfileOutput = fopen("func.profile", "wt");
+   delete tunnel;
 
-    	for(std::map<std::string, ArielFunctionRecord*>::iterator funcItr = funcProfile.begin();
-    			funcItr != funcProfile.end(); funcItr++) {
-    		fprintf(funcProfileOutput, "%s %" PRId64 "\n", funcItr->first.c_str(),
-    			funcItr->second->insExecuted);
-    	}
+   if(funcProfileLevel > 0) {
+      FILE* funcProfileOutput = fopen("func.profile", "wt");
 
-    	fclose(funcProfileOutput);
-    }
+      for(std::map<std::string, ArielFunctionRecord*>::iterator funcItr = funcProfile.begin();
+                        funcItr != funcProfile.end(); funcItr++) {
+               fprintf(funcProfileOutput, "%s %" PRId64 "\n", funcItr->first.c_str(),
+                        funcItr->second->insExecuted);
+      }
 
-    // Close backtrace files if needed
-    if (KeepMallocStackTrace.Value() == 1) {
-        fclose(rtnNameMap);
-        for (int i = 0; i < core_count; i++) {
-            if (btfiles[i] != NULL) 
+      fclose(funcProfileOutput);
+   }
+
+   // Close backtrace files if needed
+   if (KeepMallocStackTrace.Value() == 1) {
+      fclose(rtnNameMap);
+      for (int i = 0; i < core_count; i++) {
+            if (btfiles[i] != NULL)
 #ifdef HAVE_LIBZ
-                gzclose(btfiles[i]);
+                  gzclose(btfiles[i]);
 #else
-                fclose(btfiles[i]);
+                  fclose(btfiles[i]);
 #endif
-        }
-    }
+      }
+   }
 }
 
 VOID copy(void* dest, const void* input, UINT32 length) {
@@ -283,13 +293,52 @@ VOID copy(void* dest, const void* input, UINT32 length) {
 	}
 }
 
+void ResumeAtCheckpoint(ADDRINT thr) {
+   std::cout << "SSTARIEL-F: Restoring Checkpoint for Thread " << thr << "\n" << std::flush;
+
+   committing[thr] = 0;
+   PIN_ExecuteAt(&threadCheckPoint[thr]);
+}
+
+void CheckpointProgram(ADDRINT thr, CONTEXT* _chkpt) {
+   std::cout << "SSTARIEL-F: Saving Checkpoint for Thread " << thr << "\n" << std::flush;
+
+   PIN_SaveContext(_chkpt, &threadCheckPoint[thr]);
+}
+
+BOOL CheckQueue(THREADID thr) {
+
+   do {
+      if(tunnel->getTransactionState(thr) == TX_ABORT) {
+         std::cout << "SSTARIEL-F:  ABORT\n" << std::flush;
+
+         tunnel->updateTransactionState(thr, TX_RUN);
+         tunnel->clearBuffer(thr);
+         committing[thr] = 0;
+
+         ResumeAtCheckpoint(thr);
+
+         return 1;
+
+      } else if(tunnel->getTransactionState(thr) == TX_COMMIT && committing[thr]) {
+         std::cout << "SSTARIEL-F:  COMMIT\n" << std::flush;
+
+         tunnel->updateTransactionState(thr, TX_RUN);
+         committing[thr] = 0;
+
+         return 1;
+
+      }
+
+   } while(committing[thr]);
+}
+
 VOID WriteInstructionRead(ADDRINT* address, UINT32 readSize, THREADID thr, ADDRINT ip,
 	UINT32 instClass, UINT32 simdOpWidth) {
 
 	const uint64_t addr64 = (uint64_t) address;
 
         ArielCommand ac;
-
         ac.command = ARIEL_PERFORM_READ;
 	ac.instPtr = (uint64_t) ip;
         ac.inst.addr = addr64;
@@ -301,185 +350,219 @@ VOID WriteInstructionRead(ADDRINT* address, UINT32 readSize, THREADID thr, ADDRI
 }
 
 VOID WriteInstructionWrite(ADDRINT* address, UINT32 writeSize, THREADID thr, ADDRINT ip,
-	UINT32 instClass, UINT32 simdOpWidth) {
+      UINT32 instClass, UINT32 simdOpWidth) {
 
-	const uint64_t addr64 = (uint64_t) address;
+      const uint64_t addr64 = (uint64_t) address;
 
-	ArielCommand ac;
+      ArielCommand ac;
+      ac.command = ARIEL_PERFORM_WRITE;
+      ac.instPtr = (uint64_t) ip;
+      ac.inst.addr = addr64;
+      ac.inst.size = writeSize;
+      ac.inst.instClass = instClass;
+      ac.inst.simdElemCount = simdOpWidth;
 
-        ac.command = ARIEL_PERFORM_WRITE;
-	ac.instPtr = (uint64_t) ip;
-        ac.inst.addr = addr64;
-        ac.inst.size = writeSize;
-	ac.inst.instClass = instClass;
-        ac.inst.simdElemCount = simdOpWidth;
-
-	tunnel->writeMessage(thr, ac);
+      tunnel->writeMessage(thr, ac);
 }
 
 VOID WriteStartInstructionMarker(UINT32 thr, ADDRINT ip) {
-    	ArielCommand ac;
-    	ac.command = ARIEL_START_INSTRUCTION;
-    	ac.instPtr = (uint64_t) ip;
-    	tunnel->writeMessage(thr, ac);
+      ArielCommand ac;
+      ac.command = ARIEL_START_INSTRUCTION;
+      ac.instPtr = (uint64_t) ip;
+      tunnel->writeMessage(thr, ac);
 }
 
 VOID WriteEndInstructionMarker(UINT32 thr, ADDRINT ip) {
-    	ArielCommand ac;
-    	ac.command = ARIEL_END_INSTRUCTION;
-    	ac.instPtr = (uint64_t) ip;
-    	tunnel->writeMessage(thr, ac);
+      ArielCommand ac;
+      ac.command = ARIEL_END_INSTRUCTION;
+      ac.instPtr = (uint64_t) ip;
+      tunnel->writeMessage(thr, ac);
 }
 
 VOID WriteInstructionReadWrite(THREADID thr, ADDRINT* readAddr, UINT32 readSize,
-	ADDRINT* writeAddr, UINT32 writeSize, ADDRINT ip, UINT32 instClass,
-	UINT32 simdOpWidth ) {
+      ADDRINT* writeAddr, UINT32 writeSize, ADDRINT ip, UINT32 instClass,
+      UINT32 simdOpWidth ) {
 
-	if(enable_output) {
-		if(thr < core_count) {
-			WriteStartInstructionMarker( thr, ip );
-			WriteInstructionRead(  readAddr,  readSize,  thr, ip, instClass, simdOpWidth );
-			WriteInstructionWrite( writeAddr, writeSize, thr, ip, instClass, simdOpWidth );
-			WriteEndInstructionMarker( thr, ip );
-		}
-	}
+      if(enable_output) {
+         if(thr < core_count) {
+               WriteStartInstructionMarker( thr, ip );
+               WriteInstructionRead(  readAddr,  readSize,  thr, ip, instClass, simdOpWidth );
+               WriteInstructionWrite( writeAddr, writeSize, thr, ip, instClass, simdOpWidth );
+               WriteEndInstructionMarker( thr, ip );
+         }
+      }
 }
 
 VOID WriteInstructionReadOnly(THREADID thr, ADDRINT* readAddr, UINT32 readSize, ADDRINT ip,
-	UINT32 instClass, UINT32 simdOpWidth) {
+      UINT32 instClass, UINT32 simdOpWidth) {
 
-	if(enable_output) {
-		if(thr < core_count) {
-			WriteStartInstructionMarker(thr, ip);
-			WriteInstructionRead(  readAddr,  readSize,  thr, ip, instClass, simdOpWidth );
-			WriteEndInstructionMarker(thr, ip);
-		}
-	}
-
-}
-
-VOID WriteNoOp(THREADID thr, ADDRINT ip) {
-	if(enable_output) {
-		if(thr < core_count) {
-            		ArielCommand ac;
-            		ac.command = ARIEL_NOOP;
-            		ac.instPtr = (uint64_t) ip;
-            		tunnel->writeMessage(thr, ac);
-		}
-	}
+      if(enable_output) {
+         if(thr < core_count) {
+               WriteStartInstructionMarker(thr, ip);
+               WriteInstructionRead(  readAddr,  readSize,  thr, ip, instClass, simdOpWidth );
+               WriteEndInstructionMarker(thr, ip);
+         }
+      }
 }
 
 VOID WriteInstructionWriteOnly(THREADID thr, ADDRINT* writeAddr, UINT32 writeSize, ADDRINT ip,
-	UINT32 instClass, UINT32 simdOpWidth) {
+      UINT32 instClass, UINT32 simdOpWidth) {
 
-	if(enable_output) {
-		if(thr < core_count) {
-                        WriteStartInstructionMarker(thr, ip);
-                        WriteInstructionWrite(writeAddr, writeSize,  thr, ip, instClass, simdOpWidth);
-                        WriteEndInstructionMarker(thr, ip);
-		}
-	}
-
+      if(enable_output) {
+         if(thr < core_count) {
+               WriteStartInstructionMarker(thr, ip);
+               WriteInstructionWrite(writeAddr, writeSize,  thr, ip, instClass, simdOpWidth);
+               WriteEndInstructionMarker(thr, ip);
+         }
+      }
 }
 
-VOID IncrementFunctionRecord(VOID* funcRecord) {
-	ArielFunctionRecord* arielFuncRec = (ArielFunctionRecord*) funcRecord;
+VOID WriteNoOp(THREADID thr, ADDRINT ip) {
+      if(enable_output) {
+         if(thr < core_count) {
+               ArielCommand ac;
+               ac.command = ARIEL_NOOP;
+               ac.instPtr = (uint64_t) ip;
+               tunnel->writeMessage(thr, ac);
+         }
+      }
+}
 
-	__asm__ __volatile__(
-	    "lock incq %0"
-	     : /* no output registers */
-	     : "m" (arielFuncRec->insExecuted)
-	     : "memory"
-	);
+
+VOID IncrementFunctionRecord(VOID* funcRecord) {
+      ArielFunctionRecord* arielFuncRec = (ArielFunctionRecord*) funcRecord;
+
+      // TODO Replace with c11 atomic?
+      __asm__ __volatile__(
+         "lock incq %0"
+            : /* no output registers */
+            : "m" (arielFuncRec->insExecuted)
+            : "memory"
+      );
 }
 
 VOID InstrumentInstruction(INS ins, VOID *v)
 {
-	UINT32 simdOpWidth     = 1;
-	UINT32 instClass       = ARIEL_INST_UNKNOWN;
-	UINT32 maxSIMDRegWidth = 1;
+      UINT32 simdOpWidth     = 1;
+      UINT32 instClass       = ARIEL_INST_UNKNOWN;
+      UINT32 maxSIMDRegWidth = 1;
+      BOOL   skip            = 0;
 
-	std::string instCode = INS_Mnemonic(ins);
+      std::string instCode = INS_Mnemonic(ins);
 
-	for(UINT32 i = 0; i < INS_MaxNumRRegs(ins); i++) {
-		if( REG_is_xmm(INS_RegR(ins, i)) ) {
-			maxSIMDRegWidth = ARIEL_MAX(maxSIMDRegWidth, 2);
-		} else if ( REG_is_ymm(INS_RegR(ins, i)) ) {
-			maxSIMDRegWidth = ARIEL_MAX(maxSIMDRegWidth, 4);
-		} else if ( REG_is_zmm(INS_RegR(ins, i)) ) {
-			maxSIMDRegWidth = ARIEL_MAX(maxSIMDRegWidth, 8);
-		}
-	}
+      for(UINT32 i = 0; i < INS_MaxNumRRegs(ins); i++) {
+         if( REG_is_xmm(INS_RegR(ins, i)) ) {
+               maxSIMDRegWidth = ARIEL_MAX(maxSIMDRegWidth, 2);
+         } else if ( REG_is_ymm(INS_RegR(ins, i)) ) {
+               maxSIMDRegWidth = ARIEL_MAX(maxSIMDRegWidth, 4);
+         } else if ( REG_is_zmm(INS_RegR(ins, i)) ) {
+               maxSIMDRegWidth = ARIEL_MAX(maxSIMDRegWidth, 8);
+         }
+      }
 
-	for(UINT32 i = 0; i < INS_MaxNumWRegs(ins); i++) {
-		if( REG_is_xmm(INS_RegW(ins, i)) ) {
-			maxSIMDRegWidth = ARIEL_MAX(maxSIMDRegWidth, 2);
-		} else if ( REG_is_ymm(INS_RegW(ins, i)) ) {
-			maxSIMDRegWidth = ARIEL_MAX(maxSIMDRegWidth, 4);
-		} else if ( REG_is_zmm(INS_RegW(ins, i)) ) {
-			maxSIMDRegWidth = ARIEL_MAX(maxSIMDRegWidth, 8);
-		}
-	}
+      for(UINT32 i = 0; i < INS_MaxNumWRegs(ins); i++) {
+         if( REG_is_xmm(INS_RegW(ins, i)) ) {
+               maxSIMDRegWidth = ARIEL_MAX(maxSIMDRegWidth, 2);
+         } else if ( REG_is_ymm(INS_RegW(ins, i)) ) {
+               maxSIMDRegWidth = ARIEL_MAX(maxSIMDRegWidth, 4);
+         } else if ( REG_is_zmm(INS_RegW(ins, i)) ) {
+               maxSIMDRegWidth = ARIEL_MAX(maxSIMDRegWidth, 8);
+         }
+      }
 
-	if( instCode.size() > 1 ) {
-		std::string prefix = "";
+      if( instCode.size() > 1 ) {
+         std::string prefix = "";
 
-		if( instCode.size() > 2) {
-			prefix = instCode.substr(0, 3);
-		}
+         if( instCode.size() > 2) {
+               prefix = instCode.substr(0, 3);
+         }
 
-		std::string suffix = instCode.substr(instCode.size() - 2);
+         std::string suffix = instCode.substr(instCode.size() - 2);
 
-		if("MOV" == prefix || "mov" == prefix) {
-			// Do not found MOV as an FP instruction?
-			simdOpWidth = 1;
-		} else {
-			if( (suffix == "PD") || (suffix == "pd") ) {
-				simdOpWidth = maxSIMDRegWidth;
-				instClass = ARIEL_INST_DP_FP;
-			} else if( (suffix == "PS") || (suffix == "ps") ) {
-				simdOpWidth = maxSIMDRegWidth * 2;
-				instClass = ARIEL_INST_SP_FP;
-			} else if( (suffix == "SD") || (suffix == "sd") ) {
-				simdOpWidth = 1;
-				instClass = ARIEL_INST_DP_FP;
-			} else if ( (suffix == "SS") || (suffix == "ss") ) {
-				simdOpWidth = 1;
-				instClass = ARIEL_INST_SP_FP;
-			} else {
-				simdOpWidth = 1;
-			}
-		}
-	}
+         if("MOV" == prefix || "mov" == prefix) {
+               // Do not found MOV as an FP instruction?
+               simdOpWidth = 1;
+         } else {
+            if( (suffix == "PD") || (suffix == "pd") ) {
+                     simdOpWidth = maxSIMDRegWidth;
+                     instClass = ARIEL_INST_DP_FP;
+            } else if( (suffix == "PS") || (suffix == "ps") ) {
+                     simdOpWidth = maxSIMDRegWidth * 2;
+                     instClass = ARIEL_INST_SP_FP;
+            } else if( (suffix == "SD") || (suffix == "sd") ) {
+                     simdOpWidth = 1;
+                     instClass = ARIEL_INST_DP_FP;
+            } else if ( (suffix == "SS") || (suffix == "ss") ) {
+                     simdOpWidth = 1;
+                     instClass = ARIEL_INST_SP_FP;
+            } else {
+                     simdOpWidth = 1;
+            }
+         }
+      }
 
-	if( INS_IsMemoryRead(ins) && INS_IsMemoryWrite(ins) ) {
-		INS_InsertPredicatedCall(ins, IPOINT_BEFORE, (AFUNPTR)
-			WriteInstructionReadWrite,
-			IARG_THREAD_ID,
-			IARG_MEMORYREAD_EA, IARG_UINT32, INS_MemoryReadSize(ins),
-			IARG_MEMORYWRITE_EA, IARG_UINT32, INS_MemoryWriteSize(ins),
-			IARG_INST_PTR,
-			IARG_UINT32, instClass,
-			IARG_UINT32, simdOpWidth,
-			IARG_END);
-	} else if( INS_IsMemoryRead(ins) ) {
-		INS_InsertPredicatedCall(ins, IPOINT_BEFORE, (AFUNPTR)
-			WriteInstructionReadOnly,
-			IARG_THREAD_ID,
-			IARG_MEMORYREAD_EA, IARG_UINT32, INS_MemoryReadSize(ins),
-			IARG_INST_PTR,
-			IARG_UINT32, instClass,
-			IARG_UINT32, simdOpWidth,
-			IARG_END);
-	} else if( INS_IsMemoryWrite(ins) ) {
-		INS_InsertPredicatedCall(ins, IPOINT_BEFORE, (AFUNPTR)
-			WriteInstructionWriteOnly,
-			IARG_THREAD_ID,
-			IARG_MEMORYWRITE_EA, IARG_UINT32, INS_MemoryWriteSize(ins),
-			IARG_INST_PTR,
-			IARG_UINT32, instClass,
-			IARG_UINT32, simdOpWidth,
-			IARG_END);
+      if( INS_IsMemoryRead(ins) && INS_IsMemoryWrite(ins) ) {
+               INS_InsertPredicatedCall(ins, IPOINT_BEFORE, (AFUNPTR)
+                     WriteInstructionReadWrite,
+                     IARG_THREAD_ID,
+                     IARG_MEMORYREAD_EA, IARG_UINT32, INS_MemoryReadSize(ins),
+                     IARG_MEMORYWRITE_EA, IARG_UINT32, INS_MemoryWriteSize(ins),
+                     IARG_INST_PTR,
+                     IARG_UINT32, instClass,
+                     IARG_UINT32, simdOpWidth,
+                     IARG_END);
+      } else if( INS_IsMemoryRead(ins) ) {
+               INS_InsertPredicatedCall(ins, IPOINT_BEFORE, (AFUNPTR)
+                     WriteInstructionReadOnly,
+                     IARG_THREAD_ID,
+                     IARG_MEMORYREAD_EA, IARG_UINT32, INS_MemoryReadSize(ins),
+                     IARG_INST_PTR,
+                     IARG_UINT32, instClass,
+                     IARG_UINT32, simdOpWidth,
+                     IARG_END);
+      } else if( INS_IsMemoryWrite(ins) ) {
+
+           // Want to skip the call to TxEnd
+           if( INS_IsDirectBranchOrCall(ins) )
+           {
+              if( INS_DirectBranchOrCallTargetAddress(ins) == txEndAddr )
+              {
+                 skip = 1;
+//                  committing[thr] = 1;
+                 std::cout << "SSTARIEL-F: Found txEnd Address\n" << std::flush;
+              }
+
+              // Want to save the processor state so that we can return here on an abort
+              if( INS_DirectBranchOrCallTargetAddress(ins) == txBeginAddr )
+              {
+                  INS_InsertPredicatedCall(ins, IPOINT_BEFORE, (AFUNPTR) CheckpointProgram,
+                        IARG_THREAD_ID,
+                        IARG_CONTEXT,
+                        IARG_END);
+              }
+
+           }
+
+           if(skip == 0)
+           {
+                  INS_InsertPredicatedCall(ins, IPOINT_BEFORE, (AFUNPTR)
+                        WriteInstructionWriteOnly,
+                        IARG_THREAD_ID,
+                        IARG_MEMORYWRITE_EA, IARG_UINT32, INS_MemoryWriteSize(ins),
+                        IARG_INST_PTR,
+                        IARG_UINT32, instClass,
+                        IARG_UINT32, simdOpWidth,
+                        IARG_END);
+
+           } /*else {
+                  INS_InsertPredicatedCall(ins, IPOINT_BEFORE, (AFUNPTR)
+                        CheckQueue,
+                        IARG_THREAD_ID,
+                        IARG_END);
+           }*/
+
+           skip = 0;
+
 	} else {
 		INS_InsertPredicatedCall(ins, IPOINT_BEFORE, (AFUNPTR)
 			WriteNoOp,
@@ -487,6 +570,11 @@ VOID InstrumentInstruction(INS ins, VOID *v)
 			IARG_INST_PTR,
 			IARG_END);
 	}
+
+	INS_InsertPredicatedCall(ins, IPOINT_BEFORE, (AFUNPTR)
+                        CheckQueue,
+                        IARG_THREAD_ID,
+                        IARG_END);
 
 	if(funcProfileLevel > 0) {
 		RTN rtn = INS_Rtn(ins);
@@ -511,13 +599,38 @@ VOID InstrumentInstruction(INS ins, VOID *v)
     		INS_InsertPredicatedCall(ins, IPOINT_BEFORE, (AFUNPTR) IncrementFunctionRecord,
 	    		IARG_PTR, (void*) funcRecord, IARG_END);
 	}
+
 }
 
 void mapped_ariel_enable() {
-    fprintf(stderr, "ARIEL: Enabling memory and instruction tracing from program control.\n");
+    fprintf(stderr, "SSTARIEL-F: Enabling memory and instruction tracing from program control.\n");
     fflush(stdout);
     fflush(stderr);
     enable_output = true;
+}
+
+void mapped_txBegin() {
+   std::cout << "SSTARIEL-F: mapped_txBegin--\n" << std::flush;
+    THREADID thr = PIN_ThreadId();
+
+    tunnel->updateTransactionState(thr, TX_RUN);
+
+    ArielCommand ac;
+    ac.command = ARIEL_START_TRANSACTION;
+    ac.instPtr = (uint64_t) 0;
+    tunnel->writeMessage(thr, ac);
+}
+
+void mapped_txEnd() {
+   std::cout << "SSTARIEL-F: mapped_txEnd--\n" << std::flush;
+    THREADID thr = PIN_ThreadId();
+
+    committing[thr] = 1;
+
+    ArielCommand ac;
+    ac.command = ARIEL_END_TRANSACTION;
+    ac.instPtr = (uint64_t) 0;
+    tunnel->writeMessage(thr, ac);
 }
 
 uint64_t mapped_ariel_cycles() {
@@ -787,6 +900,18 @@ VOID InstrumentRoutine(RTN rtn, VOID* args) {
             enable_output = false;
         }
         return;
+    } else if (RTN_Name(rtn) == "txBegin" || RTN_Name(rtn) == "_txBegin") {
+        fprintf(stderr,"Identified routine: txBegin, replacing with Ariel equivalent...\n");
+        RTN_Replace(rtn, (AFUNPTR) mapped_txBegin);
+        txBeginAddr = RTN_Address(rtn);
+        fprintf(stderr,"Replacement complete.\n");
+        return;
+    } else if (RTN_Name(rtn) == "txEnd" || RTN_Name(rtn) == "_txEnd") {
+        fprintf(stderr,"Identified routine: txEnd, replacing with Ariel equivalent...\n");
+        RTN_Replace(rtn, (AFUNPTR) mapped_txEnd);
+        txEndAddr = RTN_Address(rtn);
+        fprintf(stderr,"Replacement complete.\n");
+        return;
     } else if (RTN_Name(rtn) == "gettimeofday" || RTN_Name(rtn) == "_gettimeofday") {
         fprintf(stderr,"Identified routine: gettimeofday, replacing with Ariel equivalent...\n");
         RTN_Replace(rtn, (AFUNPTR) mapped_gettimeofday);
@@ -883,6 +1008,7 @@ INT32 Usage()
 
 int main(int argc, char *argv[])
 {
+
     if (PIN_Init(argc, argv)) return Usage();
 
     // Load the symbols ready for us to mangle functions.
@@ -893,8 +1019,10 @@ int main(int argc, char *argv[])
     PIN_InitLock(&mainLock);
     PIN_InitLock(&mallocIndexLock);
 
+//     committing[ = 0;
+
     if(SSTVerbosity.Value() > 0) {
-        std::cout << "SSTARIEL: Loading Ariel Tool to connect to SST on pipe: " <<
+        std::cout << "SSTARIEL-F: Loading Ariel Tool to connect to SST on pipe: " <<
             SSTNamedPipe.Value() << " max instruction count: " <<
             MaxInstructions.Value() <<
             " max core count: " << MaxCoreCount.Value() << std::endl;
@@ -903,24 +1031,25 @@ int main(int argc, char *argv[])
     funcProfileLevel = TrapFunctionProfile.Value();
 
     if(funcProfileLevel > 0) {
-    	std::cout << "SSTARIEL: Function profile level is configured to: " << funcProfileLevel << std::endl;
+    	std::cout << "SSTARIEL-F: Function profile level is configured to: " << funcProfileLevel << std::endl;
     } else {
-    	std::cout << "SSTARIEL: Function profiling is disabled." << std::endl;
+    	std::cout << "SSTARIEL-F: Function profiling is disabled." << std::endl;
     }
 
     char* override_pool_name = getenv("ARIEL_OVERRIDE_POOL");
     if(NULL != override_pool_name) {
-		fprintf(stderr, "ARIEL-SST: Override for memory pools\n");
+		fprintf(stderr, "SSTARIEL-F: Override for memory pools\n");
 		shouldOverride = true;
 		overridePool = (UINT32) atoi(getenv("ARIEL_OVERRIDE_POOL"));
-		fprintf(stderr, "ARIEL-SST: Use pool: %" PRIu32 " instead of application provided\n", overridePool);
+		fprintf(stderr, "SSTARIEL-F: Use pool: %" PRIu32 " instead of application provided\n", overridePool);
     } else {
-		fprintf(stderr, "ARIEL-SST: Did not find ARIEL_OVERRIDE_POOL in the environment, no override applies.\n");
+		fprintf(stderr, "SSTARIEL-F: Did not find ARIEL_OVERRIDE_POOL in the environment, no override applies.\n");
     }
 
     core_count = MaxCoreCount.Value();
 
     tunnel = new ArielTunnel(SSTNamedPipe.Value());
+
     lastMallocSize = (UINT64*) malloc(sizeof(UINT64) * core_count);
     lastMallocLoc = (UINT64*) malloc(sizeof(UINT64) * core_count);
     mallocIndex = 0;
