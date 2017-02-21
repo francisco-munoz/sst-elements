@@ -651,14 +651,18 @@ CacheAction L1CoherenceController::handleFetch(MemEvent * event, CacheLine * cac
 
 CacheAction L1CoherenceController::handleHTMEvent(MemEvent * event, Command cmd) {
 
-   if(cmd == BeginTx) {
-      txManager_->beginTransaction();
-   } else if(cmd == EndTx) {
-      txManager_->commitTransaction();
-   }
+    if(cmd == BeginTx) {
+        txManager_->beginTransaction();
+    } else if(cmd == EndTx) {
+        txManager_->commitTransaction();
+    }
 
-//    sendResponseUp(event, NP, 0, 0, 0);
+//     vector<uint8_t>* data = cacheLine->getData();
+//
+//     sendResponseUp(event, S, data, replay, cacheLine->getTimestamp());
+    sendResponseUp(event, S, NULL, 0, 0);
 
+    return DONE;
 }
 
 /*---------------------------------------------------------------------------------------------------
@@ -738,22 +742,26 @@ uint64_t L1CoherenceController::sendResponseUp(MemEvent * event, State grantedSt
     MemEvent * responseEvent = event->makeResponse(grantedState);
     responseEvent->setDst(event->getSrc());
     bool noncacheable = event->queryFlag(MemEvent::F_NONCACHEABLE);
-     
-    if (!noncacheable) {
-        /* Only return the desire word */
-        Addr base    = (event->getAddr()) & ~(((Addr)lineSize_) - 1);
-        Addr offset  = event->getAddr() - base;
-        if (cmd != GetX) {
-            responseEvent->setPayload(event->getSize(), &data->at(offset));
-        } else {
-            /* If write (GetX) and LLSC set, then check if operation was Atomic */
-  	    if (finishedAtomically) responseEvent->setSuccess(true);
-            else responseEvent->setSuccess(false);
-            responseEvent->setSize(event->getSize()); // Return size that was written
-        }
+
+    if( cmd == BeginTx || cmd == EndTx || cmd == AbortTx ) {
     } else {
-        responseEvent->setPayload(*data);
+        if (!noncacheable) {
+            /* Only return the desire word */
+            Addr base    = (event->getAddr()) & ~(((Addr)lineSize_) - 1);
+            Addr offset  = event->getAddr() - base;
+            if (cmd != GetX) {
+                responseEvent->setPayload(event->getSize(), &data->at(offset));
+            } else {
+                /* If write (GetX) and LLSC set, then check if operation was Atomic */
+                if (finishedAtomically) responseEvent->setSuccess(true);
+                else responseEvent->setSuccess(false);
+                responseEvent->setSize(event->getSize()); // Return size that was written
+            }
+        } else {
+            responseEvent->setPayload(*data);
+        }
     }
+
     //printf("Sending data up to core: ");
     if (DEBUG_ALL || DEBUG_ADDR == event->getBaseAddr()) {
         printData(data, false);

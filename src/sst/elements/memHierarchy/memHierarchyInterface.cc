@@ -178,6 +178,15 @@ void MemHierarchyInterface::updateRequest(SimpleMem::Request* req, MemEvent *me)
         if (me->success())
 	   req->set_flags(SimpleMem::Request::F_FLUSH_SUCCESS);
         break;
+    case HTMResp:
+        req->cmd = SimpleMem::Request::TxResp;
+        break;
+    case CommitResp:
+        req->cmd = SimpleMem::Request::TxEnd;
+        break;
+    case AbortResp:
+        req->cmd = SimpleMem::Request::TxAbort;
+        break;
     default:
         fprintf(stderr, "Don't know how to deal with command %s\n", CommandString[me->getCmd()]);
     }
