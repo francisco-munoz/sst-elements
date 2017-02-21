@@ -82,7 +82,7 @@ struct ArielCommand {
     };
 };
 
-
+//TODO Need to convert the txState array to a vector
 struct ArielSharedData {
     std::atomic<size_t> numCores;
     std::atomic<uint64_t> simTime;
@@ -121,7 +121,6 @@ public:
     ArielTunnel(const std::string &region_name) :
         SST::Core::Interprocess::IPCTunnel<ArielSharedData, ArielCommand>(region_name)
     {
-        /* Ideally, this would be done atomically, but we'll only have 1 child */
         sharedData->child_attached++;
     }
 
@@ -149,11 +148,13 @@ public:
 
     void updateTransactionState(uint32_t coreID, TransactionState_t stateIn)
     {
+//         std::cout << "Set txState-" << coreID << " " << stateIn << std::endl;
        sharedData->txState[coreID] = stateIn;
     }
 
     TransactionState_t getTransactionState(uint32_t coreID) const
     {
+//         std::cout << "Get txState-" << coreID << " " << sharedData->txState[coreID].load() << std::endl;
        return sharedData->txState[coreID].load();
     }
 

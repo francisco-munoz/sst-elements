@@ -69,12 +69,6 @@ class ArielCore {
                 uint64_t cacheLineSz, SST::Component* owner,
 			ArielMemoryManager* memMgr, const uint32_t perform_address_checks, Params& params);
 
-                ArielCore(ArielTunnel *tunnel, ArielTunnel *pin_tunnel, SimpleMem *coreToCacheLink,
-                uint32_t thisCoreID, uint32_t maxPendTans,
-                Output* out, uint32_t maxIssuePerCyc, uint32_t maxQLen,
-                uint64_t cacheLineSz, SST::Component* owner,
-                        ArielMemoryManager* memMgr, const uint32_t perform_address_checks, Params& params);
-
 		~ArielCore();
 
 		bool isCoreHalted() const;
@@ -128,7 +122,6 @@ class ArielCore {
 		SimpleMem* cacheLink;
                 Link* allocLink;
 		ArielTunnel *tunnel;
-                ArielTunnel *pin_tunnel;
 		std::unordered_map<SimpleMem::Request::id_t, SimpleMem::Request*>* pendingTransactions;
 		uint32_t maxIssuePerCycle;
 		uint32_t maxQLength;

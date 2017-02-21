@@ -94,77 +94,6 @@ ArielCore::ArielCore(ArielTunnel *tunnel, SimpleMem* coreToCacheLink,
 	currentCycles = 0;
 }
 
-ArielCore::ArielCore(ArielTunnel *tunnel,  ArielTunnel *pin_tunnel, SimpleMem* coreToCacheLink,
-        uint32_t thisCoreID, uint32_t maxPendTrans,
-        Output* out, uint32_t maxIssuePerCyc,
-        uint32_t maxQLen, uint64_t cacheLineSz, SST::Component* own,
-        ArielMemoryManager* memMgr, const uint32_t perform_address_checks, Params& params) :
-        output(out), tunnel(tunnel), pin_tunnel(pin_tunnel), perform_checks(perform_address_checks),
-        verbosity(static_cast<uint32_t>(out->getVerboseLevel()))
-{
-        output->verbose(CALL_INFO, 2, 0, "Creating core with ID %" PRIu32 ", maximum queue length=%" PRIu32 ", max issue is: %" PRIu32 "\n", thisCoreID, maxQLen, maxIssuePerCyc);
-        cacheLink = coreToCacheLink;
-        allocLink = 0;
-        coreID = thisCoreID;
-        maxPendingTransactions = maxPendTrans;
-        isHalted = false;
-        maxIssuePerCycle = maxIssuePerCyc;
-        maxQLength = maxQLen;
-        cacheLineSize = cacheLineSz;
-        owner = own;
-        memmgr = memMgr;
-
-        coreQ = new std::queue<ArielEvent*>();
-        pendingTransactions = new std::unordered_map<SimpleMem::Request::id_t, SimpleMem::Request*>();
-        pending_transaction_count = 0;
-
-        bloop = 0;
-        isTransaction_ = 0;
-
-        char* subID = (char*) malloc(sizeof(char) * 32);
-        sprintf(subID, "%" PRIu32, thisCoreID);
-
-        statReadRequests  = own->registerStatistic<uint64_t>( "read_requests", subID );
-        statWriteRequests = own->registerStatistic<uint64_t>( "write_requests", subID );
-        statSplitReadRequests = own->registerStatistic<uint64_t>( "split_read_requests", subID );
-        statSplitWriteRequests = own->registerStatistic<uint64_t>( "split_write_requests", subID );
-        statNoopCount     = own->registerStatistic<uint64_t>( "no_ops", subID );
-        statInstructionCount = own->registerStatistic<uint64_t>( "instruction_count", subID );
-
-        statFPSPIns = own->registerStatistic<uint64_t>("fp_sp_ins", subID);
-        statFPDPIns = own->registerStatistic<uint64_t>("fp_dp_ins", subID);
-
-        statFPSPSIMDIns = own->registerStatistic<uint64_t>("fp_sp_simd_ins", subID);
-        statFPDPSIMDIns = own->registerStatistic<uint64_t>("fp_dp_simd_ins", subID);
-
-        statFPSPScalarIns = own->registerStatistic<uint64_t>("fp_sp_scalar_ins", subID);
-        statFPDPScalarIns = own->registerStatistic<uint64_t>("fp_dp_scalar_ins", subID);
-
-        statFPSPOps = own->registerStatistic<uint64_t>("fp_sp_ops", subID);
-        statFPDPOps = own->registerStatistic<uint64_t>("fp_dp_ops", subID);
-
-        free(subID);
-
-        std::string traceGenName = params.find<std::string>("tracegen", "");
-        enableTracing = ("" != traceGenName);
-
-        // If we enabled tracing then open up the correct file.
-        if(enableTracing) {
-                Params interfaceParams = params.find_prefix_params("tracer.");
-                traceGen = dynamic_cast<ArielTraceGenerator*>( own->loadModuleWithComponent(traceGenName, own,
-                        interfaceParams) );
-
-                if(NULL == traceGen) {
-                        output->fatal(CALL_INFO, -1, "Unable to load tracing module: \"%s\"\n",
-                                traceGenName.c_str());
-                }
-
-                traceGen->setCoreID(coreID);
-        }
-
-        currentCycles = 0;
-}
-
 ArielCore::~ArielCore() {
 	//	delete statReadRequests;
 	//	delete statWriteRequests;
@@ -264,7 +193,7 @@ void ArielCore::commitTxEndEvent(const uint32_t depth)
       SimpleMem::Request *req = new SimpleMem::Request(SimpleMem::Request::TxEnd, 0, 0);
       // Actually send the event to the cache
       cacheLink->sendRequest(req);
-//       bloop = 1;
+      bloop = 1;
       std::cout << "SSTARIEL-B: commitTxEndEvent\n" << std::flush;
 
 }
@@ -272,17 +201,7 @@ void ArielCore::commitTxEndEvent(const uint32_t depth)
 void ArielCore::handleEvent(SimpleMem::Request* event) {
 	ARIEL_CORE_VERBOSE(4, output->verbose(CALL_INFO, 4, 0, "Core %" PRIu32 " handling a memory event.\n", coreID));
 
-//     std::cout << "SSTARIEL-B: handleEvent\n" << std::flush;
-    if(bloop) {
-       std::cout << "SSTARIEL-B: handleEvent bloop\n" << std::flush;
-//        tunnel->clearBuffer(coreID);
-       tunnel->updateTransactionState(coreID, TX_ABORT);
 
-       bloop = 0;
-    } else
-    {
-       tunnel->updateTransactionState(coreID, TX_COMMIT);
-    }
 
     SimpleMem::Request::id_t mev_id = event->id;
     auto find_entry = pendingTransactions->find(mev_id);
@@ -291,12 +210,23 @@ void ArielCore::handleEvent(SimpleMem::Request* event) {
 		ARIEL_CORE_VERBOSE(4, output->verbose(CALL_INFO, 4, 0, "Correctly identified event in pending transactions, removing from list, before there are: %" PRIu32 " transactions pending.\n",
 					(uint32_t) pendingTransactions->size()));
 
-		pendingTransactions->erase(find_entry);
-		pending_transaction_count--;
-	} else {
-		output->fatal(CALL_INFO, -4, "Memory event response to core: %" PRIu32 " was not found in pending list.\n", coreID);
-	}
-	delete event;
+        pendingTransactions->erase(find_entry);
+        pending_transaction_count--;
+    } else if(event->cmd == SimpleMem::Request::TxEnd) {
+        std::cout << "Received response from memHeirarchy -- TxEnd\n" << std::flush;
+
+        tunnel->updateTransactionState(coreID, TX_COMMIT);
+
+    } else if(event->cmd == SimpleMem::Request::TxResp) {
+        std::cout << "Received response from memHeirarchy -- TxResp\n" << std::flush;
+    } else if(event->cmd == SimpleMem::Request::TxAbort) {
+        std::cout << "Received response from memHeirarchy -- TxAbort\n" << std::flush;
+        tunnel->updateTransactionState(coreID, TX_ABORT);
+    }else {
+        output->fatal(CALL_INFO, -4, "Memory event response to core: %" PRIu32 " was not found in pending list.\n", coreID);
+    }
+    delete event;
+>>>>>>> Added memory events for Abort, which required moving other HTM events. DEBUG info not wrapped.
 }
 
 void ArielCore::finishCore() {

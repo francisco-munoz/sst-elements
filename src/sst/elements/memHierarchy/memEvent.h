@@ -68,6 +68,9 @@ using namespace std;
     X(BeginTx,      NULLCMD,        Response,   Ack,            0, 0)   /* NACK response to a message */\
     X(EndTx,        NULLCMD,        Response,   Ack,            0, 0)   /* Acknowledgement response to an invalidation request */\
     X(AbortTx,      NULLCMD,        Response,   Ack,            0, 0)   /* Send Abort back up the chain */ \
+    X(HTMResp,      NULLCMD,        Response,   Ack,            0, 0)          /*  */ \
+    X(CommitResp,   NULLCMD,        Response,   Ack,            0, 0)       /* response for a successful transactional event */\
+    X(AbortResp,    NULLCMD,        Response,   Ack,            0, 0)        /* response for an unsuccessful transactional event */\
     X(LAST_CMD,     NULLCMD,        Request,    Request,        0, 0)
 
 
@@ -415,41 +418,50 @@ public:
     /** Returns true if this is a CPU-side event (i.e., sent from CPU side of hierarchy) */
     bool isCPUSideEvent(void) const { return MemCommandCPUSide[cmd_]; }
 
-
     void setDirty(bool status) { dirty_ = status; }
     bool getDirty() { return dirty_; }
 
     /** @return the source string - who sent this MemEvent */
     const std::string& getSrc(void) const { return src_; }
+
     /** Sets the source string - who sent this MemEvent */
     void setSrc(const std::string& src) { src_ = src; }
+
     /** @return the destination string - who receives this MemEvent */
     const std::string& getDst(void) const { return dst_; }
+
     /** Sets the destination string - who received this MemEvent */
     void setDst(const std::string& dst) { dst_ = dst; }
+
     /** @return the requestor string - whose original request caused this MemEvent */
     const std::string& getRqstr(void) const { return rqstr_; }
+
     /** Sets the requestor string - whose original request caused this MemEvent */
     void setRqstr(const std::string& rqstr) { rqstr_ = rqstr; }
 
     /** @returns the state of all flags for this MemEvent */
     uint32_t getFlags(void) const { return flags_; }
+
     /** Sets the specified flag.
      * @param[in] flag  Should be one of the flags beginning with F_,
      *                  defined in MemEvent */
     void setFlag(uint32_t flag) { flags_ = flags_ | flag; }
+
     /** Clears the speficied flag.
      * @param[in] flag  Should be one of the flags beginning with F_,
      *                  defined in MemEvent */
     void clearFlag(uint32_t flag) { flags_ = flags_ & (~flag); }
+
     /** Clears all flags */
     void clearFlags(void) { flags_ = 0; }
+
     /** Check to see if a flag is set.
      * @param[in] flag  Should be one of the flags beginning with F_,
      *                  defined in MemEvent
      * @returns TRUE if the flag is set, FALSE otherwise
      */
     bool queryFlag(uint32_t flag) const { return flags_ & flag; };
+
     /** Sets the entire flag state */
     void setFlags(uint32_t flags) { flags_ = flags; }
 
@@ -458,6 +470,36 @@ public:
 
     /** Return the BaseAddr */
     Addr getBaseAddr() { return baseAddr_; }
+// <<<<<<< HEAD
+// =======
+//
+//     /** Return the command that is the Response to the input command */
+//     static Command commandResponse(Command cmd) {
+//         switch(cmd) {
+//             case GetS:
+//             case GetSEx:
+//                 return GetSResp;
+//             case GetX:
+//                 return GetXResp;
+//             case FetchInv:
+//             case Fetch:
+//                 return FetchResp;
+//             case FetchInvX:
+//                 return FetchXResp;
+//             case FlushLine:
+//             case FlushLineInv:
+//                 return FlushLineResp;
+//             case BeginTx:
+//                 return HTMResp;
+//             case EndTx:
+//                 return CommitResp;
+//             case AbortTx:
+//                 return AbortResp;
+//             default:
+//                 return NULLCMD;
+//         }
+//     }
+// >>>>>>> Added memory events for Abort, which required moving other HTM events. DEBUG info not wrapped.
 
 private:
     id_type         eventID_;           // Unique ID for this event
