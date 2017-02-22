@@ -97,7 +97,7 @@ Cache* Cache::cacheFactory(ComponentId_t id, Params &params) {
     string dirReplacement       = params.find<std::string>("noninclusive_directory_repl", "LRU");
     int dirAssociativity        = params.find<int>("noninclusive_directory_associativity", 1);
     int dirNumEntries           = params.find<int>("noninclusive_directory_entries", 0);
-    uint64_t htmSupport         = params.find<uint64_t>("htm_support", 0);
+    bool tmCache                = params.find<bool>("tm_cache", false);
     
     /* Convert all strings to lower case */
     to_lower(coherenceProtocol);
@@ -198,7 +198,7 @@ Cache* Cache::cacheFactory(ComponentId_t id, Params &params) {
     CacheConfig config = {frequency, cacheArray, dirArray, protocol, dbg, replManager, numLines,
 	static_cast<uint>(lineSize),
 	static_cast<uint>(mshrSize), L1,
-	noncacheableRequests, maxWaitTime, cacheType, htmSupport};
+	noncacheableRequests, maxWaitTime, cacheType, tmCache};
     return new Cache(id, params, config);
 }
 
@@ -391,9 +391,9 @@ Cache::Cache(ComponentId_t id, Params &params, CacheConfig config) : Component(i
     coherenceParams.insert("request_link_width", params.find<std::string>("request_link_width", "0B"));
     coherenceParams.insert("response_link_width", params.find<std::string>("response_link_width", "0B"));
     coherenceParams.insert("min_packet_size", params.find<std::string>("min_packet_size", "8B"));
-    coherenceParams.insert("htm_enabled", std::to_string(cf_.htmSupport));
 
-    if (!cf_.L1_)  {
+    if(cf_.tmCache_) {
+    } else if (!cf_.L1_)  {
         if (cf_.protocol_ != CoherenceProtocol::NONE) {
             if (cf_.type_ != "noninclusive_with_directory") {
                 coherenceMgr_ = dynamic_cast<CoherenceController*>( loadSubComponent("memHierarchy.MESICoherenceController", this, coherenceParams));
