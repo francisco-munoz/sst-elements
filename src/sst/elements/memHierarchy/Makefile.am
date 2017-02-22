@@ -102,6 +102,8 @@ libmemHierarchy_la_SOURCES = \
 	Sieve/broadcastShim.cc \
 	memNetBridge.h \
 	memNetBridge.cc \
+	HTM.h \
+	HTM.cc \
 	libmemHierarchy.cc
 
 EXTRA_DIST = \
