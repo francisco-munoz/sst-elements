@@ -128,7 +128,7 @@ ArielCPU::ArielCPU(ComponentId_t id, Params& params) :
         }
         free(level_buffer);
 /** End memory manager subcomponent parameter translation */
-        
+
         std::string memorymanager = params.find<std::string>("memmgr", "ariel.MemoryManagerSimple");
         if (!memorymanager.empty()) {
             // Warn about memory levels and the selected memory manager if needed
@@ -147,7 +147,7 @@ ArielCPU::ArielCPU(ComponentId_t id, Params& params) :
         } else {
             output->fatal(CALL_INFO, -1, "Failed to load memory manager: no manager specified. Please set the 'memmgr' parameter in your input deck\n");
         }
-	
+
         output->verbose(CALL_INFO, 1, 0, "Memory manager construction is completed.\n");
 
 	uint32_t maxIssuesPerCycle   = (uint32_t) params.find<uint32_t>("maxissuepercycle", 1);
@@ -192,9 +192,9 @@ ArielCPU::ArielCPU(ComponentId_t id, Params& params) :
 		output->verbose(CALL_INFO, 1, 0, "Interception and instrumentation of multi-level memory calls is ENABLED.\n");
 		break;
     }
-    
+
     uint32_t keep_malloc_stack_trace = (uint32_t) params.find<uint32_t>("arielstack", 0);
-    output->verbose(CALL_INFO, 1, 0, "Tracking the stack and dumping on malloc calls is %s.\n", 
+    output->verbose(CALL_INFO, 1, 0, "Tracking the stack and dumping on malloc calls is %s.\n",
             keep_malloc_stack_trace == 1 ? "ENABLED" : "DISABLED");
 
     tunnel = new ArielTunnel(id, core_count, maxCoreQueueLen);
@@ -337,25 +337,26 @@ ArielCPU::ArielCPU(ComponentId_t id, Params& params) :
 	output->verbose(CALL_INFO, 1, 0, "Configuring cores and cache links...\n");
 	char* link_buffer = (char*) malloc(sizeof(char) * 256);
 	for(uint32_t i = 0; i < core_count; ++i) {
-		sprintf(link_buffer, "cache_link_%" PRIu32, i);
+            sprintf(link_buffer, "cache_link_%" PRIu32, i);
 
-		cpu_cores[i] = new ArielCore(tunnel, NULL, i, maxPendingTransCore, output,
-			maxIssuesPerCycle, maxCoreQueueLen, cacheLineSize, this,
-			memmgr, perform_checks, params);
-        cpu_to_cache_links[i] = dynamic_cast<SimpleMem*>(loadModuleWithComponent("memHierarchy.memInterface", this, params));
-        cpu_to_cache_links[i]->initialize(link_buffer, new SimpleMem::Handler<ArielCore>(cpu_cores[i], &ArielCore::handleEvent));
+            cpu_cores[i] = new ArielCore(tunnel, NULL, i, maxPendingTransCore, output,
+                    maxIssuesPerCycle, maxCoreQueueLen, cacheLineSize, this,
+                    memmgr, perform_checks, params);
 
-		// Set max number of instructions
-		cpu_cores[i]->setMaxInsts(max_insts);
+            cpu_to_cache_links[i] = dynamic_cast<SimpleMem*>(loadModuleWithComponent("memHierarchy.memInterface", this, params));
+            cpu_to_cache_links[i]->initialize(link_buffer, new SimpleMem::Handler<ArielCore>(cpu_cores[i], &ArielCore::handleEvent));
 
-                // optionally wire up links to allocate trackers (e.g. memSieve)
-                if (useAllocTracker) {
-                    sprintf(link_buffer, "alloc_link_%" PRIu32, i);
-                    cpu_to_alloc_tracker_links[i] = configureLink(link_buffer);
-                    cpu_cores[i]->setCacheLink(cpu_to_cache_links[i], cpu_to_alloc_tracker_links[i]);
-                } else {
-                    cpu_cores[i]->setCacheLink(cpu_to_cache_links[i], 0);
-                }
+            // Set max number of instructions
+            cpu_cores[i]->setMaxInsts(max_insts);
+
+            // optionally wire up links to allocate trackers (e.g. memSieve)
+            if (useAllocTracker) {
+                sprintf(link_buffer, "alloc_link_%" PRIu32, i);
+                cpu_to_alloc_tracker_links[i] = configureLink(link_buffer);
+                cpu_cores[i]->setCacheLink(cpu_to_cache_links[i], cpu_to_alloc_tracker_links[i]);
+            } else {
+                cpu_cores[i]->setCacheLink(cpu_to_cache_links[i], 0);
+            }
 	}
 	free(link_buffer);
 
@@ -450,11 +451,11 @@ int ArielCPU::forkPINChild(const char* app, char** args, std::map<std::string, s
 
 	if(the_child != 0) {
 	    // Set the member variable child_pid in case the waitpid() below fails
-	    // this allows the fatal process to kill the process and prevent it 
-	    // from becoming a zombie process.  Because as we all know, zombies are 
+	    // this allows the fatal process to kill the process and prevent it
+	    // from becoming a zombie process.  Because as we all know, zombies are
 	    // bad and eat your brains...
 	    child_pid = the_child;
-	    
+
 		// This is the parent, return the PID of our child process
         /* Wait a second, and check to see that the child actually started */
         sleep(1);
@@ -478,12 +479,12 @@ int ArielCPU::forkPINChild(const char* app, char** args, std::map<std::string, s
                         "Launching trace child failed!  Child Stopped with Signal  %d\n",
                         WSTOPSIG(pstat));
             }
-            else { 
+            else {
                 output->fatal(CALL_INFO, 1,
                     "Launching trace child failed!  Unknown Problem; pstat = %d\n",
                     pstat);
             }
-            
+
         } else if ( check < 0 ) {
             perror("waitpid");
             output->fatal(CALL_INFO, 1,

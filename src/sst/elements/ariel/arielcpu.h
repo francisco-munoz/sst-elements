@@ -36,9 +36,9 @@ namespace ArielComponent {
 
 class ArielCPU : public SST::Component {
 
-	public:
-		ArielCPU(ComponentId_t id, Params& params);
-		~ArielCPU();
+    public:
+        ArielCPU(ComponentId_t id, Params& params);
+        ~ArielCPU();
         virtual void emergencyShutdown();
         virtual void init(unsigned int phase);
         virtual void setup() {}
@@ -58,11 +58,11 @@ class ArielCPU : public SST::Component {
         ArielTunnel* tunnel;
         ArielTunnel* tunnel_to_pin;
         bool stopTicking;
-	std::string appLauncher;
+        std::string appLauncher;
         bool useAllocTracker;
 
         char **execute_args;
-	std::map<std::string, std::string> execute_env;
+        std::map<std::string, std::string> execute_env;
 
 };
 
