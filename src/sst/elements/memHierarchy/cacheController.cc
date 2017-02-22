@@ -1,10 +1,10 @@
 // Copyright 2009-2017 Sandia Corporation. Under the terms
 // of Contract DE-NA0003525 with Sandia Corporation, the U.S.
 // Government retains certain rights in this software.
-// 
+//
 // Copyright (c) 2009-2017, Sandia Corporation
 // All rights reserved.
-// 
+//
 // Portions are copyright of other developers:
 // See the file CONTRIBUTORS.TXT in the top level directory
 // the distribution for more information.
@@ -78,9 +78,10 @@ void Cache::processCacheRequest(MemEvent* event, Command cmd, Addr baseAddr, boo
 #ifdef __SST_DEBUG_OUTPUT__
     printLine(baseAddr);
 #endif
+
     bool updateLine = !replay && event->isDataRequest();   /* TODO: move replacement manager update to time when cache actually sends a response */
-    CacheLine * line = cf_.cacheArray_->lookup(baseAddr, updateLine);; 
-    
+    CacheLine * line = cf_.cacheArray_->lookup(baseAddr, updateLine);;
+
     bool miss = (line == nullptr);
 #ifdef __SST_DEBUG_OUTPUT__
     if (miss && (DEBUG_ALL || DEBUG_ADDR == baseAddr)) d_->debug(_L3_, "-- Miss --\n");
@@ -111,7 +112,7 @@ void Cache::processCacheRequest(MemEvent* event, Command cmd, Addr baseAddr, boo
         event->setInProgress(true);
         return;
     }
-    
+
     line = cf_.cacheArray_->lookup(baseAddr, false);
 
     // Special case -> allocate line for prefetches to non-inclusive caches
@@ -140,8 +141,8 @@ void Cache::processCacheRequest(MemEvent* event, Command cmd, Addr baseAddr, boo
 }
 
 
-/* 
- *  Handles processing for all replacements - PutS, PutE, PutM, etc. 
+/*
+ *  Handles processing for all replacements - PutS, PutE, PutM, etc.
  *  For non-inclusive/incoherent caches, may need to allocate a new line
  *  If Put conflicts with existing request, will still call handleReplacement to resolve any races
  */
@@ -168,10 +169,10 @@ void Cache::processCacheReplacement(MemEvent* event, Command cmd, Addr baseAddr,
 #endif
                 }
             }
-        }       
+        }
     }
-    
-    line = cf_.cacheArray_->lookup(baseAddr, false); 
+
+    line = cf_.cacheArray_->lookup(baseAddr, false);
     if (cf_.type_ == "noninclusive_with_directory") {
         if (line->getDataLine() == NULL) {
 #ifdef __SST_DEBUG_OUTPUT__
@@ -189,7 +190,7 @@ void Cache::processCacheReplacement(MemEvent* event, Command cmd, Addr baseAddr,
     MemEvent * origRequest = NULL;
     if (mshr_->exists(baseAddr)) origRequest = mshr_->lookupFront(baseAddr);
     CacheAction action = coherenceMgr_->handleReplacement(event, line, origRequest, replay);
-    
+
 #ifdef __SST_DEBUG_OUTPUT__
     printLine(baseAddr);
 #endif
@@ -214,12 +215,12 @@ void Cache::processCacheInvalidate(MemEvent* event, Addr baseAddr, bool replay) 
         processInvRequestInMSHR(baseAddr, event, false); // trigger a NACK
         return;
     }
-    
+
     MemEvent * collisionEvent = NULL;
     if (mshr_->exists(baseAddr)) collisionEvent = mshr_->lookupFront(baseAddr);
     CacheLine * line = cf_.cacheArray_->lookup(baseAddr, false);
     CacheAction action = coherenceMgr_->handleInvalidationRequest(event, line, collisionEvent, replay);
-        
+
 #ifdef __SST_DEBUG_OUTPUT__
     printLine(baseAddr);
 #endif
@@ -247,7 +248,7 @@ void Cache::processCacheFlush(MemEvent* event, Addr baseAddr, bool replay) {
     //      If hit and dirty: forward cacheFlush w/ data, wait for flushresp
     //      If hit and clean: forward cacheFlush w/o data, wait for flushresp
     //      If miss: forward cacheFlush w/o data, wait for flushresp
-    
+
     if (event->inProgress()) {
         processRequestInMSHR(baseAddr, event);
 #ifdef __SST_DEBUG_OUTPUT__
@@ -256,24 +257,24 @@ void Cache::processCacheFlush(MemEvent* event, Addr baseAddr, bool replay) {
         return;
     }
 
-    
+
 
     MemEvent * origRequest = NULL;
     if (mshr_->exists(baseAddr)) origRequest = mshr_->lookupFront(baseAddr);
-    
+
     // Generally we should not nack this request without checking for races
     // But if no possible races and handling this will fill MSHR, nack it
-    if (!origRequest && mshr_->isAlmostFull()) { 
+    if (!origRequest && mshr_->isAlmostFull()) {
         sendNACK(event);
         return;
     }
 
     CacheAction action = coherenceMgr_->handleReplacement(event, line, origRequest, replay);
-    
+
     /* Action returned is for the origRequest if it exists, otherwise for the flush */
     /* If origRequest, put flush in mshr and replay */
     /* Stall the request if we are waiting on a response to a forwarded Flush */
-    
+
 #ifdef __SST_DEBUG_OUTPUT__
     printLine(baseAddr);
 #endif
@@ -311,7 +312,7 @@ void Cache::processHTMEvent(MemEvent* event, Command cmd) {
 
 
 /*************************
- * Cache responses 
+ * Cache responses
  * ***********************/
 
 
@@ -354,7 +355,7 @@ void Cache::processFetchResp(MemEvent * event, Addr baseAddr) {
     CacheAction action = coherenceMgr_->handleResponse(event, line, origRequest);
 
     delete event;
-    
+
 #ifdef __SST_DEBUG_OUTPUT__
     printLine(baseAddr);
 #endif
@@ -365,7 +366,7 @@ void Cache::processFetchResp(MemEvent * event, Addr baseAddr) {
             mshr_->removeFront(baseAddr);
             delete origRequest;
         }
-        
+
         activatePrevEvents(baseAddr);
     }
 }
@@ -388,7 +389,7 @@ bool Cache::allocateLine(MemEvent * event, Addr baseAddr) {
             mshr_->insertPointer(replacementLine->getBaseAddr(), event->getBaseAddr());
             return false;
         }
-        
+
         CacheAction action = coherenceMgr_->handleEviction(replacementLine, this->getName(), false);
         if (action == STALL) {
             mshr_->insertPointer(replacementLine->getBaseAddr(), event->getBaseAddr());
@@ -404,7 +405,7 @@ bool Cache::allocateLine(MemEvent * event, Addr baseAddr) {
 
 bool Cache::allocateCacheLine(MemEvent* event, Addr baseAddr) {
     CacheLine* replacementLine = cf_.cacheArray_->findReplacementCandidate(baseAddr, true);
-    
+
 #ifdef __SST_DEBUG_OUTPUT__
     if (replacementLine->valid() && (DEBUG_ALL || DEBUG_ADDR == baseAddr || DEBUG_ADDR == replacementLine->getBaseAddr())) {
         d_->debug(_L6_, "Evicting 0x%" PRIx64 "\n", replacementLine->getBaseAddr());
@@ -417,14 +418,14 @@ bool Cache::allocateCacheLine(MemEvent* event, Addr baseAddr) {
             mshr_->insertPointer(replacementLine->getBaseAddr(), event->getBaseAddr());
             return false;
         }
-        
+
         CacheAction action = coherenceMgr_->handleEviction(replacementLine, this->getName(), false);
         if (action == STALL) {
             mshr_->insertPointer(replacementLine->getBaseAddr(), event->getBaseAddr());
             return false;
         }
     }
-    
+
     /* OK to replace line  */
     cf_.cacheArray_->replace(baseAddr, replacementLine);
     return true;
@@ -432,11 +433,11 @@ bool Cache::allocateCacheLine(MemEvent* event, Addr baseAddr) {
 
 /*
  *  Allocate a new line in the directory portion of the directory+cache
- *  Do not touch the cache part unless we need to evict a directory entry that is cached 
+ *  Do not touch the cache part unless we need to evict a directory entry that is cached
  */
 bool Cache::allocateDirLine(MemEvent* event, Addr baseAddr) {
     CacheLine* replacementLine = cf_.directoryArray_->findReplacementCandidate(baseAddr, true);
-    
+
 #ifdef __SST_DEBUG_OUTPUT__
     if (replacementLine->valid() && (DEBUG_ALL || DEBUG_ADDR == baseAddr || DEBUG_ADDR == replacementLine->getBaseAddr())) {
         d_->debug(_L6_, "Evicting 0x%" PRIx64 " from directory.\n", replacementLine->getBaseAddr());
@@ -476,7 +477,7 @@ bool Cache::allocateDirCacheLine(MemEvent * event, Addr baseAddr, CacheLine * di
         d_->debug(_L6_, "Evicting 0x%" PRIx64 " from cache\n", replacementDirLine->getBaseAddr());
     }
 #endif
-    if (replacementDirLine->valid()) {  
+    if (replacementDirLine->valid()) {
         if (replacementDirLine->inTransition()) {
             if (noStall) return false;
             mshr_->insertPointer(replacementDirLine->getBaseAddr(), baseAddr);
@@ -511,7 +512,7 @@ void Cache::activatePrevEvents(Addr baseAddr) {
     //d_->debug(_L3_, "Called activatePrevEvents with addr = 0x%" PRIx64 ". Printing MSHR...\n", baseAddr);
     //mshr_->printTable();
     if (!mshr_->isHit(baseAddr)) return;
-    
+
     vector<mshrType> entries = mshr_->removeAll(baseAddr);
     bool cont;
     int i = 0;
@@ -519,7 +520,7 @@ void Cache::activatePrevEvents(Addr baseAddr) {
     if (DEBUG_ALL || DEBUG_ADDR == baseAddr) d_->debug(_L3_,"---------Replaying Events--------- Size: %lu\n", entries.size());
 #endif
     bool writebackInProgress = false;   // Use this to allow replay of pointers but NOT events for this addr because an eviction is in progress
-    
+
     // Self-pointer check -> remove it and record that we have it if needed
     if ((*entries.begin()).elem.isAddr() && ((*entries.begin()).elem).getAddr() == baseAddr) {
         entries.erase(entries.begin());
@@ -536,10 +537,10 @@ void Cache::activatePrevEvents(Addr baseAddr) {
                 entries.erase(it);
                 continue;
             }
-            
+
             // Reactivate entries for address that was waiting for baseAddr
             // This entry list shouldn't include pointers unless a writeback occured (and even then...)
-            vector<mshrType> pointerEntries = mshr_->removeAll(pointerAddr);    
+            vector<mshrType> pointerEntries = mshr_->removeAll(pointerAddr);
             for (vector<mshrType>::iterator it2 = pointerEntries.begin(); it2 != pointerEntries.end(); i++) {
                 if ((*it2).elem.isAddr()) {
                     Addr elemAddr = ((*it2).elem).getAddr();
@@ -584,7 +585,7 @@ void Cache::activatePrevEvents(Addr baseAddr) {
                 } else {
                     writebackInProgress = false;
                 }
-            } 
+            }
             cont = activatePrevEvent(((*it).elem).getEvent(), entries, baseAddr, it, i);
             if (!cont) break;
         }
@@ -603,15 +604,15 @@ bool Cache::activatePrevEvent(MemEvent* event, vector<mshrType>& _entries, Addr 
                   index, CommandString[event->getCmd()], toBaseAddr(event->getAddr()), event->getAddr(), event->getDst().c_str());
     if (DEBUG_ALL || DEBUG_ADDR == _addr) d_->debug(_L3_,"--------------------------------------\n");
 #endif
-    
+
     this->processEvent(event, true);
-    
+
 #ifdef __SST_DEBUG_OUTPUT__
     if (DEBUG_ALL || DEBUG_ADDR == _addr) d_->debug(_L3_,"--------------------------------------\n");
 #endif
-    
+
     _entries.erase(it);
-    
+
     /* If the event we just ran 'blocked', then there is not reason to activate other events. */
     /* However we do need to replay requests from lower levels! (Like Inv) Otherwise deadlock! */
     if (mshr_->isHit(_addr)) {
@@ -673,7 +674,7 @@ void Cache::postReplacementProcessing(MemEvent * event, CacheAction action, bool
 
     /* Got a writeback, check if waiting events can proceed now */
     if (action == DONE) activatePrevEvents(baseAddr);
-    
+
     /* Clean up */
     delete event;
 }
@@ -689,7 +690,7 @@ void Cache::postRequestProcessing(MemEvent* event, CacheLine* cacheLine, bool re
     }
     recordLatency(event);
     delete event;
-    
+
     /* For atomic requests handled by the cache itself, GetX unlocks the cache line.  Therefore,
        we possibly need to 'replay' events that blocked due to an locked cacheline */
     if (cmd == GetX && cf_.L1_ && cacheLine->getEventsWaitingForLock() && !cacheLine->isLocked()) reActivateEventWaitingForUserLock(cacheLine);
@@ -722,7 +723,7 @@ MemEvent* Cache::getOrigReq(const vector<mshrType> entries) {
 
 
 
-void Cache::errorChecking() {    
+void Cache::errorChecking() {
     if (cf_.MSHRSize_ <= 0)             d_->fatal(CALL_INFO, -1, "MSHR size not specified correctly. \n");
     if (cf_.numLines_ <= 0)             d_->fatal(CALL_INFO, -1, "Number of lines not set correctly. \n");
     if (!isPowerOfTwo(cf_.lineSize_))   d_->fatal(CALL_INFO, -1, "Cache line size is not a power of two. \n");
@@ -735,7 +736,7 @@ void Cache::pMembers() {
     if (cf_.protocol_ == CoherenceProtocol::MESI) protocolStr = "MESI";
     else if (cf_.protocol_ == CoherenceProtocol::NONE) protocolStr = "NONE";
     else protocolStr = "MSI";
-    
+
     d_->debug(_INFO_,"Coherence Protocol: %s \n", protocolStr.c_str());
     d_->debug(_INFO_,"Cache lines: %d \n", cf_.numLines_);
     d_->debug(_INFO_,"Cache line size: %d \n", cf_.lineSize_);
@@ -779,7 +780,7 @@ void Cache::processIncomingNACK(MemEvent* origReqEvent) {
 #ifdef __SST_DEBUG_OUTPUT__
     if (DEBUG_ALL || DEBUG_ADDR == origReqEvent->getBaseAddr()) d_->debug(_L3_,"NACK received.\n");
 #endif
-    
+
     /* Determine whether NACKed event needs to be retried */
     CacheLine * cacheLine = cf_.cacheArray_->lookup(origReqEvent->getBaseAddr(), false);
     if (!coherenceMgr_->isRetryNeeded(origReqEvent, cacheLine)) {
@@ -807,8 +808,8 @@ void Cache::printLine(Addr addr) {
         bool isCached = (line == nullptr) ? false : (line->getDataLine() != NULL);
         unsigned int sharers = (line == nullptr) ? 0 : line->numSharers();
         string owner = (line == nullptr) ? "" : line->getOwner();
-        d_->debug(_L8_, "0x%" PRIx64 ": %s, %u, \"%s\" %d\n", 
-                addr, StateString[state], sharers, owner.c_str(), isCached); 
+        d_->debug(_L8_, "0x%" PRIx64 ": %s, %u, \"%s\" %d\n",
+                addr, StateString[state], sharers, owner.c_str(), isCached);
     } else if (cf_.L1_) {
         CacheLine * line = cf_.cacheArray_->lookup(addr, false);
         State state = (line == nullptr) ? NP : line->getState();
