@@ -130,59 +130,6 @@ void SST::MemHierarchy::HTM::processRequest(SST::Event* ev)
 
     processEvent(event, 0);
 
-//
-//     MemEvent* responseEvent = new MemEvent(*event);
-//     responseEvent->setDst(event->getSrc());
-//     responseEvent->setSize(event->getSize());
-//
-//     Addr baseAddr       = responseEvent->getBaseAddr();
-//     Command cmd         = responseEvent->getCmd();
-//     bool noncacheable   = responseEvent->queryFlag(MemEvent::F_NONCACHEABLE);
-//
-//
-//     if(cmd == SST::MemHierarchy::BeginTx)
-//     {
-//         std::cout << "HTM-" << " Transaction Starting\n" << std::flush;
-//     }
-//     else if(cmd == SST::MemHierarchy::EndTx)
-//     {
-//         std::cout << "HTM-" << " Transaction Ending\n" << std::flush;
-//     }
-//
-//     output_->debug(_L3_,"\n\n-------------------------------------------------------------------------------------------------------------------------------------------------------------------\n");
-//     std::cout << flush;
-//
-//     output_->debug(_L3_,"HTM-REQ. Name: %s, Cmd: %s, BsAddr: %" PRIx64 ", Addr: %" PRIx64 ", VAddr: %" PRIx64 ", iPtr: %" PRIx64 ", Rqstr: %s, Src: %s, Dst: %s, PreF:%s, Bytes requested = %u, cycles: %" PRIu64 ", %s\n",
-//                        this->getName().c_str(), CommandString[forwardEvent->getCmd()], baseAddr, forwardEvent->getAddr(), forwardEvent->getVirtualAddress(), forwardEvent->getInstructionPointer(), forwardEvent->getRqstr().c_str(),
-//                        forwardEvent->getSrc().c_str(), forwardEvent->getDst().c_str(), forwardEvent->isPrefetch() ? "true" : "false", forwardEvent->getSize(), 0, noncacheable ? "noncacheable" : "cacheable");
-//     std::cout << flush;
-
-
-//         MemEvent* forwardEvent;
-//     forwardEvent = new MemEvent(*static_cast<MemEvent*>(ev));
-//     forwardEvent->setSrc(parent->getName());
-//     forwardEvent->setDst(getDestination(baseAddr));
-//     forwardEvent->setSize(requestSize);
-
-
-
-//     MemEvent* forwardEvent = new MemEvent(*static_cast<MemEvent*>(ev));
-//     forwardEvent->setSrc(ev->getSrc());
-//     forwardEvent->setDst(upperLevelCacheNames_[0]);
-
-//     CoherenceController::Response fwdReq = {forwardEvent, 0, forwardEvent->getPayloadSize()};
-//     addToOutgoingQueueUp(fwdReq);
-// #ifdef __SST_DEBUG_OUTPUT__
-//     if (DEBUG_ALL || DEBUG_ADDR == event->getBaseAddr()) debug->debug(_L3_, "Forwarding %s to %s at cycle = %" PRIu64 "\n", CommandString[forwardEvent->getCmd()], forwardEvent->getDst().c_str(), deliveryTime);
-// #endif
-
-
-//     MemEvent* responseEvent = new MemEvent(*event);
-//     responseEvent->setDst(event->getSrc());
-//     responseEvent->setSize(event->getSize());
-
-//     lowLink_->send(forwardEvent);
-
 }
 
 void SST::MemHierarchy::HTM::processResponse(SST::Event* ev)
@@ -190,34 +137,6 @@ void SST::MemHierarchy::HTM::processResponse(SST::Event* ev)
     MemEvent* event = static_cast<MemEvent*>(ev);
 
     processEvent(event, 1);
-
-
-//         MemEvent* forwardEvent;
-//     forwardEvent = new MemEvent(*static_cast<MemEvent*>(ev));
-//     forwardEvent->setSrc(parent->getName());
-//     forwardEvent->setDst(getDestination(baseAddr));
-//     forwardEvent->setSize(requestSize);
-
-
-
-//     MemEvent* forwardEvent = new MemEvent(*static_cast<MemEvent*>(ev));
-//     forwardEvent->setSrc(ev->getSrc());
-//     forwardEvent->setDst(upperLevelCacheNames_[0]);
-
-//     CoherenceController::Response fwdReq = {forwardEvent, 0, forwardEvent->getPayloadSize()};
-//     addToOutgoingQueueUp(fwdReq);
-// #ifdef __SST_DEBUG_OUTPUT__
-//     if (DEBUG_ALL || DEBUG_ADDR == event->getBaseAddr()) debug->debug(_L3_, "Forwarding %s to %s at cycle = %" PRIu64 "\n", CommandString[forwardEvent->getCmd()], forwardEvent->getDst().c_str(), deliveryTime);
-// #endif
-
-
-//     MemEvent* responseEvent = new MemEvent(*event);
-//     responseEvent->setDst(event->getSrc());
-//     responseEvent->setSize(event->getSize());
-
-//     ev->getDeliveryLink()->send(ev);
-//     highLink_->send(forwardEvent);
-
 
 }
 
@@ -227,31 +146,35 @@ void SST::MemHierarchy::HTM::processEvent(MemEvent* event, uint32_t direction)
     forwardEvent->setSrc(event->getSrc());
     forwardEvent->setDst(event->getDst());
 
-
     Addr baseAddr       = forwardEvent->getBaseAddr();
     Command cmd         = forwardEvent->getCmd();
     bool noncacheable   = forwardEvent->queryFlag(MemEvent::F_NONCACHEABLE);
 
+#ifdef __SST_DEBUG_OUTPUT__
     output_->debug(_L3_,"\n\n-------------------------------------------------------------------------------------------------------------------------------------------------------------------\n");
     std::cout << flush;
-
-    std::cout << flush;
+#endif
 
     if(direction == 0)
     {
+#ifdef __SST_DEBUG_OUTPUT__
         output_->debug(_L3_,"HTM-REQ. Name: %s, Cmd: %s, BsAddr: %" PRIx64 ", Addr: %" PRIx64 ", VAddr: %" PRIx64 ", iPtr: %" PRIx64 ", Rqstr: %s, Src: %s, Dst: %s, PreF:%s, Bytes requested = %u, cycles: %" PRIu64 ", %s\n",
                     this->getName().c_str(), CommandString[forwardEvent->getCmd()], baseAddr, forwardEvent->getAddr(), forwardEvent->getVirtualAddress(), forwardEvent->getInstructionPointer(), forwardEvent->getRqstr().c_str(),
                     forwardEvent->getSrc().c_str(), forwardEvent->getDst().c_str(), forwardEvent->isPrefetch() ? "true" : "false", forwardEvent->getSize(), 0, noncacheable ? "noncacheable" : "cacheable");
+#endif
 
+        //Nothing to do, so pass the event on
         lowLink_->send(forwardEvent);
     }
     else
     {
+#ifdef __SST_DEBUG_OUTPUT__
         output_->debug(_L3_,"HTM-RES. Name: %s, Cmd: %s, BsAddr: %" PRIx64 ", Addr: %" PRIx64 ", VAddr: %" PRIx64 ", iPtr: %" PRIx64 ", Rqstr: %s, Src: %s, Dst: %s, PreF:%s, Bytes requested = %u, cycles: %" PRIu64 ", %s\n",
                     this->getName().c_str(), CommandString[forwardEvent->getCmd()], baseAddr, forwardEvent->getAddr(), forwardEvent->getVirtualAddress(), forwardEvent->getInstructionPointer(), forwardEvent->getRqstr().c_str(),
                     forwardEvent->getSrc().c_str(), forwardEvent->getDst().c_str(), forwardEvent->isPrefetch() ? "true" : "false", forwardEvent->getSize(), 0, noncacheable ? "noncacheable" : "cacheable");
+#endif
 
-
+        //Nothing to do, so pass the event on
         highLink_->send(forwardEvent);
     }
 
