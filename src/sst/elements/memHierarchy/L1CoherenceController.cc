@@ -34,8 +34,7 @@ using namespace SST::MemHierarchy;
  */
   
 CacheAction L1CoherenceController::handleEviction(CacheLine* wbCacheLine, string origRqstr, bool ignoredParam) {
-    State state = wbCacheLine->getState();
-   
+
     /* HTM Coherence */
     if(wbCacheLine->test_TxReadBits()) {
        return STALL;
@@ -52,23 +51,31 @@ CacheAction L1CoherenceController::handleEviction(CacheLine* wbCacheLine, string
         return STALL;
     }
 
+    Addr wbBaseAddr = wbCacheLine->getBaseAddr();
+
+    State state = wbCacheLine->getState();
     recordEvictionState(state);
+
+#ifdef __SST_DEBUG_OUTPUT__
+    if (DEBUG_ALL || DEBUG_ADDR == wbBaseAddr) debug->debug(_L6_, "Handling eviction at %s cache for addr 0x%" PRIx64 " in (%s)\n", parent->getName().c_str(), wbBaseAddr, StateString[state]);
+#endif
+
     switch(state) {
         case I:
             return DONE;
         case S:
             if (!silentEvictClean_) sendWriteback(PutS, wbCacheLine, false, origRqstr);
-            if (expectWritebackAck_) mshr_->insertWriteback(wbCacheLine->getBaseAddr());
+            if (expectWritebackAck_) mshr_->insertWriteback(wbBaseAddr);
             wbCacheLine->setState(I);
             return DONE;
         case E:
             if (!silentEvictClean_) sendWriteback(PutE, wbCacheLine, false, origRqstr);
-            if (expectWritebackAck_) mshr_->insertWriteback(wbCacheLine->getBaseAddr());
+            if (expectWritebackAck_) mshr_->insertWriteback(wbBaseAddr);
 	    wbCacheLine->setState(I);
 	    return DONE;
         case M:
 	    sendWriteback(PutM, wbCacheLine, true, origRqstr);
-            if (expectWritebackAck_) mshr_->insertWriteback(wbCacheLine->getBaseAddr());
+            if (expectWritebackAck_) mshr_->insertWriteback(wbBaseAddr);
             wbCacheLine->setState(I);
 	    return DONE;
         case IS:
@@ -79,7 +86,7 @@ CacheAction L1CoherenceController::handleEviction(CacheLine* wbCacheLine, string
             return STALL;
         default:
             debug->fatal(CALL_INFO,-1,"%s, Error: State is invalid during eviction: %s. Addr = 0x%" PRIx64 ". Time = %" PRIu64 "ns\n",
-                    parent->getName().c_str(), StateString[state], wbCacheLine->getBaseAddr(), getCurrentSimTimeNano());
+                    parent->getName().c_str(), StateString[state], wbBaseAddr, getCurrentSimTimeNano());
     }
     return STALL; // Eliminate compiler warning
 }
