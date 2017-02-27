@@ -65,16 +65,19 @@ public:
         return baseAddr;
     }
 
+    virtual void init(unsigned int);
+
 private:
 
 
     /** Handler for incoming link events.  */
     void processRequest(SST::Event* event);
 
+    /** Handler for outgoing link events.  */
     void processResponse(SST::Event* event);
 
-//     /** Handler for incoming allocation events.  */
-//     void processAllocEvent(SST::Event* event);
+    void processEvent(MemEvent* event, uint32_t direction);
+
 //
 //     /** output and clear stats to file  */
 //     void outputStats(int marker);
@@ -84,10 +87,10 @@ private:
     uint32_t            core_count_;
     CacheArray*         cacheArray_;
 
-//     vector<SST::Link*>  cpuLinks_;
-//     vector<SST::Link*>  cacheLinks_;
-    SST::Link*  cpuLink_;
-    SST::Link*  cacheLink_;
+    SST::Link*          highLink_;
+    SST::Link*          lowLink_;
+    vector<string>      lowerLevelNames_;
+    vector<string>      upperLevelNames_;
 
     /* Statistics */
     Statistic<uint64_t>* statReadSetSize;

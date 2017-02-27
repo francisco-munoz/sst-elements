@@ -766,8 +766,8 @@ static const ElementInfoParam htm_params[] = {
 };
 
 static const ElementInfoPort htm_ports[] = {
-    {"cpu_htm_link", "Ports connected to the CPUs", memEvent_port_events},
-    {"htm_cache_link", "Link to cache", memEvent_port_events},
+    {"htm_high_link", "Ports connected to the CPUs", memEvent_port_events},
+    {"htm_low_link", "Link to cache", memEvent_port_events},
     {NULL, NULL, NULL}
 };
 

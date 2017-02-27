@@ -44,7 +44,7 @@ CacheAction MESIController::handleEviction(CacheLine* wbCacheLine, string rqstr,
 
     Addr wbBaseAddr = wbCacheLine->getBaseAddr();
 #ifdef __SST_DEBUG_OUTPUT__
-    if (DEBUG_ALL || DEBUG_ADDR == wbBaseAddr) debug->debug(_L6_, "Handling eviction at cache for addr 0x%" PRIx64 " with index %d\n", wbBaseAddr, wbCacheLine->getIndex());
+    if (DEBUG_ALL || DEBUG_ADDR == wbBaseAddr) debug->debug(_L6_, "Handling eviction at cache for addr 0x%" PRIx64 " (%s) with index %d\n", wbBaseAddr, StateString[state], wbCacheLine->getIndex());
 #endif
     switch(state) {
         case SI:

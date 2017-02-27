@@ -19,6 +19,8 @@
 
 #include "HTM.h"
 #include "memEvent.h"
+#include "coherenceController.h"
+
 
 SST::MemHierarchy::HTM::HTM(ComponentId_t id, Params &params) : Component(id)
 {
@@ -57,24 +59,25 @@ SST::MemHierarchy::HTM::HTM(ComponentId_t id, Params &params) : Component(id)
     CacheArray* cacheArray = new SetAssociativeArray(output_, numLines, lineSize, associativity, replManager, ht, false);
 
     /* --------------- Setup links --------------- */
-    if (isPortConnected("cpu_htm_link"))
+    // Going Down toward Main Memory
+    if (isPortConnected("htm_low_link"))
     {
-        cpuLink_ = configureLink("cpu_htm_link", "50ps", new Event::Handler<HTM>(this, &HTM::processRequest));
-        output_->debug(_INFO_, "High Network Link ID: %u\n", (uint)cpuLink_->getId());
+        lowLink_ = configureLink("htm_low_link", "50ps", new Event::Handler<HTM>(this, &HTM::processResponse));
+        output_->debug(_INFO_, "Low Network Link ID: %u\n", (uint)lowLink_->getId());
     } else
     {
         output_->fatal(CALL_INFO, -1, "%s, Error: no connected cache port. Please connect a cache to port 'cache'\n", getName().c_str());
     }
 
-    if (isPortConnected("htm_cache_link"))
+    // Going Up Toward PE
+    if (isPortConnected("htm_high_link"))
     {
-        cacheLink_ = configureLink("htm_cache_link", "50ps", new Event::Handler<HTM>(this, &HTM::processResponse));
-        output_->debug(_INFO_, "Low Network Link ID: %u\n", (uint)cacheLink_->getId());
+        highLink_ = configureLink("htm_high_link", "50ps", new Event::Handler<HTM>(this, &HTM::processRequest));
+        output_->debug(_INFO_, "High Network Link ID: %u\n", (uint)highLink_->getId());
     } else
     {
         output_->fatal(CALL_INFO, -1, "%s, Error: no connected cache port. Please connect a cache to port 'cache'\n", getName().c_str());
     }
-
 
     /* Register statistics */
     statReadSetSize    = registerStatistic<uint64_t>("ReadSetSize");
@@ -83,49 +86,176 @@ SST::MemHierarchy::HTM::HTM(ComponentId_t id, Params &params) : Component(id)
     statCommits = registerStatistic<uint64_t>("NumCommits");
 }
 
+void SST::MemHierarchy::HTM::init(unsigned int phase)
+{
+    SST::Event *ev;
 
-void SST::MemHierarchy::HTM::processRequest(SST::Event* ev) {
-    MemEvent* event = static_cast<MemEvent*>(ev);
-    Command cmd     = event->getCmd();
-
-    if(cmd == SST::MemHierarchy::BeginTx)
+    if(!phase)
     {
-        std::cout << "HTM-" << " Transaction Starting\n" << std::flush;
-    }
-    else if(cmd == SST::MemHierarchy::EndTx)
-    {
-        std::cout << "HTM-" << " Transaction Ending\n" << std::flush;
-    }
-//     else
-    {
-        cacheLink_->send(ev);
-//         SST::Link * link = event->getDeliveryLink();
-//         link->send(ev);
+        highLink_->sendInitData(new MemEvent(this, 0, 0, NULLCMD));
+        lowLink_->sendInitData(new MemEvent(this, 10, 10, NULLCMD));
     }
 
-//     delete ev;
+    while ((ev = highLink_->recvInitData()))
+    {
+        MemEvent* memEvent = dynamic_cast<MemEvent*>(ev);
+        if (!memEvent) { /* Do nothing */ }
+        else if (memEvent->getCmd() == NULLCMD) {
+            if (memEvent->getCmd() == NULLCMD) {    // Save upper level cache names
+                upperLevelNames_.push_back(memEvent->getSrc());
+            }
+        } else {
+                lowLink_->sendInitData(new MemEvent(*memEvent));
+        }
+        delete memEvent;
+     }
+
+    while ((ev = lowLink_->recvInitData()))
+    {
+        MemEvent* memEvent = dynamic_cast<MemEvent*>(ev);
+        if (memEvent && memEvent->getCmd() == NULLCMD) {
+            lowerLevelNames_.push_back(memEvent->getSrc());
+        }
+        delete memEvent;
+    }
+
+//     std::cout << "High Name:  " << upperLevelNames_[0] << "\n";
+//     std::cout << "Low Name:  "  << lowerLevelNames_[0] << "\n";
+
 }
 
-void SST::MemHierarchy::HTM::processResponse(SST::Event* ev) {
-//     MemEvent* event = static_cast<MemEvent*>(ev);
-//     Command cmd     = event->getCmd();
+void SST::MemHierarchy::HTM::processRequest(SST::Event* ev)
+{
+    MemEvent* event = static_cast<MemEvent*>(ev);
 
-    cpuLink_->send(ev);
+    processEvent(event, 0);
 
+//
+//     MemEvent* responseEvent = new MemEvent(*event);
+//     responseEvent->setDst(event->getSrc());
+//     responseEvent->setSize(event->getSize());
+//
+//     Addr baseAddr       = responseEvent->getBaseAddr();
+//     Command cmd         = responseEvent->getCmd();
+//     bool noncacheable   = responseEvent->queryFlag(MemEvent::F_NONCACHEABLE);
+//
+//
 //     if(cmd == SST::MemHierarchy::BeginTx)
 //     {
 //         std::cout << "HTM-" << " Transaction Starting\n" << std::flush;
 //     }
 //     else if(cmd == SST::MemHierarchy::EndTx)
 //     {
-//         std::cout << "HTM-" << " Transaction Starting\n" << std::flush;
+//         std::cout << "HTM-" << " Transaction Ending\n" << std::flush;
 //     }
-//     else
-//     {
-//         SST::Link * link = event->getDeliveryLink();
-//         link->send(ev);
-//     }
+//
+//     output_->debug(_L3_,"\n\n-------------------------------------------------------------------------------------------------------------------------------------------------------------------\n");
+//     std::cout << flush;
+//
+//     output_->debug(_L3_,"HTM-REQ. Name: %s, Cmd: %s, BsAddr: %" PRIx64 ", Addr: %" PRIx64 ", VAddr: %" PRIx64 ", iPtr: %" PRIx64 ", Rqstr: %s, Src: %s, Dst: %s, PreF:%s, Bytes requested = %u, cycles: %" PRIu64 ", %s\n",
+//                        this->getName().c_str(), CommandString[forwardEvent->getCmd()], baseAddr, forwardEvent->getAddr(), forwardEvent->getVirtualAddress(), forwardEvent->getInstructionPointer(), forwardEvent->getRqstr().c_str(),
+//                        forwardEvent->getSrc().c_str(), forwardEvent->getDst().c_str(), forwardEvent->isPrefetch() ? "true" : "false", forwardEvent->getSize(), 0, noncacheable ? "noncacheable" : "cacheable");
+//     std::cout << flush;
 
-//     delete ev;
+
+//         MemEvent* forwardEvent;
+//     forwardEvent = new MemEvent(*static_cast<MemEvent*>(ev));
+//     forwardEvent->setSrc(parent->getName());
+//     forwardEvent->setDst(getDestination(baseAddr));
+//     forwardEvent->setSize(requestSize);
+
+
+
+//     MemEvent* forwardEvent = new MemEvent(*static_cast<MemEvent*>(ev));
+//     forwardEvent->setSrc(ev->getSrc());
+//     forwardEvent->setDst(upperLevelCacheNames_[0]);
+
+//     CoherenceController::Response fwdReq = {forwardEvent, 0, forwardEvent->getPayloadSize()};
+//     addToOutgoingQueueUp(fwdReq);
+// #ifdef __SST_DEBUG_OUTPUT__
+//     if (DEBUG_ALL || DEBUG_ADDR == event->getBaseAddr()) debug->debug(_L3_, "Forwarding %s to %s at cycle = %" PRIu64 "\n", CommandString[forwardEvent->getCmd()], forwardEvent->getDst().c_str(), deliveryTime);
+// #endif
+
+
+//     MemEvent* responseEvent = new MemEvent(*event);
+//     responseEvent->setDst(event->getSrc());
+//     responseEvent->setSize(event->getSize());
+
+//     lowLink_->send(forwardEvent);
+
 }
+
+void SST::MemHierarchy::HTM::processResponse(SST::Event* ev)
+{
+    MemEvent* event = static_cast<MemEvent*>(ev);
+
+    processEvent(event, 1);
+
+
+//         MemEvent* forwardEvent;
+//     forwardEvent = new MemEvent(*static_cast<MemEvent*>(ev));
+//     forwardEvent->setSrc(parent->getName());
+//     forwardEvent->setDst(getDestination(baseAddr));
+//     forwardEvent->setSize(requestSize);
+
+
+
+//     MemEvent* forwardEvent = new MemEvent(*static_cast<MemEvent*>(ev));
+//     forwardEvent->setSrc(ev->getSrc());
+//     forwardEvent->setDst(upperLevelCacheNames_[0]);
+
+//     CoherenceController::Response fwdReq = {forwardEvent, 0, forwardEvent->getPayloadSize()};
+//     addToOutgoingQueueUp(fwdReq);
+// #ifdef __SST_DEBUG_OUTPUT__
+//     if (DEBUG_ALL || DEBUG_ADDR == event->getBaseAddr()) debug->debug(_L3_, "Forwarding %s to %s at cycle = %" PRIu64 "\n", CommandString[forwardEvent->getCmd()], forwardEvent->getDst().c_str(), deliveryTime);
+// #endif
+
+
+//     MemEvent* responseEvent = new MemEvent(*event);
+//     responseEvent->setDst(event->getSrc());
+//     responseEvent->setSize(event->getSize());
+
+//     ev->getDeliveryLink()->send(ev);
+//     highLink_->send(forwardEvent);
+
+
+}
+
+void SST::MemHierarchy::HTM::processEvent(MemEvent* event, uint32_t direction)
+{
+    MemEvent * forwardEvent = new MemEvent(*event);
+    forwardEvent->setSrc(event->getSrc());
+    forwardEvent->setDst(event->getDst());
+
+
+    Addr baseAddr       = forwardEvent->getBaseAddr();
+    Command cmd         = forwardEvent->getCmd();
+    bool noncacheable   = forwardEvent->queryFlag(MemEvent::F_NONCACHEABLE);
+
+    output_->debug(_L3_,"\n\n-------------------------------------------------------------------------------------------------------------------------------------------------------------------\n");
+    std::cout << flush;
+
+    std::cout << flush;
+
+    if(direction == 0)
+    {
+        output_->debug(_L3_,"HTM-REQ. Name: %s, Cmd: %s, BsAddr: %" PRIx64 ", Addr: %" PRIx64 ", VAddr: %" PRIx64 ", iPtr: %" PRIx64 ", Rqstr: %s, Src: %s, Dst: %s, PreF:%s, Bytes requested = %u, cycles: %" PRIu64 ", %s\n",
+                    this->getName().c_str(), CommandString[forwardEvent->getCmd()], baseAddr, forwardEvent->getAddr(), forwardEvent->getVirtualAddress(), forwardEvent->getInstructionPointer(), forwardEvent->getRqstr().c_str(),
+                    forwardEvent->getSrc().c_str(), forwardEvent->getDst().c_str(), forwardEvent->isPrefetch() ? "true" : "false", forwardEvent->getSize(), 0, noncacheable ? "noncacheable" : "cacheable");
+
+        lowLink_->send(forwardEvent);
+    }
+    else
+    {
+        output_->debug(_L3_,"HTM-RES. Name: %s, Cmd: %s, BsAddr: %" PRIx64 ", Addr: %" PRIx64 ", VAddr: %" PRIx64 ", iPtr: %" PRIx64 ", Rqstr: %s, Src: %s, Dst: %s, PreF:%s, Bytes requested = %u, cycles: %" PRIu64 ", %s\n",
+                    this->getName().c_str(), CommandString[forwardEvent->getCmd()], baseAddr, forwardEvent->getAddr(), forwardEvent->getVirtualAddress(), forwardEvent->getInstructionPointer(), forwardEvent->getRqstr().c_str(),
+                    forwardEvent->getSrc().c_str(), forwardEvent->getDst().c_str(), forwardEvent->isPrefetch() ? "true" : "false", forwardEvent->getSize(), 0, noncacheable ? "noncacheable" : "cacheable");
+
+
+        highLink_->send(forwardEvent);
+    }
+
+
+}
+
 
