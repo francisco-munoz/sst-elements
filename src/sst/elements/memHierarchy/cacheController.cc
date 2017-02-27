@@ -403,34 +403,6 @@ bool Cache::allocateLine(MemEvent * event, Addr baseAddr) {
 }
 
 
-bool Cache::allocateCacheLine(MemEvent* event, Addr baseAddr) {
-    CacheLine* replacementLine = cf_.cacheArray_->findReplacementCandidate(baseAddr, true);
-
-#ifdef __SST_DEBUG_OUTPUT__
-    if (replacementLine->valid() && (DEBUG_ALL || DEBUG_ADDR == baseAddr || DEBUG_ADDR == replacementLine->getBaseAddr())) {
-        d_->debug(_L6_, "Evicting 0x%" PRIx64 "\n", replacementLine->getBaseAddr());
-    }
-#endif
-
-    /* Valid line indicates an eviction is needed, have cache coherence manager handle this */
-    if (replacementLine->valid()) {
-        if (replacementLine->inTransition()) {
-            mshr_->insertPointer(replacementLine->getBaseAddr(), event->getBaseAddr());
-            return false;
-        }
-
-        CacheAction action = coherenceMgr_->handleEviction(replacementLine, this->getName(), false);
-        if (action == STALL) {
-            mshr_->insertPointer(replacementLine->getBaseAddr(), event->getBaseAddr());
-            return false;
-        }
-    }
-
-    /* OK to replace line  */
-    cf_.cacheArray_->replace(baseAddr, replacementLine);
-    return true;
-}
-
 /*
  *  Allocate a new line in the directory portion of the directory+cache
  *  Do not touch the cache part unless we need to evict a directory entry that is cached

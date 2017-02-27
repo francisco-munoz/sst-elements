@@ -117,7 +117,6 @@ private:
         valid then a writeback is needed.  If replacemenent candidate is transitioning, we 
         need to wait (stall) until the replacement is in a 'stable' state */
     inline bool allocateLine(MemEvent *event, Addr baseAddr);
-    inline bool allocateCacheLine(MemEvent *event, Addr baseAddr);
     inline bool allocateDirLine(MemEvent *event, Addr baseAddr);
     inline bool allocateDirCacheLine(MemEvent *event, Addr baseAddr, CacheLine * dirLine, bool noStall);
 
