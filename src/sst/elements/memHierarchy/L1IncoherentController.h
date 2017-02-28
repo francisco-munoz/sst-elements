@@ -98,7 +98,7 @@ public:
     CacheAction handleResponse(MemEvent* responseEvent, CacheLine* cacheLine, MemEvent* origRequest);
 
     /* Stuff */
-    CacheAction handleHTMEvent(MemEvent * event, Command cmd);
+    CacheAction handleHTMEvent(MemEvent* event, CacheLine* line, Command cmd);
 
     /* Methods for sending events, called by cache controller */
     /** Send response up (to processor) */

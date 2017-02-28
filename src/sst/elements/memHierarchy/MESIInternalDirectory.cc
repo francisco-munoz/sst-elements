@@ -247,7 +247,7 @@ CacheAction MESIInternalDirectory::handleResponse(MemEvent * respEvent, CacheLin
     return DONE;    // Eliminate compiler warning
 }
 
-CacheAction MESIInternalDirectory::handleHTMEvent(MemEvent * event, Command cmd) {
+CacheAction MESIInternalDirectory::handleHTMEvent(MemEvent* event, CacheLine* line, Command cmd){
 }
 
 

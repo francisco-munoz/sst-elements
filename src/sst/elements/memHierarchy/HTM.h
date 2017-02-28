@@ -70,13 +70,17 @@ public:
 private:
 
 
-    /** Handler for incoming link events.  */
+    /** Event Handlers */
     void processRequest(SST::Event* event);
-
-    /** Handler for outgoing link events.  */
     void processResponse(SST::Event* event);
-
     void processEvent(MemEvent* event, uint32_t direction);
+
+    /** Utility **/
+    uint32_t get_transactionDepth(void) { return transactionDepth; };
+    void set_transactionDepth(uint32_t inVal) { transactionDepth = inVal; };
+    void inc_transactionDepth(void) { ++transactionDepth; };
+    void dec_transactionDepth(void) { --transactionDepth; };
+
 
 //
 //     /** output and clear stats to file  */
@@ -91,6 +95,9 @@ private:
     SST::Link*          lowLink_;
     vector<string>      lowerLevelNames_;
     vector<string>      upperLevelNames_;
+
+    /* Manager */
+    uint32_t            transactionDepth;
 
     /* Statistics */
     Statistic<uint64_t>* statReadSetSize;

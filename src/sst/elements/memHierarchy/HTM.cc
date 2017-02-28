@@ -128,7 +128,35 @@ void SST::MemHierarchy::HTM::processRequest(SST::Event* ev)
 {
     MemEvent* event = static_cast<MemEvent*>(ev);
 
-    processEvent(event, 0);
+//     processEvent(event, 0);
+
+    Addr baseAddr       = event->getBaseAddr();
+    Command cmd         = event->getCmd();
+    bool noncacheable   = event->queryFlag(MemEvent::F_NONCACHEABLE);
+
+#ifdef __SST_DEBUG_OUTPUT__
+    output_->debug(_L3_,"\n\n-------------------------------------------------------------------------------------------------------------------------------------------------------------------\n");
+    output_->debug(_L3_,"HTM:  REQUEST Name: %s, Cmd: %s, BsAddr: %" PRIx64 ", Addr: %" PRIx64 ", VAddr: %" PRIx64 ", iPtr: %" PRIx64 ", Rqstr: %s, Src: %s, Dst: %s, PreF:%s, Bytes requested = %u, cycles: %" PRIu64 ", %s\n",
+                this->getName().c_str(), CommandString[event->getCmd()], baseAddr, event->getAddr(), event->getVirtualAddress(), event->getInstructionPointer(), event->getRqstr().c_str(),
+                event->getSrc().c_str(), event->getDst().c_str(), event->isPrefetch() ? "true" : "false", event->getSize(), 0, noncacheable ? "noncacheable" : "cacheable");
+#endif
+
+    if(cmd == BeginTx)
+    {
+        std::cout << "HTM:  Start Transaction\n\n" << std::flush;
+        inc_transactionDepth();
+    }
+    else if(cmd == EndTx)
+    {
+        std::cout << "HTM:  End Transaction\n\n" << std::flush;
+        dec_transactionDepth();
+    }
+    else
+    {
+        //Nothing to do, so pass the event on
+        lowLink_->send(event);
+    }
+
 
 }
 
@@ -136,7 +164,21 @@ void SST::MemHierarchy::HTM::processResponse(SST::Event* ev)
 {
     MemEvent* event = static_cast<MemEvent*>(ev);
 
-    processEvent(event, 1);
+//     processEvent(event, 1);
+
+    Addr baseAddr       = event->getBaseAddr();
+    Command cmd         = event->getCmd();
+    bool noncacheable   = event->queryFlag(MemEvent::F_NONCACHEABLE);
+
+#ifdef __SST_DEBUG_OUTPUT__
+    output_->debug(_L3_,"\n\n-------------------------------------------------------------------------------------------------------------------------------------------------------------------\n");
+    output_->debug(_L3_,"HTM:  RESPONSE Name: %s, Cmd: %s, BsAddr: %" PRIx64 ", Addr: %" PRIx64 ", VAddr: %" PRIx64 ", iPtr: %" PRIx64 ", Rqstr: %s, Src: %s, Dst: %s, PreF:%s, Bytes requested = %u, cycles: %" PRIu64 ", %s\n",
+                this->getName().c_str(), CommandString[event->getCmd()], baseAddr, event->getAddr(), event->getVirtualAddress(), event->getInstructionPointer(), event->getRqstr().c_str(),
+                event->getSrc().c_str(), event->getDst().c_str(), event->isPrefetch() ? "true" : "false", event->getSize(), 0, noncacheable ? "noncacheable" : "cacheable");
+#endif
+
+    //Nothing to do, so pass the event on
+    highLink_->send(event);
 
 }
 
@@ -154,6 +196,15 @@ void SST::MemHierarchy::HTM::processEvent(MemEvent* event, uint32_t direction)
     output_->debug(_L3_,"\n\n-------------------------------------------------------------------------------------------------------------------------------------------------------------------\n");
     std::cout << flush;
 #endif
+
+    if(cmd == BeginTx)
+    {
+        std::cout << "HTM Start Transaction\n\n" << std::flush;
+    }
+    else if(cmd == EndTx)
+    {
+        std::cout << "HTM End Transaction\n\n" << std::flush;
+    }
 
     if(direction == 0)
     {

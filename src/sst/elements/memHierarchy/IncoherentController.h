@@ -111,7 +111,7 @@ public:
     CacheAction handleResponse(MemEvent* _responseEvent, CacheLine* cacheLine, MemEvent* _origRequest);
 
     /** Stuff */
-    CacheAction handleHTMEvent(MemEvent * event, Command cmd);
+    CacheAction handleHTMEvent(MemEvent* event, CacheLine* line, Command cmd);
 
 /* Miscellaneous */
 

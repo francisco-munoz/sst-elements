@@ -656,7 +656,7 @@ CacheAction L1CoherenceController::handleFetch(MemEvent * event, CacheLine * cac
     return STALL;
 }
 
-CacheAction L1CoherenceController::handleHTMEvent(MemEvent * event, Command cmd) {
+CacheAction L1CoherenceController::handleHTMEvent(MemEvent* event, CacheLine* line, Command cmd) {
 
     if(cmd == BeginTx) {
         txManager_->beginTransaction();
@@ -664,10 +664,23 @@ CacheAction L1CoherenceController::handleHTMEvent(MemEvent * event, Command cmd)
         txManager_->commitTransaction();
     }
 
-//     vector<uint8_t>* data = cacheLine->getData();
-//
-//     sendResponseUp(event, S, data, replay, cacheLine->getTimestamp());
+    //TODO Better method to pass messages
+    // Let the PE know that we've begun a transaction
     sendResponseUp(event, S, NULL, 0, 0);
+
+    // If the HTM manager is below me in the hierarchy, I need to inform it of event
+    if(htmBelow == 1)
+    {
+        MemEvent* ack = new MemEvent(parent, event->getBaseAddr(), event->getBaseAddr(), cmd);
+        ack->setDst(event->getDst());
+        ack->setRqstr(event->getRqstr());
+        ack->setSize(lineSize_);
+
+        uint64_t baseTime = (timestamp_ );
+        uint64_t deliveryTime = baseTime;
+        Response resp = {ack, deliveryTime, packetHeaderBytes};
+        addToOutgoingQueue(resp);
+    }
 
     return DONE;
 }
@@ -717,7 +730,15 @@ int L1CoherenceController::isCoherenceMiss(MemEvent* event, CacheLine* cacheLine
  */
 void L1CoherenceController::sendResponseDown(MemEvent* event, CacheLine* cacheLine, bool replay){
     MemEvent *responseEvent = event->makeResponse();
-    responseEvent->setPayload(*cacheLine->getData());
+    Command  cmd = event->getCmd();
+
+    if(cmd == BeginTx || cmd == EndTx)
+    {
+    }
+    else
+    {
+        responseEvent->setPayload(*cacheLine->getData());
+    }
     //printf("Sending response down: ");
 
 #ifdef __SST_DEBUG_OUTPUT__
@@ -738,7 +759,7 @@ void L1CoherenceController::sendResponseDown(MemEvent* event, CacheLine* cacheLi
 
 #ifdef __SST_DEBUG_OUTPUT__
     if (DEBUG_ALL || DEBUG_ADDR == event->getBaseAddr()) { 
-        debug->debug(_L3_,"Sending Response at cycle = %" PRIu64 ", Cmd = %s, Src = %s\n", deliveryTime, CommandString[responseEvent->getCmd()], responseEvent->getSrc().c_str());
+        debug->debug(_L3_,"Sending Response Down at cycle = %" PRIu64 ", Cmd = %s, Src = %s\n", deliveryTime, CommandString[responseEvent->getCmd()], responseEvent->getSrc().c_str());
     }
 #endif
 }
@@ -782,7 +803,7 @@ uint64_t L1CoherenceController::sendResponseUp(MemEvent * event, State grantedSt
     
     // Debugging
 #ifdef __SST_DEBUG_OUTPUT__
-    if (DEBUG_ALL || DEBUG_ADDR == event->getBaseAddr()) debug->debug(_L3_,"Sending Response at cycle = %" PRIu64 ". Current Time = %" PRIu64 ", Addr = %" PRIx64 ", Dst = %s, Size = %i, Granted State = %s\n",
+    if (DEBUG_ALL || DEBUG_ADDR == event->getBaseAddr()) debug->debug(_L3_,"Sending Response Up at cycle = %" PRIu64 ". Current Time = %" PRIu64 ", Addr = %" PRIx64 ", Dst = %s, Size = %i, Granted State = %s\n",
             deliveryTime, timestamp_, event->getAddr(), responseEvent->getDst().c_str(), responseEvent->getSize(), StateString[responseEvent->getGrantedState()]);
 #endif
     return deliveryTime;

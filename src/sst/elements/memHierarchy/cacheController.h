@@ -105,7 +105,7 @@ private:
     void processCacheInvalidate(MemEvent *event, Addr baseAddr, bool mshrHit);
 
     /** blablablab */
-    void processHTMEvent(MemEvent *event, Command cmd);
+    void processHTMEvent(MemEvent *event, Addr baseAddr, Command cmd);
 
     /** Function processes incomming GetS/GetX responses.  
         Redirects message to Top Controller */
@@ -312,6 +312,7 @@ private:
     std::map<MemEvent*,int> missTypeList;
     bool                    DEBUG_ALL;
     Addr                    DEBUG_ADDR;
+    bool                    htmLower;
 
     // These parameters are for the coherence controller and are detected during init
     bool                    isLL;

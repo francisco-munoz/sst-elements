@@ -162,7 +162,7 @@ CacheAction IncoherentController::handleResponse(MemEvent * respEvent, CacheLine
     return DONE;
 }
 
-CacheAction IncoherentController::handleHTMEvent(MemEvent * event, Command cmd) {
+CacheAction IncoherentController::handleHTMEvent(MemEvent* event, CacheLine* line, Command cmd) {
 }
 
 /* Incoherent caches always retry NACKs since there are not Inv/Fetch's to race

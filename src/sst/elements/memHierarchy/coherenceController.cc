@@ -122,7 +122,7 @@ uint64_t CoherenceController::sendResponseUp(MemEvent * event, State grantedStat
     addToOutgoingQueueUp(resp);
     
 #ifdef __SST_DEBUG_OUTPUT__
-    if (DEBUG_ALL || DEBUG_ADDR == event->getBaseAddr()) debug->debug(_L3_,"Sending Response at cycle = %" PRIu64 ". Current Time = %" PRIu64 ", Addr = %" PRIx64 ", Dst = %s, Payload Bytes = %i, Granted State = %s\n", 
+    if (DEBUG_ALL || DEBUG_ADDR == event->getBaseAddr()) debug->debug(_L3_,"Sending Response Up at cycle = %" PRIu64 ". Current Time = %" PRIu64 ", Addr = %" PRIx64 ", Dst = %s, Payload Bytes = %i, Granted State = %s\n",
             deliveryTime, timestamp_, event->getAddr(), responseEvent->getDst().c_str(), responseEvent->getPayloadSize(), StateString[responseEvent->getGrantedState()]);
 #endif
 
@@ -146,7 +146,7 @@ void CoherenceController::resendEvent(MemEvent * event, bool up) {
     else addToOutgoingQueueUp(resp);
 
 #ifdef __SST_DEBUG_OUTPUT__
-    if (DEBUG_ALL || DEBUG_ADDR == event->getBaseAddr()) debug->debug(_L3_,"Sending request: Addr = %" PRIx64 ", BaseAddr = %" PRIx64 ", Cmd = %s\n", 
+    if (DEBUG_ALL || DEBUG_ADDR == event->getBaseAddr()) debug->debug(_L3_,"Resending request: Addr = %" PRIx64 ", BaseAddr = %" PRIx64 ", Cmd = %s\n",
             event->getAddr(), event->getBaseAddr(), CommandString[event->getCmd()]);
 #endif
 }
@@ -391,6 +391,10 @@ void CoherenceController::setupLowerStatus(bool isLastCoherenceLevel, bool lower
         
     if (lowerLevelCacheNames_.empty()) lowerLevelCacheNames_.push_back(""); // Avoid segfault on access
     if (upperLevelCacheNames_.empty()) upperLevelCacheNames_.push_back(""); // Avoid segfault on access
+
+    if(lowerLevelCacheNames_.front().find("htm") != string::npos)
+        htmBelow = 1;
+
 }
 
 

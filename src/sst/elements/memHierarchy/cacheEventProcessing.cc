@@ -321,7 +321,7 @@ bool Cache::processEvent(MemEvent* event, bool replay) {
             break;
         case BeginTx:
         case EndTx:
-            processHTMEvent(event, cmd);
+            processHTMEvent(event, baseAddr, cmd);
             delete event;
             break;
         default:
@@ -497,6 +497,11 @@ void Cache::init(unsigned int phase) {
                 }
                 coherenceMgr_->addLowerLevelCacheName(memEvent->getSrc());
                 lowerLevelCacheNames_.push_back(memEvent->getSrc());
+
+                if(lowerLevelCacheNames_.back().find("htm") != string::npos)
+                    htmLower = 1;
+                else
+                    htmLower = 0;
             }
             delete memEvent;
         }
@@ -524,6 +529,7 @@ void Cache::setup() {
             }
         }
     }
+
     coherenceMgr_->setupLowerStatus(isLL && !bottomNetworkLink_, lowerIsNoninclusive, isDirBelow);
 }
 
