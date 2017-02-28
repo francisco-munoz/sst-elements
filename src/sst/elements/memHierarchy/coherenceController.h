@@ -68,7 +68,7 @@ public:
     virtual bool isRetryNeeded(MemEvent * event, CacheLine * line) =0;
 
     /* Stuff */
-    virtual CacheAction handleHTMEvent(MemEvent * event, Command cmd) =0;
+    virtual CacheAction handleHTMEvent(MemEvent * event, CacheLine* line, Command cmd) =0;
 
     /* Update timestamp in lockstep with parent */
     void updateTimestamp(uint64_t newTS) { timestamp_ = newTS; }
@@ -163,9 +163,10 @@ protected:
     bool            expectWritebackAck_;    // Whether we should expect a writeback ack
 
     /* General parameters and structures */
-    unsigned int lineSize_;
+    unsigned int    lineSize_;
     vector<string>  lowerLevelCacheNames_;
     vector<string>  upperLevelCacheNames_;
+    bool            htmBelow;
 
     /* Throughput control TODO move these to a port manager */
     uint64_t maxBytesUp;

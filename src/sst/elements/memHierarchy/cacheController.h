@@ -312,7 +312,6 @@ private:
     std::map<MemEvent*,int> missTypeList;
     bool                    DEBUG_ALL;
     Addr                    DEBUG_ADDR;
-    bool                    htmLower;
 
     // These parameters are for the coherence controller and are detected during init
     bool                    isLL;
