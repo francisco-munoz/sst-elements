@@ -465,6 +465,9 @@ bool MSHR::removeElement(Addr baseAddr, mshrType entry) {
 
 
 void MSHR::removeWriteback(Addr baseAddr) {
+#ifdef __SST_DEBUG_OUTPUT__
+    if (DEBUG_ALL || DEBUG_ADDR == baseAddr) d_->debug(_L9_, "MSHR: Removed writeback.  Key Addr = %" PRIx64 "\n", baseAddr);
+#endif
     MSHR::removeElement(baseAddr, mshrType(baseAddr));
 }
 
