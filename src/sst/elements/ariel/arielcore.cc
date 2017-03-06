@@ -144,7 +144,7 @@ void ArielCore::commitReadEvent(const uint64_t address,
 
 	        if(get_isTransaction()){
 std::cout << "****  TX Read Event at " << req->addr << "  ****\n" << std::endl;
-			req->set_flags(SimpleMem::Request::F_TRANSACTION);
+			req->setFlags(SimpleMem::Request::F_TRANSACTION);
 		}
 
 	        // Actually send the event to the cache
@@ -170,7 +170,7 @@ void ArielCore::commitWriteEvent(const uint64_t address,
 
 	        if(get_isTransaction()){
 std::cout << "****  TX Write Event at " << req->addr << "  ****\n" << std::endl;
-			req->set_flags(SimpleMem::Request::F_TRANSACTION);
+			req->setFlags(SimpleMem::Request::F_TRANSACTION);
 	        }
 
 	        // Actually send the event to the cache

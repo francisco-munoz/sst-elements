@@ -102,15 +102,15 @@ MemEvent* MemHierarchyInterface::createMemEvent(SimpleMem::Request *req) const{
         me->setPayload(req->data);
     }
 
-    if(req->get_flags() & SimpleMem::Request::F_TRANSACTION) {
+    if(req->getFlags() & SimpleMem::Request::F_TRANSACTION) {
         me->setFlag(MemEvent::F_TRANSACTION);
     }
 
-    if(req->get_flags() & SimpleMem::Request::F_NONCACHEABLE) {
+    if(req->getFlags() & SimpleMem::Request::F_NONCACHEABLE) {
         me->setFlag(MemEvent::F_NONCACHEABLE);
     }
 
-    if(req->get_flags() & SimpleMem::Request::F_LOCKED) {
+    if(req->getFlags() & SimpleMem::Request::F_LOCKED) {
         me->setFlag(MemEvent::F_LOCKED);
         if (req->cmd == SimpleMem::Request::Read)
         {
@@ -118,14 +118,14 @@ MemEvent* MemHierarchyInterface::createMemEvent(SimpleMem::Request *req) const{
         }
     }
 
-    if(req->get_flags() & SimpleMem::Request::F_LLSC) {
+    if(req->getFlags() & SimpleMem::Request::F_LLSC) {
         me->setFlag(MemEvent::F_LLSC);
     }
 
     me->setVirtualAddress(req->getVirtualAddress());
     me->setInstructionPointer(req->getInstructionPointer());
 
-    me->setMemFlags(req->get_memFlags());
+    me->setMemFlags(req->getFlags());
 
     //totalRequests_++;
     return me;
@@ -171,12 +171,12 @@ void MemHierarchyInterface::updateRequest(SimpleMem::Request* req, MemEvent *me)
     case GetXResp:
         req->cmd   = SimpleMem::Request::WriteResp;
         if(me->success())
-	   req->set_flags(SimpleMem::Request::F_LLSC_RESP);
+	   req->setFlags(SimpleMem::Request::F_LLSC_RESP);
         break;
     case FlushLineResp:
         req->cmd = SimpleMem::Request::FlushLineResp;
         if (me->success())
-	   req->set_flags(SimpleMem::Request::F_FLUSH_SUCCESS);
+	   req->setFlags(SimpleMem::Request::F_FLUSH_SUCCESS);
         break;
     case HTMResp:
         req->cmd = SimpleMem::Request::TxResp;
@@ -193,7 +193,6 @@ void MemHierarchyInterface::updateRequest(SimpleMem::Request* req, MemEvent *me)
    // Always update memFlags to faciliate mem->processor communication
     req->clear_memFlags();
     req->set_memFlags(me->getMemFlags());
-
 }
 
 bool MemHierarchyInterface::initialize(const std::string &linkName, HandlerBase *handler){

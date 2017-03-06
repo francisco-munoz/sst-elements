@@ -175,7 +175,7 @@ bool trivialCPU::clockTic( Cycle_t )
             
                 bool noncacheable = ( addr >= noncacheableRangeStart && addr < noncacheableRangeEnd );
                 if ( noncacheable ) {
-                    req->set_flags(Interfaces::SimpleMem::Request::F_NONCACHEABLE);
+                    req->setFlags(Interfaces::SimpleMem::Request::F_NONCACHEABLE);
                     if ( cmd == Interfaces::SimpleMem::Request::Write ) { ++noncacheableWrites; } 
                     else if (cmd == Interfaces::SimpleMem::Request::Read ) { ++noncacheableReads; }
                 }
