@@ -57,13 +57,16 @@ public:
     typedef uint64_t                        uint64;
 
     friend class InstructionStream;
-    
+
     virtual void init(unsigned int);
     virtual void setup(void);
     virtual void finish(void);
     
     /** Creates cache componennt */
     static Cache* cacheFactory(SST::ComponentId_t id, SST::Params& params);
+
+    /** Constructor for Cache Component */
+    Cache(SST::ComponentId_t id, SST::Params &params);
     
     /** Computes the 'Base Address' of the requests.  The base address point the first address of the cache line */
     Addr toBaseAddr(Addr addr){
@@ -72,7 +75,7 @@ public:
 
 private:
     struct CacheConfig;
-    
+
     /** Constructor for Cache Component */
     Cache(ComponentId_t id, Params &params, CacheConfig config);
     

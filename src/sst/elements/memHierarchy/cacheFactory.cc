@@ -202,6 +202,103 @@ Cache* Cache::cacheFactory(ComponentId_t id, Params &params) {
     return new Cache(id, params, config);
 }
 
+Cache::Cache(ComponentId_t id, Params &params) : Component(id) {
+    /* --------------- Output Class --------------- */
+    Output* dbg = new Output();
+    int debugLevel = params.find<int>("debug_level", 1);
+
+
+        /* --------------- Get Parameters --------------- */
+    string frequency            = params.find<std::string>("cache_frequency", "" );            //Hertz
+    string replacement          = params.find<std::string>("replacement_policy", "LRU");
+    int associativity           = params.find<int>("associativity", -1);
+    int hashFunc                = params.find<int>("hash_function", 0);
+    string sizeStr              = params.find<std::string>("cache_size", "");                  //Bytes
+    int lineSize                = params.find<int>("cache_line_size", 64);            //Bytes
+    int accessLatency           = params.find<int>("access_latency_cycles", -1);      //ns
+    int mshrSize                = params.find<int>("mshr_num_entries", -1);           //number of entries
+    string preF                 = params.find<std::string>("prefetcher");
+    bool L1                     = params.find<bool>("L1", false);
+    string coherenceProtocol    = params.find<std::string>("coherence_protocol", "mesi");
+    bool noncacheableRequests   = params.find<bool>("force_noncacheable_reqs", false);
+    string cacheType            = params.find<std::string>("cache_type", "inclusive");
+    SimTime_t maxWaitTime       = params.find<SimTime_t>("maxRequestDelay", 0);  // Nanoseconds
+    string dirReplacement       = params.find<std::string>("noninclusive_directory_repl", "LRU");
+    int dirAssociativity        = params.find<int>("noninclusive_directory_associativity", 1);
+    int dirNumEntries           = params.find<int>("noninclusive_directory_entries", 0);
+    bool tmCache                = params.find<bool>("tm_cache", false);
+
+    /* Convert all strings to lower case */
+    to_lower(coherenceProtocol);
+    to_lower(replacement);
+    to_lower(dirReplacement);
+    to_lower(cacheType);
+
+
+    /* ---------------- Initialization ----------------- */
+    HashFunction* ht;
+    if (hashFunc == 1) {
+      ht = new LinearHashFunction;
+    } else if (hashFunc == 2) {
+      ht = new XorHashFunction;
+    } else {
+      ht = new PureIdHashFunction;
+    }
+
+    fixByteUnits(sizeStr); // Convert e.g., KB to KiB for unit alg
+    UnitAlgebra ua(sizeStr);
+    if (!ua.hasUnits("B")) {
+        dbg->fatal(CALL_INFO, -1, "Invalid param: cache_size - must have units of bytes (B). Ex: '32KiB'. SI units are ok. You specified '%s'\n", sizeStr.c_str());
+    }
+    uint64_t cacheSize = ua.getRoundedValue();
+    uint numLines = cacheSize/lineSize;
+    CoherenceProtocol protocol = CoherenceProtocol::NONE;
+
+    CacheArray * cacheArray = NULL;
+    CacheArray * dirArray = NULL;
+    ReplacementMgr* replManager = NULL;
+    ReplacementMgr* dirReplManager = NULL;
+
+    cacheArray = new SetAssociativeArray(dbg, numLines, lineSize, associativity, replManager, ht, !L1);
+
+    CacheConfig config = {frequency, cacheArray, dirArray, protocol, dbg, replManager, numLines,
+        static_cast<uint>(lineSize),
+        static_cast<uint>(mshrSize), L1,
+        noncacheableRequests, maxWaitTime, cacheType, tmCache};
+
+
+    /* --------------------------------------------------- */
+    cf_     = config;
+    d_      = cf_.dbg_;
+    d_->debug(_INFO_,"--------------------------- Initializing [Cache]: %s... \n", this->Component::getName().c_str());
+    pMembers();
+    errorChecking();
+
+    d2_ = new Output();
+    d2_->init("", params.find<int>("debug_level", 1), 0,(Output::output_location_t)params.find<int>("debug", SST::Output::NONE));
+
+    Output out("", 1, 0, Output::STDOUT);
+
+    int stats                   = params.find<int>("statistics", 0);
+    accessLatency_              = params.find<uint64_t>("access_latency_cycles", 0);
+    tagLatency_                 = params.find<uint64_t>("tag_access_latency_cycles",accessLatency_);
+    string prefetcher           = params.find<std::string>("prefetcher");
+    mshrLatency_                = params.find<uint64_t>("mshr_latency_cycles", 0);
+    maxRequestsPerCycle_        = params.find<int>("max_requests_per_cycle",-1);
+    string reqWidth             = params.find<std::string>("request_link_width","0B");
+    string respWidth            = params.find<std::string>("response_link_width","0B");
+    string packetSize           = params.find<std::string>("min_packet_size", "8B");
+    bool snoopL1Invs            = false;
+    if (cf_.L1_) snoopL1Invs    = params.find<bool>("snoop_l1_invalidations", false);
+    int64_t dAddr               = params.find<int64_t>("debug_addr",-1);
+    bool found;
+
+
+
+
+}
+
+
 
 
 Cache::Cache(ComponentId_t id, Params &params, CacheConfig config) : Component(id) {
@@ -259,7 +356,7 @@ Cache::Cache(ComponentId_t id, Params &params, CacheConfig config) : Component(i
        d_->fatal(CALL_INFO,-1, "%s, Invalid param: access_latency_cycles - must be at least 1. You specified %" PRIu64 "\n",
             this->Component::getName().c_str(), accessLatency_);
     }
-  
+
     if (stats != 0)  {
         out.output("%s, **WARNING** The 'statistics' parameter is deprecated: memHierarchy statistics have been moved to the Statistics API. Please see sst-info for available statistics and update your configuration accordingly.\nNO statistics will be printed otherwise!\n", this->Component::getName().c_str());
     }
@@ -281,7 +378,7 @@ Cache::Cache(ComponentId_t id, Params &params, CacheConfig config) : Component(i
         d_->fatal(CALL_INFO, -1, "%s, Invalid param: response_link_width - must have units of bytes (B). Ex: '32B'. SI units are ok. You specified '%s'\n", this->Component::getName().c_str(), respWidth.c_str());
     }
 
-    
+
     /* --------------- Prefetcher ---------------*/
     if (prefetcher.empty()) {
 	Params emptyParams;
@@ -614,8 +711,6 @@ void Cache::configureLinks(Params &params) {
     // Configure self link for prefetch/listener events
     prefetchLink_ = configureSelfLink("Self", "50ps", new Event::Handler<Cache>(this, &Cache::processPrefetchEvent));
 }
-
-
 
 void Cache::intrapolateMSHRLatency() {
     uint64 N = 200; // max cache latency supported by the intrapolation method

@@ -18,11 +18,13 @@
 #include <sst/core/interfaces/stringEvent.h>
 
 #include "HTM.h"
-#include "memEvent.h"
-#include "coherenceController.h"
+// #include "memEvent.h"
+// #include "coherenceController.h"
+// #include "cacheController.h"
 
 
-SST::MemHierarchy::HTM::HTM(ComponentId_t id, Params &params) : Component(id)
+// SST::MemHierarchy::HTM::HTM(ComponentId_t id, Params &params) : Component(id)
+SST::MemHierarchy::HTM::HTM(ComponentId_t id, Params &params) : Cache(id, params)
 {
     /* --------------- Output Class --------------- */
     output_ = new Output();
@@ -41,13 +43,19 @@ SST::MemHierarchy::HTM::HTM(ComponentId_t id, Params &params) : Component(id)
     int lineSize                = params.find<int>("cache_line_size", -1);            //Bytes
 
     /* Check user specified all required fields */
-    if(-1 >= associativity)         output_->fatal(CALL_INFO, -1, "Param not specified: associativity\n");
-    if(sizeStr.empty())             output_->fatal(CALL_INFO, -1, "Param not specified: cache_size\n");
-    if(-1 == lineSize)              output_->fatal(CALL_INFO, -1, "Param not specified: cache_line_size - number of bytes in a cacheline (block size)\n");
+    if(-1 >= associativity)
+        output_->fatal(CALL_INFO, -1, "Param not specified: associativity\n");
+
+    if(sizeStr.empty())
+        output_->fatal(CALL_INFO, -1, "Param not specified: cache_size\n");
+
+    if(-1 == lineSize)
+        output_->fatal(CALL_INFO, -1, "Param not specified: cache_line_size - number of bytes in a cacheline (block size)\n");
 
     fixByteUnits(sizeStr);
     UnitAlgebra ua(sizeStr);
-    if (!ua.hasUnits("B")) {
+    if(!ua.hasUnits("B"))
+    {
         output_->fatal(CALL_INFO, -1, "Invalid param: cache_size - must have units of bytes (e.g., B, KB,etc.)\n");
     }
     uint64_t cacheSize = ua.getRoundedValue();
@@ -60,30 +68,33 @@ SST::MemHierarchy::HTM::HTM(ComponentId_t id, Params &params) : Component(id)
 
     /* --------------- Setup links --------------- */
     // Going Down toward Main Memory
-    if (isPortConnected("htm_low_link"))
+    if(isPortConnected("htm_low_link"))
     {
         lowLink_ = configureLink("htm_low_link", "50ps", new Event::Handler<HTM>(this, &HTM::processResponse));
         output_->debug(_INFO_, "Low Network Link ID: %u\n", (uint)lowLink_->getId());
-    } else
+    }
+    else
     {
         output_->fatal(CALL_INFO, -1, "%s, Error: no connected cache port. Please connect a cache to port 'cache'\n", getName().c_str());
     }
 
     // Going Up Toward PE
-    if (isPortConnected("htm_high_link"))
+    if(isPortConnected("htm_high_link"))
     {
         highLink_ = configureLink("htm_high_link", "50ps", new Event::Handler<HTM>(this, &HTM::processRequest));
         output_->debug(_INFO_, "High Network Link ID: %u\n", (uint)highLink_->getId());
-    } else
+    }
+    else
     {
         output_->fatal(CALL_INFO, -1, "%s, Error: no connected cache port. Please connect a cache to port 'cache'\n", getName().c_str());
     }
 
     /* Register statistics */
-    statReadSetSize    = registerStatistic<uint64_t>("ReadSetSize");
-    statWriteSetSize  = registerStatistic<uint64_t>("WriteSetSize");
-    statAborts   = registerStatistic<uint64_t>("NumAborts");
+    statReadSetSize = registerStatistic<uint64_t>("ReadSetSize");
+    statWriteSetSize = registerStatistic<uint64_t>("WriteSetSize");
+    statAborts = registerStatistic<uint64_t>("NumAborts");
     statCommits = registerStatistic<uint64_t>("NumCommits");
+
 }
 
 void SST::MemHierarchy::HTM::init(unsigned int phase)
@@ -99,13 +110,21 @@ void SST::MemHierarchy::HTM::init(unsigned int phase)
     while ((ev = highLink_->recvInitData()))
     {
         MemEvent* memEvent = dynamic_cast<MemEvent*>(ev);
-        if (!memEvent) { /* Do nothing */ }
-        else if (memEvent->getCmd() == NULLCMD) {
-            if (memEvent->getCmd() == NULLCMD) {    // Save upper level cache names
+        if (!memEvent)
+        {
+            /* Do nothing */
+
+        }
+        else if (memEvent->getCmd() == NULLCMD)
+        {
+            if (memEvent->getCmd() == NULLCMD)  // Save upper level cache names
+            {
                 upperLevelNames_.push_back(memEvent->getSrc());
             }
-        } else {
-                lowLink_->sendInitData(new MemEvent(*memEvent));
+        }
+        else
+        {
+            lowLink_->sendInitData(new MemEvent(*memEvent));
         }
         delete memEvent;
      }
@@ -113,7 +132,8 @@ void SST::MemHierarchy::HTM::init(unsigned int phase)
     while ((ev = lowLink_->recvInitData()))
     {
         MemEvent* memEvent = dynamic_cast<MemEvent*>(ev);
-        if (memEvent && memEvent->getCmd() == NULLCMD) {
+        if (memEvent && memEvent->getCmd() == NULLCMD)
+        {
             lowerLevelNames_.push_back(memEvent->getSrc());
         }
         delete memEvent;
@@ -153,7 +173,13 @@ void SST::MemHierarchy::HTM::processRequest(SST::Event* ev)
     }
     else
     {
-        //Nothing to do, so pass the event on
+        if(get_transactionDepth() > 0)
+        {
+        }
+
+//         Addr bloop = Cache::toBaseAddr(event->getAddr());
+
+
         lowLink_->send(event);
     }
 

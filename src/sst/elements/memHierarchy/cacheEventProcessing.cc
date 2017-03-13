@@ -497,11 +497,6 @@ void Cache::init(unsigned int phase) {
                 }
                 coherenceMgr_->addLowerLevelCacheName(memEvent->getSrc());
                 lowerLevelCacheNames_.push_back(memEvent->getSrc());
-
-                if(lowerLevelCacheNames_.back().find("htm") != string::npos)
-                    htmLower = 1;
-                else
-                    htmLower = 0;
             }
             delete memEvent;
         }

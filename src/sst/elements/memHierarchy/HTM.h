@@ -27,17 +27,17 @@
 #include <sst/core/timeConverter.h>
 #include <sst/core/output.h>
 
+#include "cacheController.h"
+#include "coherenceController.h"
+
+
 #include "cacheArray.h"
 #include "memEvent.h"
 #include "util.h"
 
-
-
 namespace SST { namespace MemHierarchy {
 
-using namespace std;
-
-class HTM : public SST::Component {
+class HTM : public MemHierarchy::Cache { //public SST::Component {
 public:
 
     typedef CacheArray::CacheLine CacheLine;
@@ -76,10 +76,10 @@ private:
     void processEvent(MemEvent* event, uint32_t direction);
 
     /** Utility **/
-    uint32_t get_transactionDepth(void) { return transactionDepth; };
-    void set_transactionDepth(uint32_t inVal) { transactionDepth = inVal; };
-    void inc_transactionDepth(void) { ++transactionDepth; };
-    void dec_transactionDepth(void) { --transactionDepth; };
+    uint32_t    get_transactionDepth(void) { return transactionDepth; };
+    void        set_transactionDepth(uint32_t inVal) { transactionDepth = inVal; };
+    void        inc_transactionDepth(void) { ++transactionDepth; };
+    void        dec_transactionDepth(void) { --transactionDepth; };
 
 
 //
@@ -96,10 +96,10 @@ private:
     vector<string>      lowerLevelNames_;
     vector<string>      upperLevelNames_;
 
-    /* Manager */
+    /** Manager **/
     uint32_t            transactionDepth;
 
-    /* Statistics */
+    /** Statistics **/
     Statistic<uint64_t>* statReadSetSize;
     Statistic<uint64_t>* statWriteSetSize;
     Statistic<uint64_t>* statAborts;

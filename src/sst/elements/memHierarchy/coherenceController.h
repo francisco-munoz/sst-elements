@@ -31,13 +31,13 @@
 #include "memNIC.h"
 
 #include "TxManager.h"
-#include "HTM.h"
+// #include "HTM.h"
 
 namespace SST { namespace MemHierarchy {
 using namespace std;
 
 class CoherenceController : public SST::SubComponent {
-    friend class HTM;
+//     friend class HTM;
 
 public:
     typedef CacheArray::CacheLine CacheLine;
