@@ -23,8 +23,7 @@
 // #include "cacheController.h"
 
 
-// SST::MemHierarchy::HTM::HTM(ComponentId_t id, Params &params) : Component(id)
-SST::MemHierarchy::HTM::HTM(ComponentId_t id, Params &params) : Cache(id, params)
+SST::MemHierarchy::HTM::HTM(ComponentId_t id, Params &params) : Component(id)
 {
     /* --------------- Output Class --------------- */
     output_ = new Output();

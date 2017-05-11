@@ -37,7 +37,7 @@
 
 namespace SST { namespace MemHierarchy {
 
-class HTM : public MemHierarchy::Cache { //public SST::Component {
+class HTM : public SST::Component {
 public:
 
     typedef CacheArray::CacheLine CacheLine;
