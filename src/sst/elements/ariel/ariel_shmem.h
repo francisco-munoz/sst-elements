@@ -18,7 +18,6 @@
 
 #include <atomic>
 #include <inttypes.h>
-#include <boost/concept_check.hpp>
 
 #include <sst/core/interprocess/ipctunnel.h>
 #include "ariel_inst_class.h"

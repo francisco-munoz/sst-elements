@@ -35,8 +35,7 @@
 
 #ifdef HAVE_LIBZ
 
-#include "zlib.h"
-#include <boost/concept_check.hpp>
+#include <zlib.h>
 #define BT_PRINTF(fmt, args...) gzprintf(btfiles[thr], fmt, ##args);
 
 #else 
