@@ -60,17 +60,17 @@ using namespace std;
     X(FetchInvX,    FetchXResp,     Request,    ForwardRequest, 0, 0)   /* Other read request to owner:   Downgrade cache line to O/S (Remove exclusivity) */\
     X(FetchResp,    NULLCMD,        Response,   Data,           0, 0)   /* response to a Fetch, FetchInv or FetchInvX request */\
     X(FetchXResp,   NULLCMD,        Response,   Data,           0, 0)   /* response to a FetchInvX request - indicates a shared copy of the line was kept */\
+    /* HTM Commands */\
+    X(BeginTx,      HTMResp,        Request,    Request,        0, 0)   /*  */\
+    X(EndTx,        CommitResp,     Request,    Request,        0, 0)   /*  */\
+    X(AbortTx,      AbortResp,      Request,    Request,        0, 0)   /*  */\
+    X(HTMResp,      NULLCMD,        Request,    Ack,            0, 0)   /*  */\
+    X(CommitResp,   NULLCMD,        Response,   Ack,            0, 0)   /* response for a successful transactional event */\
+    X(AbortResp,    NULLCMD,        Response,   Ack,            0, 0)   /* response for an unsuccessful transactional event */\
     /* Others */\
     X(NACK,         NULLCMD,        Response,   Ack,            0, 0)   /* NACK response to a message */\
     X(AckInv,       NULLCMD,        Response,   Ack,            0, 0)   /* Acknowledgement response to an invalidation request */\
     X(AckPut,       NULLCMD,        Response,   Ack,            0, 0)   /* Acknowledgement response to a replacement (Put*) request */\
-    /* HTM Commands */\
-    X(BeginTx,      NULLCMD,        Response,   Ack,            0, 0)   /* NACK response to a message */\
-    X(EndTx,        NULLCMD,        Response,   Ack,            0, 0)   /* Acknowledgement response to an invalidation request */\
-    X(AbortTx,      NULLCMD,        Response,   Ack,            0, 0)   /* Send Abort back up the chain */ \
-    X(HTMResp,      NULLCMD,        Response,   Ack,            0, 0)          /*  */ \
-    X(CommitResp,   NULLCMD,        Response,   Ack,            0, 0)       /* response for a successful transactional event */\
-    X(AbortResp,    NULLCMD,        Response,   Ack,            0, 0)        /* response for an unsuccessful transactional event */\
     X(LAST_CMD,     NULLCMD,        Request,    Request,        0, 0)
 
 
