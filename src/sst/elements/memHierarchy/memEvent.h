@@ -64,9 +64,10 @@ using namespace std;
     X(BeginTx,      HTMResp,        Request,    Request,        0, 0)   /*  */\
     X(EndTx,        CommitResp,     Request,    Request,        0, 0)   /*  */\
     X(AbortTx,      AbortResp,      Request,    Request,        0, 0)   /*  */\
-    X(HTMResp,      NULLCMD,        Request,    Ack,            0, 0)   /*  */\
+    X(HTMResp,      NULLCMD,        Response,   Ack,            0, 0)   /*  */\
     X(CommitResp,   NULLCMD,        Response,   Ack,            0, 0)   /* response for a successful transactional event */\
     X(AbortResp,    NULLCMD,        Response,   Ack,            0, 0)   /* response for an unsuccessful transactional event */\
+    X(TransMemAddr, NULLCMD,        Response,   Ack,            0, 0)   /*  */\
     /* Others */\
     X(NACK,         NULLCMD,        Response,   Ack,            0, 0)   /* NACK response to a message */\
     X(AckInv,       NULLCMD,        Response,   Ack,            0, 0)   /* Acknowledgement response to an invalidation request */\
@@ -255,6 +256,26 @@ public:
         return me;
     }
 
+    /** Generate a new MemEvent, pre-populated as an HTM control event **/
+    MemEvent* makeHTMControlMessage(MemEvent* event, Addr baseAddr, vector<uint8_t>* data)
+    {
+        MemEvent* tma;
+        tma = new MemEvent(*event);
+
+        tma->cmd_ = TransMemAddr;
+        if (data == NULL)
+            tma->setPayload(0, NULL);
+        else
+            tma->setPayload(*data);
+
+//         tma->setPayload(data);
+//         tma->setSrc(parent->getName());
+//         tma->setDst(getDestination(baseAddr));
+//         tma->setSize(requestSize);
+
+        return tma;
+    }
+
     void initialize(std::string name, Addr addr, Addr baseAddr, Command cmd, SimTime_t timeInNano) {
         initialize();
         src_  = name;
@@ -304,8 +325,8 @@ public:
         initTime_           = 0;
         payload_.clear();
         dirty_              = false;
-	instPtr_	    = 0;
-	vAddr_		    = 0;
+        instPtr_	    = 0;
+        vAddr_		    = 0;
         inProgress_         = false;
     }
 
@@ -470,36 +491,6 @@ public:
 
     /** Return the BaseAddr */
     Addr getBaseAddr() { return baseAddr_; }
-// <<<<<<< HEAD
-// =======
-//
-//     /** Return the command that is the Response to the input command */
-//     static Command commandResponse(Command cmd) {
-//         switch(cmd) {
-//             case GetS:
-//             case GetSEx:
-//                 return GetSResp;
-//             case GetX:
-//                 return GetXResp;
-//             case FetchInv:
-//             case Fetch:
-//                 return FetchResp;
-//             case FetchInvX:
-//                 return FetchXResp;
-//             case FlushLine:
-//             case FlushLineInv:
-//                 return FlushLineResp;
-//             case BeginTx:
-//                 return HTMResp;
-//             case EndTx:
-//                 return CommitResp;
-//             case AbortTx:
-//                 return AbortResp;
-//             default:
-//                 return NULLCMD;
-//         }
-//     }
-// >>>>>>> Added memory events for Abort, which required moving other HTM events. DEBUG info not wrapped.
 
 private:
     id_type         eventID_;           // Unique ID for this event
