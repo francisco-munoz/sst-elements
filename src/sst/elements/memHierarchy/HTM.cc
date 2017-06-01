@@ -25,6 +25,9 @@
 
 SST::MemHierarchy::HTM::HTM(ComponentId_t id, Params &params) : Component(id)
 {
+    /* --------------- Var Init --------------- */
+    transactionDepth = 0;
+
     /* --------------- Output Class --------------- */
     output_ = new Output();
     int debugLevel = params.find<int>("debug_level", 0);
@@ -150,36 +153,41 @@ void SST::MemHierarchy::HTM::processRequest(SST::Event* ev)
 //     processEvent(event, 0);
 
     Addr baseAddr       = event->getBaseAddr();
+    Addr addr           = event->getAddr();
     Command cmd         = event->getCmd();
     bool noncacheable   = event->queryFlag(MemEvent::F_NONCACHEABLE);
 
 #ifdef __SST_DEBUG_OUTPUT__
     output_->debug(_L3_,"\n\n-------------------------------------------------------------------------------------------------------------------------------------------------------------------\n");
     output_->debug(_L3_,"HTM:  REQUEST Name: %s, Cmd: %s, BsAddr: %" PRIx64 ", Addr: %" PRIx64 ", VAddr: %" PRIx64 ", iPtr: %" PRIx64 ", Rqstr: %s, Src: %s, Dst: %s, PreF:%s, Bytes requested = %u, cycles: %" PRIu64 ", %s\n",
-                this->getName().c_str(), CommandString[event->getCmd()], baseAddr, event->getAddr(), event->getVirtualAddress(), event->getInstructionPointer(), event->getRqstr().c_str(),
+                this->getName().c_str(), CommandString[event->getCmd()], baseAddr, addr, event->getVirtualAddress(), event->getInstructionPointer(), event->getRqstr().c_str(),
                 event->getSrc().c_str(), event->getDst().c_str(), event->isPrefetch() ? "true" : "false", event->getSize(), 0, noncacheable ? "noncacheable" : "cacheable");
 #endif
 
     if(cmd == BeginTx)
     {
-        std::cout << "HTM:  Start Transaction\n\n" << std::flush;
         inc_transactionDepth();
+        std::cout << "HTM(" << get_transactionDepth() << "):  Start Transaction\n\n" << std::flush;
     }
     else if(cmd == EndTx)
     {
-        std::cout << "HTM:  End Transaction\n\n" << std::flush;
         dec_transactionDepth();
+        std::cout << "HTM(" << get_transactionDepth() << "):  End Transaction\n\n" << std::flush;
     }
     else
     {
         if(get_transactionDepth() > 0)
         {
+            std::cout << "^^^^ HTM(" << get_transactionDepth() << "):";
+            std::cout << "TX Memory Event at " << addr;
+            std::cout << " (" << baseAddr << ")  ^^^^\n" << std::flush;
         }
 
-//         Addr bloop = Cache::toBaseAddr(event->getAddr());
-
-
-        lowLink_->send(event);
+        /* We don't want to forward control messages, just end them */
+        if(cmd != TransMemAddr)
+        {
+            lowLink_->send(event);
+        }
     }
 
 

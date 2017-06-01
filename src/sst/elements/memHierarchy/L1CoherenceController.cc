@@ -272,11 +272,19 @@ CacheAction L1CoherenceController::handleGetSRequest(MemEvent* event, CacheLine*
 
             if( event->queryFlag(MemEvent::F_TRANSACTION) )
             {
-                  std::cout << "<>  REQ In Transaction READ M" << cacheLine->getState() << "  <>  " << event->getBaseAddr();
-                  std::cout << " (" << event->getAddr() << ")\n" << std::flush;
+                std::cout << "<>  REQ In Transaction READ M" << cacheLine->getState() << "  <>  " << event->getAddr();
+                std::cout << " (" << event->getBaseAddr() << ")\n" << std::flush;
 
-                  cacheLine->set_TxReadBits(event->getAddr());
-                  std::cout << "Read Bits:  " << cacheLine->get_TxReadbits() << "\n" << std::flush;
+                cacheLine->set_TxReadBits(event->getAddr());
+                std::cout << "Read Bits:  " << cacheLine->get_TxReadbits() << "\n" << std::flush;
+
+                /* Create a control message to pass to HTM manager in next level */
+                MemEvent* tma = event->makeHTMControlMessage(event, cacheLine->getBaseAddr(), 0);
+                uint64_t deliveryTime;
+                deliveryTime = timestamp_ + mshrLatency_;
+
+                Response fwdReq = {tma, deliveryTime, packetHeaderBytes + tma->getPayloadSize() };
+                addToOutgoingQueue(fwdReq);
             }
 
             return DONE;
@@ -346,19 +354,23 @@ CacheAction L1CoherenceController::handleGetXRequest(MemEvent* event, CacheLine*
 
             if(event->queryFlag(MemEvent::F_TRANSACTION))
             {
-                  std::cout << "<>  REQ In Transaction WRITE M  <>  " << event->getBaseAddr();
-                  std::cout << " (" << event->getAddr() << ")\n" << std::flush;
+                std::cout << "<>  REQ In Transaction WRITE M  <>  " << event->getAddr();
+                std::cout << " (" << event->getBaseAddr() << ")\n" << std::flush;
 
-                  if(txManager_->get_htmEnabled() > 0)
-                  {
-                     vector<uint8_t>* htmData = new vector<uint8_t>(*(cacheLine->getData()));
-                     bool moop = txManager_->addLine(cacheLine->getBaseAddr(), htmData);
+//                 vector<uint8_t>* htmData = new vector<uint8_t>(*(cacheLine->getData()));
+//                 bool moop = txManager_->addLine(cacheLine->getBaseAddr(), htmData);
 
-                     cacheLine->set_TxWriteBits(event->getAddr());
-                     std::cout << "Write Bits:  " << cacheLine->get_TxWritebits() << "\n" << std::flush;
-                  }
+                cacheLine->set_TxWriteBits(event->getAddr());
+                std::cout << "Write Bits:  " << cacheLine->get_TxWritebits() << "\n" << std::flush;
+
+                /* Create a control message to pass to HTM manager in next level */
+                MemEvent* tma = event->makeHTMControlMessage(event, cacheLine->getBaseAddr(), cacheLine->getData());
+                uint64_t deliveryTime;
+                deliveryTime = timestamp_ + mshrLatency_;
+
+                Response fwdReq = { tma, deliveryTime, packetHeaderBytes + tma->getPayloadSize() };
+                addToOutgoingQueue(fwdReq);
             }
-
 
             return DONE;
          default:
@@ -732,11 +744,8 @@ void L1CoherenceController::sendResponseDown(MemEvent* event, CacheLine* cacheLi
     MemEvent *responseEvent = event->makeResponse();
     Command  cmd = event->getCmd();
 
-    if(cmd == BeginTx || cmd == EndTx)
-    {
-    }
-    else
-    {
+    if(cmd == BeginTx || cmd == EndTx) {
+    } else {
         responseEvent->setPayload(*cacheLine->getData());
     }
     //printf("Sending response down: ");
