@@ -147,6 +147,11 @@ std::cout << "****  TX Read Event at " << req->addr << "  ****\n" << std::endl;
 			req->setFlags(SimpleMem::Request::F_TRANSACTION);
 		}
 
+	        if(get_isTransaction()){
+std::cout << "****  TX Read Event at " << req->addr << "  ****\n" << std::endl;
+			req->setFlags(SimpleMem::Request::F_TRANSACTION);
+		}
+
 	        // Actually send the event to the cache
 	        cacheLink->sendRequest(req);
 	}
@@ -167,6 +172,11 @@ void ArielCore::commitWriteEvent(const uint64_t address,
 		if(enableTracing) {
 			printTraceEntry(false, (const uint64_t) req->addrs[0], (const uint32_t) length);
 		}
+
+	        if(get_isTransaction()){
+std::cout << "****  TX Write Event at " << req->addr << "  ****\n" << std::endl;
+			req->setFlags(SimpleMem::Request::F_TRANSACTION);
+	        }
 
 	        if(get_isTransaction()){
 std::cout << "****  TX Write Event at " << req->addr << "  ****\n" << std::endl;
@@ -200,6 +210,8 @@ void ArielCore::commitTxEndEvent(const uint32_t depth)
 
 void ArielCore::handleEvent(SimpleMem::Request* event) {
 	ARIEL_CORE_VERBOSE(4, output->verbose(CALL_INFO, 4, 0, "Core %" PRIu32 " handling a memory event.\n", coreID));
+
+
 
 
 
@@ -622,6 +634,28 @@ void ArielCore::handleAllocationEvent(ArielAllocateEvent* aEv) {
 	} else {    // As a config convience, we're not supporting allocLink + allocate-on-malloc but there's no real reason not to
 		memmgr->allocateMalloc(aEv->getAllocationLength(), aEv->getAllocationLevel(), aEv->getVirtualAddress());
 	}
+}
+
+void ArielCore::handleTxBeginEvent()
+{
+   set_isTransaction(1);
+   commitTxBeginEvent(1);
+}
+
+void ArielCore::handleTxEndEvent()
+{
+   set_isTransaction(0);
+   commitTxEndEvent(1);
+}
+
+void ArielCore::set_isTransaction(bool inValue)
+{
+   isTransaction_ = inValue;
+}
+
+bool ArielCore::get_isTransaction(void)
+{
+   return isTransaction_;
 }
 
 void ArielCore::handleTxBeginEvent()

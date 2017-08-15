@@ -191,8 +191,8 @@ void MemHierarchyInterface::updateRequest(SimpleMem::Request* req, MemEvent *me)
         fprintf(stderr, "Don't know how to deal with command %s\n", CommandString[me->getCmd()]);
     }
    // Always update memFlags to faciliate mem->processor communication
-    req->clear_memFlags();
-    req->set_memFlags(me->getMemFlags());
+    req->clearMemFlags();
+    req->setMemFlags(me->getMemFlags());
 }
 
 bool MemHierarchyInterface::initialize(const std::string &linkName, HandlerBase *handler){
