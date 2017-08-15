@@ -325,8 +325,8 @@ public:
         initTime_           = 0;
         payload_.clear();
         dirty_              = false;
-        instPtr_	    = 0;
-        vAddr_		    = 0;
+        instPtr_            = 0;
+        vAddr_              = 0;
         inProgress_         = false;
     }
 
@@ -512,8 +512,8 @@ private:
     bool            blocked_;           // Whether this request blocked for another pending request (for profiling) TODO move to mshrs
     SimTime_t       initTime_;          // Timestamp when event was created, for detecting timeouts TODO move to mshrs
     bool            dirty_;             // For a replacement, whether the data is dirty or not
-    Addr	    instPtr_;           // Instruction pointer associated with the request
-    Addr 	    vAddr_;             // Virtual address associated with the request
+    Addr            instPtr_;           // Instruction pointer associated with the request
+    Addr            vAddr_;             // Virtual address associated with the request
     bool            inProgress_;        // Whether this request is currently being handled, if in MSHR TODO move to mshrs
 
     MemEvent() {} // For serialization only
