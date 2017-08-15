@@ -209,18 +209,14 @@ void ArielCore::commitTxEndEvent(const uint32_t depth)
 }
 
 void ArielCore::handleEvent(SimpleMem::Request* event) {
-	ARIEL_CORE_VERBOSE(4, output->verbose(CALL_INFO, 4, 0, "Core %" PRIu32 " handling a memory event.\n", coreID));
-
-
-
-
+    ARIEL_CORE_VERBOSE(4, output->verbose(CALL_INFO, 4, 0, "Core %" PRIu32 " handling a memory event.\n", coreID));
 
     SimpleMem::Request::id_t mev_id = event->id;
     auto find_entry = pendingTransactions->find(mev_id);
 
-	if(find_entry != pendingTransactions->end()) {
-		ARIEL_CORE_VERBOSE(4, output->verbose(CALL_INFO, 4, 0, "Correctly identified event in pending transactions, removing from list, before there are: %" PRIu32 " transactions pending.\n",
-					(uint32_t) pendingTransactions->size()));
+    if(find_entry != pendingTransactions->end()) {
+            ARIEL_CORE_VERBOSE(4, output->verbose(CALL_INFO, 4, 0, "Correctly identified event in pending transactions, removing from list, before there are: %" PRIu32 " transactions pending.\n",
+                                    (uint32_t) pendingTransactions->size()));
 
         pendingTransactions->erase(find_entry);
         pending_transaction_count--;
@@ -238,7 +234,6 @@ void ArielCore::handleEvent(SimpleMem::Request* event) {
         output->fatal(CALL_INFO, -4, "Memory event response to core: %" PRIu32 " was not found in pending list.\n", coreID);
     }
     delete event;
->>>>>>> Added memory events for Abort, which required moving other HTM events. DEBUG info not wrapped.
 }
 
 void ArielCore::finishCore() {
@@ -455,7 +450,6 @@ bool ArielCore::refillQueue() {
 	    break;
       }
     }
->>>>>>> Most of the interface complete. May still be some stray debugging not protected. TxManager only stub.
 
 	ARIEL_CORE_VERBOSE(16, output->verbose(CALL_INFO, 16, 0, "Refilling event queue for core %" PRIu32 " is complete\n", coreID));
 	return true;
@@ -634,28 +628,6 @@ void ArielCore::handleAllocationEvent(ArielAllocateEvent* aEv) {
 	} else {    // As a config convience, we're not supporting allocLink + allocate-on-malloc but there's no real reason not to
 		memmgr->allocateMalloc(aEv->getAllocationLength(), aEv->getAllocationLevel(), aEv->getVirtualAddress());
 	}
-}
-
-void ArielCore::handleTxBeginEvent()
-{
-   set_isTransaction(1);
-   commitTxBeginEvent(1);
-}
-
-void ArielCore::handleTxEndEvent()
-{
-   set_isTransaction(0);
-   commitTxEndEvent(1);
-}
-
-void ArielCore::set_isTransaction(bool inValue)
-{
-   isTransaction_ = inValue;
-}
-
-bool ArielCore::get_isTransaction(void)
-{
-   return isTransaction_;
 }
 
 void ArielCore::handleTxBeginEvent()

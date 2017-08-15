@@ -145,9 +145,6 @@ SimpleMem::Request* MemHierarchyInterface::processIncoming(MemEvent *ev){
     Command cmd = ev->getCmd();
     MemEvent::id_type origID = ev->getResponseToID();
 
-    BOOST_ASSERT_MSG(MemEvent::isResponse(cmd), "Interal Error: Request Type event (eg GetS, GetX, etc) should not be sent by MemHierarchy to CPU. " \
-    "Make sure you L1's cache 'high network port' is connected to the CPU, and the L1's 'low network port' is connected to the next level cache.");
-
     std::map<MemEvent::id_type, SimpleMem::Request*>::iterator i = requests_.find(origID);
     if(i != requests_.end()) {
         req = i->second;
