@@ -36,6 +36,7 @@
 // SST includes
 #include <sst/core/component.h>
 #include <sst/core/link.h>
+#include <sst/core/output.h>
 
 // local includes
 //#include "c_BankCommand.hpp"
@@ -89,6 +90,9 @@ private:
 	Clock::HandlerBase *m_clockHandler;
         TimeConverter* m_timeBase;
         bool m_clockOn;
+
+        // Output
+        Output m_out;
 
 	// params
 	int k_numChannels;
