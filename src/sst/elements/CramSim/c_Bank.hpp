@@ -73,7 +73,7 @@ public:
 	}
 
 	virtual void handleCommand(c_BankCommand* x_bankCommandPtr);
-	virtual c_BankCommand* clockTic(); // called every cycle
+	virtual c_BankCommand* clockTic(bool& x_active); // called every cycle
 
 
 	inline unsigned nRC() const {

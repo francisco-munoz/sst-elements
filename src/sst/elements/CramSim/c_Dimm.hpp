@@ -71,6 +71,7 @@ private:
 	void operator=(const c_Dimm&); // do not implement
 
 	virtual bool clockTic(SST::Cycle_t); // called every cycle
+        virtual void turnClockOn();
 
 	// BankReceiver <-> CmdUnit Handlers
 	void handleInCmdUnitReqPtrEvent(SST::Event *ev); // receive a cmd req from CmdUnit
@@ -79,13 +80,15 @@ private:
 	void sendResponse();
 	void sendToBank(c_BankCommand* x_bankCommandPtr);
 	void updateDynamicEnergy(c_BankCommand* x_bankCommandPtr);
-	void updateBackgroundEnergy();
+	void updateBackgroundEnergy(Cycle_t cycles);
 
 	// Links
 	SST::Link* m_ctrlLink;
 
 	// Clock Handler
 	Clock::HandlerBase *m_clockHandler;
+        TimeConverter* m_timeBase;
+        bool m_clockOn;
 
 	// params
 	int k_numChannels;
@@ -112,7 +115,9 @@ private:
 	int m_numBanks;
 	int m_numRanks;
 
-    SimTime_t m_simCycle;
+        std::set<int> m_activeBanks; // Track which banks are handling commands
+
+        SimTime_t m_simCycle;
 	std::vector<c_Bank*> m_banks;
 
 	std::vector<c_BankCommand*> m_cmdResQ;
@@ -120,7 +125,7 @@ private:
 	// Statistics
 	Statistic<uint64_t>* s_actCmdsRecvd;
 	Statistic<uint64_t>* s_readCmdsRecvd;
-    Statistic<uint64_t>* s_readACmdsRecvd;
+        Statistic<uint64_t>* s_readACmdsRecvd;
 	Statistic<uint64_t>* s_writeCmdsRecvd;
 	Statistic<uint64_t>* s_writeACmdsRecvd;
 	Statistic<uint64_t>* s_preCmdsRecvd;
@@ -128,7 +133,7 @@ private:
 
 	std::vector<uint64_t> m_actCmdsRecvd;
 	std::vector<uint64_t> m_readCmdsRecvd;
-    std::vector<uint64_t> m_readACmdsRecvd;
+        std::vector<uint64_t> m_readACmdsRecvd;
 	std::vector<uint64_t> m_writeCmdsRecvd;
 	std::vector<uint64_t> m_writeACmdsRecvd;
 	std::vector<uint64_t> m_preCmdsRecvd;
@@ -139,7 +144,7 @@ private:
 	std::vector<double> m_refreshEnergy;
 	std::vector<double> m_actpreEnergy;
 
-  std::vector<c_BankStatistics*> m_bankStatsVec;
+        std::vector<c_BankStatistics*> m_bankStatsVec;
 };
 }
 }
