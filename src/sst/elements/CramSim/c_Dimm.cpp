@@ -223,17 +223,11 @@ c_Dimm::c_Dimm(SST::ComponentId_t x_id, SST::Params& x_params) :
 		unsigned l_bankNum = l_entry->getBankNum();
 		c_BankStatistics *l_bankStats = new c_BankStatistics();
 		
-		l_statName = "bankACTsRecvd_" + std::to_string(l_bankNum);
-		l_bankStats->s_bankACTsRecvd = registerStatistic<uint64_t>(l_statName);
-		l_statName = "bankREADsRecvd_" + std::to_string(l_bankNum);
-		l_bankStats->s_bankREADsRecvd = registerStatistic<uint64_t>(l_statName);
-		l_statName = "bankWRITEsRecvd_" + std::to_string(l_bankNum);
-		l_bankStats->s_bankWRITEsRecvd = registerStatistic<uint64_t>(l_statName);
-		l_statName = "bankPREsRecvd_" + std::to_string(l_bankNum);
-		l_bankStats->s_bankPREsRecvd = registerStatistic<uint64_t>(l_statName);
-
-		l_statName = "bankRowHits_" + std::to_string(l_bankNum);
-		l_bankStats->s_bankRowHits = registerStatistic<uint64_t>(l_statName);
+		l_bankStats->s_bankACTsRecvd = registerStatistic<uint64_t>("bankACTsRecvd", std::to_string(l_bankNum));
+		l_bankStats->s_bankREADsRecvd = registerStatistic<uint64_t>("bankREADsRecvd", std::to_string(l_bankNum));
+		l_bankStats->s_bankWRITEsRecvd = registerStatistic<uint64_t>("bankWRITEsRecvd", std::to_string(l_bankNum));
+		l_bankStats->s_bankPREsRecvd = registerStatistic<uint64_t>("bankPREsRecvd", std::to_string(l_bankNum));
+		l_bankStats->s_bankRowHits = registerStatistic<uint64_t>("bankRowHits", std::to_string(l_bankNum));
 		
 		l_bankStats->s_totalRowHits = l_totalRowHits;
 		
