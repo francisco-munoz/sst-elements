@@ -34,6 +34,7 @@
 #include <sst/core/link.h>
 #include <sst/core/params.h>
 #include <sst/core/subcomponent.h>
+#include <sst/core/elementinfo.h>
 
 #include <memory>
 #include <map>
@@ -55,6 +56,20 @@ namespace SST {
         class c_AddressHasher : public SubComponent {
 
         public:
+/* Element Library Info */
+            SST_ELI_REGISTER_SUBCOMPONENT(c_AddressHasher, "CramSim", "c_AddressHasher", SST_ELI_ELEMENT_VERSION(1,0,0), "Hashes addresses based on config parameters", "SST::CramSim::Controller::AddressHasher")
+
+            SST_ELI_DOCUMENT_PARAMS(
+		{"numChannelsPerDimm", "Total number of channels per DIMM", NULL},
+		{"numRanksPerChannel", "Total number of ranks per channel", NULL},
+		{"numBankGroupsPerRank", "Total number of bank groups per rank", NULL},
+		{"numBanksPerBankGroup", "Total number of banks per group", NULL},
+		{"numRowsPerBank" "Number of rows in every bank", NULL},
+		{"numColsPerBank", "Number of cols in every bank", NULL},
+		{"numBytesPerTransaction", "Number of bytes retrieved for every transaction", NULL},
+		{"strAddressMapStr","String defining the address mapping scheme",NULL})
+
+/* Class definition */
             // Below is for calling in generic locations to obtain a pointer to the singleton instance
             c_AddressHasher(Component *comp, Params &params);
 

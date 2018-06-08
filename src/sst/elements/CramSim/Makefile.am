@@ -8,7 +8,6 @@ AM_CPPFLAGS = \
 compdir = $(pkglibdir)
 comp_LTLIBRARIES = libCramSim.la
 libCramSim_la_SOURCES = \
-	CramSim.cpp \
 	c_TraceFileReader.hpp \
 	c_TraceFileReader.cpp \
 	c_Dimm.hpp \
