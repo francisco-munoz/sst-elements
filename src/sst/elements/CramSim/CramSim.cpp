@@ -19,9 +19,20 @@
 #include "sst/core/element.h"
 
 // local includes
+#include "c_MemhBridge.hpp"
+#include "c_AddressHasher.hpp"
+#include "c_TxnConverter.hpp"
 #include "c_TxnScheduler.hpp"
 #include "c_CmdReqEvent.hpp"
 #include "c_CmdResEvent.hpp"
+#include "c_DeviceDriver.hpp"
+#include "c_Dimm.hpp"
+#include "c_Controller.hpp"
+#include "c_TxnDispatcher.hpp"
+#include "c_TxnGen.hpp"
+#include "c_TraceFileReader.hpp"
 
-
+using namespace SST;
+using namespace SST::n_Bank;
+using namespace SST::Statistics;
                 
