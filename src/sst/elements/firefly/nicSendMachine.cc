@@ -31,13 +31,15 @@ void Nic::SendMachine::streamInit( SendEntryBase* entry )
     hdr.op= entry->getOp();
 
     m_dbg.debug(CALL_INFO,1,NIC_DBG_SEND_MACHINE,
-        "%p setup hdr, srcPid=%d, destNode=%d dstPid=%d bytes=%lu\n", entry,
-        entry->local_vNic(), entry->dest(), entry->dst_vNic(), entry->totalBytes() ) ;
+        "%p setup hdr, srcPid=%d, srcStream=%d destNode=%d dstPid=%d bytes=%lu\n", entry,
+        entry->local_vNic(), entry->streamNum(), entry->dest(), entry->dst_vNic(), entry->totalBytes() ) ;
 
     FireflyNetworkEvent* ev = new FireflyNetworkEvent(m_pktOverhead );
     ev->setDestPid( entry->dst_vNic() );
     ev->setSrcPid( entry->local_vNic() ); 
     ev->setHdr();
+    ev->setSrcStream( entry->streamNum() );
+    entry->m_start = m_nic.getCurrentSimTimeNano();
     if ( entry->isCtrl() || entry->isAck() ) {
         ev->setCtrl();
     } 
@@ -53,6 +55,7 @@ void Nic::SendMachine::getPayload( SendEntryBase* entry, FireflyNetworkEvent* ev
     int pid = entry->local_vNic(); 
     ev->setDestPid( entry->dst_vNic() );
     ev->setSrcPid( pid );
+    ev->setSrcStream( entry->streamNum() );
     if ( ! m_inQ->isFull() ) {
 	    std::vector< MemOp >* vec = new std::vector< MemOp >; 
         entry->copyOut( m_dbg, m_packetSizeInBytes, *ev, *vec ); 
@@ -72,7 +75,9 @@ void Nic::SendMachine::getPayload( SendEntryBase* entry, FireflyNetworkEvent* ev
 }
 void Nic::SendMachine::streamFini( SendEntryBase* entry ) 
 {
-    m_dbg.debug(CALL_INFO,1,NIC_DBG_SEND_MACHINE, "%p sendMachine=%d pid=%d\n",entry,m_id, entry->local_vNic());
+    m_dbg.debug(CALL_INFO,1,NIC_DBG_SEND_MACHINE, "%p sendMachine=%d pid=%d bytes=%zu latency=%" PRIu64 "\n",entry,m_id, entry->local_vNic(),
+            entry->totalBytes(), m_nic.getCurrentSimTimeNano() - entry->m_start);
+
     ++m_numSent;
     if ( m_I_manage ) {
         m_sendQ.pop_front();
@@ -94,6 +99,7 @@ void  Nic::SendMachine::InQ::enque( int unit, int pid, std::vector< MemOp >* vec
             FireflyNetworkEvent* ev, int dest, Callback callback )
 {
     ++m_numPending;
+	m_nic.m_sendStreamPending->addData( m_numPending );
 
     m_dbg.verbosePrefix(prefix(), CALL_INFO,2,NIC_DBG_SEND_MACHINE, "get timing for packet %" PRIu64 " size=%lu numPending=%d\n",
                  m_pktNum,ev->bufSize(), m_numPending);

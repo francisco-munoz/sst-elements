@@ -15,6 +15,7 @@ comp_cpu0.addParams({
       "do_write" : "1",
       "num_loadstore" : "10000",
       "memSize" : "0x100000",
+      "verbose" : 0
 })
 comp_c0_l1cache = sst.Component("c0.l1cache", "memHierarchy.Cache")
 comp_c0_l1cache.addParams({
@@ -35,6 +36,7 @@ comp_cpu1.addParams({
       "do_write" : "1",
       "num_loadstore" : "1000",
       "memSize" : "0x100000",
+      "verbose" : 0
 })
 comp_c1_l1cache = sst.Component("c1.l1cache", "memHierarchy.Cache")
 comp_c1_l1cache.addParams({
@@ -70,6 +72,7 @@ comp_cpu2.addParams({
       "do_write" : "1",
       "num_loadstore" : "1000",
       "memSize" : "0x100000",
+      "verbose" : 0
 })
 comp_c2_l1cache = sst.Component("c2.l1cache", "memHierarchy.Cache")
 comp_c2_l1cache.addParams({
@@ -90,6 +93,7 @@ comp_cpu3.addParams({
       "do_write" : "1",
       "num_loadstore" : "1000",
       "memSize" : "0x100000",
+      "verbose" : 0
 })
 comp_c3_l1cache = sst.Component("c3.l1cache", "memHierarchy.Cache")
 comp_c3_l1cache.addParams({
@@ -132,7 +136,6 @@ comp_l3cache.addParams({
       "cache_line_size" : "64",
       "cache_size" : "64 KB",
       "debug" : "0",
-      "memNIC.network_address" : "1",
       "memNIC.network_bw" : "25GB/s",
 })
 comp_chiprtr = sst.Component("chiprtr", "merlin.hr_router")
@@ -150,7 +153,6 @@ comp_dirctrl = sst.Component("dirctrl", "memHierarchy.DirectoryController")
 comp_dirctrl.addParams({
       "coherence_protocol" : "MESI",
       "debug" : "0",
-      "memNIC.network_address" : "0",
       "entry_cache_size" : "16384",
       "memNIC.network_bw" : "25GB/s",
       "memNIC.addr_range_end" : "0x1F000000",

@@ -60,9 +60,17 @@ namespace n_Bank{
   
 class c_DeviceDriver: public SubComponent{
 public:
-    /* Element Library Info */
-        SST_ELI_REGISTER_SUBCOMPONENT(c_DeviceDriver, "CramSim", "c_DeviceDriver", SST_ELI_ELEMENT_VERSION(1,0,0), "Dram Control Unit", "SST::CramSim::Controller::DeviceDriver")
-	SST_ELI_DOCUMENT_PARAMS(
+
+    SST_ELI_REGISTER_SUBCOMPONENT(
+        c_DeviceDriver,
+        "CramSim",
+        "c_DeviceDriver",
+        SST_ELI_ELEMENT_VERSION(1,0,0),
+        "Dram Control Unit",
+        "SST::CramSim::Controller::DeviceDriver"
+    )
+
+    SST_ELI_DOCUMENT_PARAMS(
 		{"numChannels", "Total number of channels per DIMM", NULL},
 		{"numPChannelsPerChannel", "Total number of channels per pseudo channel (added to support HBM)", NULL},
 		{"numRanksPerChannel", "Total number of ranks per (p)channel", NULL},
@@ -108,9 +116,15 @@ public:
 		{"nRFC", "Bank Param", NULL},
 		{"nREFI", "Bank Param", NULL},
 		{"nFAW", "Bank Param", NULL},
-		{"nBL", "Bank Param", NULL})
+		{"nBL", "Bank Param", NULL},
+    )
 
-/* Class definition */
+    SST_ELI_DOCUMENT_PORTS(
+    )
+
+    SST_ELI_DOCUMENT_STATISTICS(
+    )
+
 	c_DeviceDriver(Component *comp, Params& x_params);
 	~c_DeviceDriver();
 

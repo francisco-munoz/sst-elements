@@ -89,6 +89,8 @@ public:
         
         uint64_t            lastSendTimestamp_; // Use to force sequential timing for subsequent accesses to the line
 
+        bool                wasPrefetch_;   // Track prefetch success rates
+
         /* L1 specific */
         unsigned int userLock_;
         bool LLSCAtomic_;
@@ -115,6 +117,8 @@ public:
             
             lastSendTimestamp_      = 0;
 
+            wasPrefetch_ = false;
+
             /* Dir specific */
             dataLine_ = NULL;
 
@@ -138,14 +142,14 @@ public:
         }
 
         /** Getter for size. Constant field - no setter */
-        unsigned int getSize() { return size_; }
+        unsigned int getSize() const { return size_; }
         /** Getter for index. Constant field - no setter */
         int getIndex() { return index_; }
 
         /** Setter for line address */
         void setBaseAddr(Addr addr) { baseAddr_ = addr; }
         /** Getter for line address */
-        Addr getBaseAddr() { return baseAddr_; }
+        Addr getBaseAddr() const { return baseAddr_; }
 
         /** Setter for line state */
         virtual void setState(State state) { 
@@ -204,6 +208,11 @@ public:
         void setTimestamp(uint64_t timestamp) { lastSendTimestamp_ = timestamp; }
         /** Getter for timestamp field */
         uint64_t getTimestamp() { return lastSendTimestamp_; }
+
+        /** Setter for prefetch field */
+        void setPrefetch(bool prefetch) { wasPrefetch_ = prefetch; }
+        /** Getter for prefetch field */
+        bool getPrefetch() { return wasPrefetch_; }
 
         /****** L1 specific fields ******/
         
@@ -286,7 +295,6 @@ public:
         delete hash_;
     }
 
-    vector<CacheLine *> lines_;
     void setSliceAware(unsigned int numSlices) {
         slices_ = numSlices;
     }
@@ -318,6 +326,7 @@ protected:
     bool            sharersAware_;
     unsigned int    slices_;    // Both slices are banks_ are banks; slices_ are external to this cache array, banks_ are internal
     unsigned int    banks_;
+    vector<CacheLine *> lines_; // The actual cache
 
     CacheArray(Output* dbg, unsigned int numLines, unsigned int associativity, unsigned int lineSize,
                ReplacementMgr* replacementMgr, HashFunction* hash, bool sharersAware, bool cache) : dbg_(dbg), 

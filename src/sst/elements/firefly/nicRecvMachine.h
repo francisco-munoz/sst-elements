@@ -21,7 +21,22 @@ class RecvMachine {
         
     typedef uint64_t SrcKey;
     typedef std::function<void()> Callback;
-    static SrcKey getSrcKey(int srcNode, int srcPid) { return (SrcKey) srcNode << 32 | srcPid; }
+
+    static SrcKey getSrcKey(int srcNode, int srcPid, int srcStream) { 
+		union Key {
+			uint64_t value;
+			struct x {
+				uint16_t pid : 12;
+				uint16_t stream : STREAM_NUM_SIZE;
+				uint32_t nid : 20;
+			} x;
+		} tmp;
+
+		tmp.x.pid = srcPid;
+		tmp.x.nid = srcNode;
+		tmp.x.stream = srcStream;
+		return tmp.value; 
+	}
 
     #include "nicRecvStream.h"
     #include "nicRecvCtx.h"
@@ -42,8 +57,8 @@ class RecvMachine {
             m_numActiveStreams( 0 ),
             m_maxActiveStreams( maxActiveStreams ),
             m_blockedPkt(NULL),
-            m_receivedPkts(0),
-            m_numMsgRcvd(0)
+            m_numMsgRcvd(0),
+            m_hostBlockingTime(0)
         { 
             char buffer[100];
             snprintf(buffer,100,"@t:%d:Nic::RecvMachine::@p():@l vc=%d ",nodeId,m_vc);
@@ -82,7 +97,6 @@ class RecvMachine {
                 m_blockedPkt = NULL;
             }
         }
-        int getNumReceivedPkts() { return m_receivedPkts; }
 
     protected:
         Nic&        m_nic;
@@ -147,19 +161,37 @@ class RecvMachine {
                 checkNetworkForData();
             } else {
       		    m_dbg.debug(CALL_INFO,2,NIC_DBG_RECV_MACHINE,"blocked by context\n");
+				m_hostBlockingTime = Simulation::getSimulation()->getCurrentSimCycle();
             }
         }
 
         FireflyNetworkEvent* getNetworkEvent(int vc ) {
             SST::Interfaces::SimpleNetwork::Request* req =
                 m_nic.m_linkControl->recv(vc);
-            ++m_receivedPkts;
+
+            if ( m_hostBlockingTime ) {
+                uint64_t latency = Simulation::getSimulation()->getCurrentSimCycle() - m_hostBlockingTime;
+				if ( latency ) {
+                	m_nic.m_hostStall->addData( latency );
+				}
+                m_hostBlockingTime = 0;
+            }
+
             if ( req ) {
+
+				m_nic.m_rcvdPkts->addData(1);
+
+
                 Event* payload = req->takePayload();
                 if ( NULL == payload ) return NULL;
+
+                m_dbg.debug(CALL_INFO,2,NIC_DBG_RECV_MACHINE,"got packet\n");
+
+
                 FireflyNetworkEvent* event =
                     static_cast<FireflyNetworkEvent*>(payload);
                 event->setSrcNode( m_nic.NetToId( req->src ) );
+				m_nic.m_rcvdByteCount->addData( event->payloadSize() );
                 delete req;
                 if ( ! event->isCtrl() && event->isHdr() ) {
                     ++m_numMsgRcvd;
@@ -170,6 +202,7 @@ class RecvMachine {
             }
         }
 
+        SimTime_t m_hostBlockingTime;		
         int m_numMsgRcvd;
         int m_receivedPkts;
         int         m_vc;
