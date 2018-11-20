@@ -1,8 +1,8 @@
-// Copyright 2009-2017 Sandia Corporation. Under the terms
-// of Contract DE-NA0003525 with Sandia Corporation, the U.S.
+// Copyright 2009-2018 NTESS. Under the terms
+// of Contract DE-NA0003525 with NTESS, the U.S.
 // Government retains certain rights in this software.
 //
-// Copyright (c) 2009-2017, Sandia Corporation
+// Copyright (c) 2009-2018, NTESS
 // All rights reserved.
 //
 // Portions are copyright of other developers:
@@ -51,10 +51,10 @@ public:
 	c_BankStateIdle(std::map<std::string, unsigned>* x_bankParams);
 	~c_BankStateIdle();
 
-	virtual void handleCommand(c_BankInfo* x_bank, c_BankCommand* x_bankCommandPtr);
+	virtual void handleCommand(c_BankInfo* x_bank, c_BankCommand* x_bankCommandPtr, SimTime_t x_cycle);
 
-	virtual void clockTic(c_BankInfo* x_bank);
-	virtual void enter(c_BankInfo* x_bank, c_BankState* x_prevState, c_BankCommand* x_cmdPtr);
+	virtual void clockTic(c_BankInfo* x_bank, SimTime_t x_cycle);
+	virtual void enter(c_BankInfo* x_bank, c_BankState* x_prevState, c_BankCommand* x_cmdPtr, SimTime_t x_cycle);
 	virtual std::list<e_BankCommandType> getAllowedCommands();
 
 	virtual bool isCommandAllowed(c_BankCommand* x_cmdPtr,

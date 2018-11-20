@@ -1,8 +1,8 @@
-// Copyright 2009-2016 Sandia Corporation. Under the terms
-// of Contract DE-AC04-94AL85000 with Sandia Corporation, the U.S.
+// Copyright 2009-2016 NTESS. Under the terms
+// of Contract DE-NA0003525 with NTESS, the U.S.
 // Government retains certain rights in this software.
 //
-// Copyright (c) 2009-2016, Sandia Corporation
+// Copyright (c) 2009-2016, NTESS
 // All rights reserved.
 //
 // Portions are copyright of other developers:
@@ -18,105 +18,92 @@
 
 #include <stdint.h>
 #include <queue>
+#include <iostream>
+#include <fstream>
 
 //SST includes
 #include <sst/core/component.h>
 #include <sst/core/link.h>
 #include <sst/core/output.h>
+#include <sst/core/elementinfo.h>
 
 //local includes
 #include "c_Transaction.hpp"
+#include "c_TxnGen.hpp"
 
 namespace SST {
 namespace n_Bank {
-class c_MemhBridge: public SST::Component {
+    
+#if defined(__clang__)
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Winconsistent-missing-override"
+#endif
+    
+class c_MemhBridge: public c_TxnGenBase {
 
 
 public:
+
+    SST_ELI_REGISTER_COMPONENT(
+        c_MemhBridge,
+        "CramSim",
+        "c_MemhBridge",
+        SST_ELI_ELEMENT_VERSION(1,0,0),
+        "Bridge to communicate with MemoryHierarchy",
+        COMPONENT_CATEGORY_UNCATEGORIZED
+    )
+
+    SST_ELI_DOCUMENT_PARAMS(
+        {"maxOutstandingReqs", "Maximum number of the outstanding requests", NULL},
+    )
+
+    SST_ELI_DOCUMENT_PORTS(
+        { "cpuLink", "link to/from CPU", {"c_CPUevent"} },
+        { "memLink", "link to memory-side components (txn dispatcher or controller)", { "c_TxnReqEvent", "c_TxnResEvent"} },
+    )
+
+    SST_ELI_DOCUMENT_STATISTICS(
+        {"readTxnsSent", "Number of read transactions sent", "reads", 1}, // Name, Desc, Units, Enable Level
+        {"writeTxnsSent", "Number of write transactions sent", "writes", 1}, // Name, Desc, Units, Enable Level
+        {"readTxnsCompleted", "Number of read transactions completed", "reads", 1}, // Name, Desc, Units, Enable Level
+        {"writeTxnsCompleted", "Number of write transactions completed", "writes", 1},
+        {"txnsPerCycle", "Transactions Per Cycle", "Txns/Cycle", 1},
+        {"readTxnsLatency", "Average latency of read transactions", "cycles", 1},
+        {"writeTxnsLatency", "Average latency of write transactions", "cycles", 1},
+        {"txnsLatency", "Average latency of (read/write) transactions", "cycles", 1},
+    )
+
 	c_MemhBridge(SST::ComponentId_t x_id, SST::Params& x_params);
 	~c_MemhBridge();
 
-	void setup() {
-	}
-	void finish() {
-		printf("Total Read-Txns Responses received: %lu\n", m_resReadCount);
-		printf("Total Write-Txns Responses received: %lu\n", m_resWriteCount);
-		printf("Component Finished.\n");
-	}
 
 private:
-	c_MemhBridge(); //for serialization only
-	c_MemhBridge(const c_MemhBridge&); //do not implement
-
-
-	void operator=(const c_MemhBridge&);
-
 	void createTxn();
-
-	//FIXME: Remove the word unit from members once class is complete to keep in line with code convention
-
-	//txn to/from events
-	void handleOutTxnGenReqPtrEvent(SST::Event *ev); // we do not need this function for functionality
-	void handleInTxnUnitResPtrEvent(SST::Event *ev); //receive txn res ptr from Transaction unit
-
-	//token chg to/from events
-	void handleInTxnUnitReqQTokenChgEvent(SST::Event *ev); //receive change in tokens in txn unit req queue
-	void handleOutTxnGenResQTokenChgEvent(SST::Event *ev); // we do not need this function for functionality
-
-	void sendTokenChg(); //should happen at the end of every cycle
-	void sendRequest(); //send out txn req ptr to Transaction unit
 	void readResponse(); //read from res q to output
 
-	virtual bool clockTic(SST::Cycle_t); //called every cycle
-
-	//Debug
-	Output dbg;
-
-	//Transaction info
-	ulong m_prevAddress;
-	ulong m_seqNum;
-
-	std::map<uint64_t,Event::id_type> dramReqs; //key: transaction sequence number, value: event id
-
+        void printTxn(bool isWrite, uint64_t addr);
+	
+        //Debug
+	Output *output;
 
 
 	//link to/from CPU
 	SST::Link *m_linkCPU;
 
-	//request-related links
-	SST::Link* m_outTxnGenReqPtrLink; //outgoing txn gen req ptr
-	SST::Link* m_inTxnUnitReqQTokenChgLink; //incoming change in txn unit req q tokens
 
-	//response links
-	SST::Link* m_inTxnUnitResPtrLink; //incoming txn unit res ptr
-	SST::Link* m_outTxnGenResQTokenChgLink; //outgoing change in txn gen res q tokens
+	bool k_printTxnTrace;
+	std::string k_txnTraceFileName;
+	std::filebuf m_txnTraceFileBuf;
+	std::streambuf *m_txnTraceStreamBuf;
+	std::ofstream m_txnTraceOFStream;
+	std::ostream *m_txnTraceStream;
 
-	//params for internal microarcitecture
-	int k_txnGenReqQEntries;
-	int k_txnGenResQEntries;
-	double k_readWriteTxnRatio;
-
-	//param for receiver
-	int k_txnUnitReqQEntries;
-
-	//TODO: implement txn width if necessary
-
-	// token change in this unit this cycle
-	// beginning of every cycle this variable is reset
-	// sendTokenChg() function sends the contents of this variable
-	int m_thisCycleResQTknChg;
-
-	//token changes from Txn unit
-	int m_txnUnitReqQTokens;
-
-	// used to keep track of the response types being received
-	unsigned long m_resReadCount;
-	unsigned long m_resWriteCount;
-
-	std::queue<c_Transaction*> m_txnReqQ; //outgoing
-	std::queue<c_Transaction*> m_txnResQ; //incoming
 
 };
+
+#if defined(__clang__)
+#pragma clang diagnostic pop
+#endif
 
 } // namespace n_Bank
 } // namespace SST

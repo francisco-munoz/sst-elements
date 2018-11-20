@@ -1,21 +1,19 @@
 
-import sys,getopt
+import sys,getopt,copy,pprint,random
 
 import sst
 from sst.merlin import *
-
-import loadInfo
 from loadInfo import *
-
-import networkConfig 
 from networkConfig import *
-
-import random 
+from loadFileParse import *
+from paramUtils import *
 
 debug    = 0
 emberVerbose = 0
 embermotifLog = ''
 emberrankmapper = ''
+
+useSimpleMemoryModel=False
 
 statNodeList = []
 jobid = 0
@@ -24,6 +22,7 @@ workList = []
 workFlow = []
 numCores = 1
 numNodes = 0
+nidList = ''
 
 platform = 'default'
 
@@ -32,6 +31,7 @@ netBW = ''
 netPktSize = '' 
 netTopo = ''
 netShape = ''
+netHostsPerRtr = 1
 netInspect = ''
 rtrArb = ''
 
@@ -48,21 +48,33 @@ detailedModelParams = ""
 simConfig = ""
 platParams = ""
 
+params = { 
+'network': [],
+'nic': [],
+'ember': [],
+'hermes': [],
+'merlin': [],
+} 
+
+motifAPI='HadesMP'
+
 motifDefaults = { 
 	'cmd' : "",
 	'printStats' : 0, 
-	'api': "HadesMP",
-	'spyplotmode': 0 
+	'spyplotmode': 0,
+	'api': motifAPI, 
 }
 
+
 try:
-    opts, args = getopt.getopt(sys.argv[1:], "", ["topo=", "shape=",
+    opts, args = getopt.getopt(sys.argv[1:], "", ["topo=", "shape=","hostsPerRtr=",
 		"simConfig=","platParams=",",debug=","platform=","numNodes=",
 		"numCores=","loadFile=","cmdLine=","printStats=","randomPlacement=",
 		"emberVerbose=","netBW=","netPktSize=","netFlitSize=",
-		"rtrArb=","embermotifLog=",	"rankmapper=",
+		"rtrArb=","embermotifLog=",	"rankmapper=","motifAPI=",
 		"bgPercentage=","bgMean=","bgStddev=","bgMsgSize=","netInspect=",
-        "detailedNameModel=","detailedModelParams=","detailedModelNodes="])
+        "detailedNameModel=","detailedModelParams=","detailedModelNodes=",
+		"useSimpleMemoryModel","param="])
 
 except getopt.GetoptError as err:
     print str(err)
@@ -71,6 +83,8 @@ except getopt.GetoptError as err:
 for o, a in opts:
     if o in ("--shape"):
         netShape = a
+    elif o in ("--hostsPerRtr"):
+        netHostsPerRtr = int(a)
     elif o in ("--platform"):
         platform = a
     elif o in ("--numCores"):
@@ -81,9 +95,12 @@ for o, a in opts:
         debug = a
     elif o in ("--loadFile"):
         loadFile = a
+    elif o in ("--motifAPI"):
+		motifAPI= a
     elif o in ("--cmdLine"):
     	motif = dict.copy(motifDefaults)
     	motif['cmd'] = a 
+    	motif['api'] = motifAPI 
     	workFlow.append( motif )
     elif o in ("--topo"):
         netTopo = a
@@ -126,11 +143,19 @@ for o, a in opts:
         simConfig = a
     elif o in ("--platParams"):
         platParams = a
+    elif o in ("--param"):
+        key,value = a.split(":",1)
+        params[key] += [value]  
+    elif o in ("--useSimpleMemoryModel"):
+		useSimpleMemoryModel=True
     else:
         assert False, "unhandle option" 
 
 if 1 == len(sys.argv):
 	simConfig = 'defaultSim'
+
+if len(loadFile) > 0 and  len(workList) > 0:
+	sys.exit("Error: can't specify both loadFile and cmdLine");
 
 if simConfig:
 	try:
@@ -204,7 +229,7 @@ if "" == netShape:
 
 if "torus" == netTopo:
 
-	topoInfo = TorusInfo(netShape)
+	topoInfo = TorusInfo(netShape, netHostsPerRtr)
 	topo = topoTorus()
 
 elif "fattree" == netTopo:
@@ -212,15 +237,20 @@ elif "fattree" == netTopo:
 	topoInfo = FattreeInfo(netShape)
 	topo = topoFatTree()
 
-elif "dragonfly" == netTopo:
+elif "dragonfly" == netTopo or "dragonfly2" == netTopo:
 		
 	topoInfo = DragonFlyInfo(netShape)
 	topo = topoDragonFly()
 
-elif "dragonfly2" == netTopo:
+elif "dragonflyLegacy" == netTopo:
 
-	topoInfo = DragonFly2Info(netShape)
-	topo = topoDragonFly2()
+	topoInfo = DragonFlyLegacyInfo(netShape)
+	topo = topoDragonFlyLegacy()
+
+elif "hyperx" == netTopo:
+
+	topoInfo = HyperXInfo(netShape, netHostsPerRtr)
+	topo = topoHyperX()
 
 else:
 	sys.exit("how did we get here")
@@ -232,6 +262,8 @@ else:
 
 if int(numNodes) == 0:
     numNodes = int(topoInfo.getNumNodes())
+
+nidList='0-' + str(int(numNodes)-1)
 
 if int(numNodes) > int(topoInfo.getNumNodes()):
     sys.exit("need more nodes want " + str(numNodes) + ", have " + str(topoInfo.getNumNodes()))
@@ -305,27 +337,73 @@ if rndmPlacement and bgPercentage > 0:
 
 nicParams['verboseLevel'] = debug
 nicParams['verboseMask'] = 1
+if useSimpleMemoryModel:
+	nicParams['useSimpleMemoryModel'] = 1
 hermesParams['hermesParams.verboseLevel'] = debug
 hermesParams['hermesParams.nicParams.verboseLevel'] = debug
 hermesParams['hermesParams.functionSM.verboseLevel'] = debug
 hermesParams['hermesParams.ctrlMsg.verboseLevel'] = debug
+hermesParams['hermesParams.ctrlMsg.pqs.verboseLevel'] = debug 
+hermesParams['hermesParams.ctrlMsg.pqs.verboseMask'] = 1
 emberParams['verbose'] = emberVerbose
+hermesParams['hermesParams.numNodes'] = topoInfo.getNumNodes() 
+
 if embermotifLog:
     emberParams['motifLog'] = embermotifLog
 if emberrankmapper:
     emberParams['rankmapper'] = emberrankmapper
 
-print "EMBER: network: BW={0} pktSize={1} flitSize={2}".format(
-        networkParams['link_bw'], networkParams['packetSize'], networkParams['flitSize'])
+for a in params['network']:
+    key, value = a.split("=")
+    if key in networkParams:
+        print "override networkParams {}={} with {}".format( key, networkParams[key], value )
+    else:
+        print "set networkParams {}={}".format( key, value )
+    networkParams[key] = value
 
+for a in params['nic']:
+    key, value = a.split("=")
+    if key in nicParams:
+        print "override nicParams {}={} with {}".format( key, nicParams[key], value )
+    else:
+        print "set nicParams {}={}".format( key, value )
+    nicParams[key] = value
+
+for a in params['ember']:
+    key, value = a.split("=")
+    if key in emberParams:
+        print "override emberParams {}={} with {}".format( key, emberParams[key], value )
+    else:
+        print "set emberParams {}={}".format( key, value )
+    emberParams[key] = value
+
+for a in params['hermes']:
+    key, value = a.split("=")
+    if key in hermesParams:
+        print "override hermesParams {}={} with {}".format( key, hermesParams[key], value )
+    else:
+        print "set hermesParams {}={}".format( key, value )
+    hermesParams[key] = value
+
+for a in params['merlin']:
+    key, value = a.split("=")
+    if key in sst.merlin._params:
+        print "override hermesParams {}={} with {}".format( key, sst.merlin._params[key], value )
+    else:
+        print "set merlin {}={}".format( key, value )
+    sst.merlin._params[key] = value
+
+
+nicParams["packetSize"] =	networkParams['packetSize']
+nicParams["link_bw"] = networkParams['link_bw']
 sst.merlin._params["link_lat"] = networkParams['link_lat']
 sst.merlin._params["link_bw"] = networkParams['link_bw']   
-sst.merlin._params["xbar_bw"] = networkParams['link_bw'] 
+sst.merlin._params["xbar_bw"] = networkParams['xbar_bw'] 
 sst.merlin._params["flit_size"] = networkParams['flitSize'] 
 sst.merlin._params["input_latency"] = networkParams['input_latency'] 
 sst.merlin._params["output_latency"] = networkParams['output_latency'] 
-sst.merlin._params["input_buf_size"] = networkParams['buffer_size'] 
-sst.merlin._params["output_buf_size"] = networkParams['buffer_size'] 
+sst.merlin._params["input_buf_size"] = networkParams['input_buf_size'] 
+sst.merlin._params["output_buf_size"] = networkParams['output_buf_size'] 
 
 if "network_inspectors" in networkParams.keys():
     sst.merlin._params["network_inspectors"] = networkParams['network_inspectors']
@@ -333,27 +411,62 @@ if "network_inspectors" in networkParams.keys():
 if rtrArb:
 	sst.merlin._params["xbar_arb"] = "merlin." + rtrArb 
 
-sst.merlin._params.update( topoInfo.getNetworkParams() )
+
+print "EMBER: network: BW={0} pktSize={1} flitSize={2}".format(
+        networkParams['link_bw'], networkParams['packetSize'], networkParams['flitSize'])
+
+if len(params['merlin']) == 0:
+    sst.merlin._params.update( topoInfo.getNetworkParams() )
 
 epParams = {} 
 epParams.update(emberParams)
 epParams.update(hermesParams)
 
-loadInfo = LoadInfo( nicParams, epParams, numNodes, numCores, topoInfo.getNumNodes(), model )
+#pprint.pprint( networkParams, width=1)
+#pprint.pprint( nicParams, width=1)
+#pprint.pprint( sst.merlin._params, width=1)
+
+baseNicParams = {
+    "packetSize" : networkParams['packetSize'],
+    "link_bw" : networkParams['link_bw'],
+    "input_buf_size" : networkParams['input_buf_size'],
+    "output_buf_size" : networkParams['output_buf_size'],
+    "module" : nicParams['module']
+}
+
+loadInfo = LoadInfo( topoInfo.getNumNodes(), baseNicParams, epParams)
 
 if len(loadFile) > 0:
-	if len(workList) > 0:
-		sys.exit("Error: can't specify both loadFile and cmdLine");
+    for jobid, nidlist, params, api, motifs in ParseLoadFile( loadFile ):
 
-	loadInfo.initFile( motifDefaults, loadFile, statNodeList )
+        workList = []
+        workFlow = []
+
+        myNicParams = copy.deepcopy(nicParams)
+        myEpParams = copy.deepcopy(epParams)
+
+        updateParams( params, sst.merlin._params, myNicParams, myEpParams )
+
+        for motif in motifs:
+            tmp = dict.copy( motifDefaults )
+            if len(api):
+                tmp['api'] = api
+            tmp['cmd'] = motif
+            workFlow.append( tmp )
+
+	workList.append( [jobid, workFlow] )
+
+        loadInfo.addPart( nidlist, myNicParams, myEpParams, numCores,  model )
+        loadInfo.initWork( nidlist, workList, statNodeList )
+
+elif len(workList) > 0:
+    loadInfo.addPart( nidList, nicParams, epParams, numCores,  model )
+    loadInfo.initWork( nidList, workList, statNodeList )
 else:
-	if len(workList) > 0:
-		if len(loadFile) > 0:
-			sys.exit("Error: can't specify both loadFile and cmdLine");
+    sys.exit("Error: need a loadFile or cmdLine")
 
-		loadInfo.initWork( workList, statNodeList )
-	else:
-		sys.exit("Error: need a loadFile or cmdLine")
+if topo.getName() == "Fat Tree":
+	topo.keepEndPointsWithRouter()
 
 topo.prepParams()
 

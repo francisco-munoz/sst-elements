@@ -1,8 +1,8 @@
-// Copyright 2013-2017 Sandia Corporation. Under the terms
-// of Contract DE-NA0003525 with Sandia Corporation, the U.S.
+// Copyright 2013-2018 NTESS. Under the terms
+// of Contract DE-NA0003525 with NTESS, the U.S.
 // Government retains certain rights in this software.
 //
-// Copyright (c) 2013-2017, Sandia Corporation
+// Copyright (c) 2013-2018, NTESS
 // All rights reserved.
 //
 // Portions are copyright of other developers:
@@ -43,6 +43,7 @@ class DmaRecvEntry : public RecvEntryBase {
 
     std::vector<IoVec>& ioVec() { return m_cmd->iovec; }
     int node()  { return m_cmd->node; }
+    int tag() { return m_cmd->tag; }
 
   private:
     NicCmdEvent* m_cmd;
@@ -64,21 +65,28 @@ class PutRecvEntry : public RecvEntryBase {
 class ShmemRecvEntry : public RecvEntryBase {
   public:
 
-    ShmemRecvEntry( Shmem* shmem, Hermes::MemAddr addr, size_t length ) :
+    ShmemRecvEntry( Shmem* shmem, int core, Hermes::MemAddr addr, size_t length ) :
         RecvEntryBase()
     { 
-        m_shmemMove = new ShmemRecvMoveMem( addr.getBacking(), length, shmem, addr.getSimVAddr() );
+        m_shmemMove = new ShmemRecvMoveMem(  addr.getBacking(), length, shmem, core, addr.getSimVAddr() );
     }
 
+    ShmemRecvEntry( Shmem* shmem, int core, Hermes::MemAddr addr, size_t length, 
+                        Hermes::Shmem::ReduOp op, Hermes::Value::Type dataType ) :
+        RecvEntryBase()
+    { 
+        m_shmemMove = new ShmemRecvMoveMemOp( addr.getBacking(), length, shmem, core, addr.getSimVAddr(), op, dataType );
+    }
     ~ShmemRecvEntry() { 
         delete m_shmemMove;
     }
 
     void notify( int src_vNic, int src_node, int tag, size_t length ) {}
 
+    size_t totalBytes( ) { return m_shmemMove->totalBytes(); }
     std::vector<IoVec>& ioVec() { assert(0); }
 
-    bool copyIn( Output& dbg, FireflyNetworkEvent& ev, std::vector<DmaVec>& vec ) {
+    bool copyIn( Output& dbg, FireflyNetworkEvent& ev, std::vector<MemOp>& vec ) {
         return m_shmemMove->copyIn( dbg, ev, vec );  
     }
 
@@ -97,9 +105,10 @@ class ShmemGetRespRecvEntry : public RecvEntryBase {
         delete m_entry;
     }
 
+    size_t totalBytes( ) { return m_shmemMove->totalBytes(); }
     std::vector<IoVec>& ioVec() { assert(0); }
 
-    bool copyIn( Output& dbg, FireflyNetworkEvent& ev, std::vector<DmaVec>& vec ) {
+    bool copyIn( Output& dbg, FireflyNetworkEvent& ev, std::vector<MemOp>& vec ) {
         return m_shmemMove->copyIn( dbg, ev, vec );  
     }
 
@@ -119,6 +128,7 @@ class ShmemGetvRespRecvEntry : public ShmemGetRespRecvEntry {
         m_shmemMove = new ShmemRecvMoveValue( m_value );
     }
 
+    size_t totalBytes( ) { return m_shmemMove->totalBytes(); }
     virtual void notify( int src_vNic, int src_node, int tag, size_t length ) {
         static_cast<ShmemGetvSendEntry*>(m_entry)->callback( m_value );
     }
@@ -130,16 +140,17 @@ class ShmemGetvRespRecvEntry : public ShmemGetRespRecvEntry {
 class ShmemGetbRespRecvEntry : public ShmemGetRespRecvEntry {
   public:
 
-    ShmemGetbRespRecvEntry( Shmem* shmem, size_t length, ShmemGetbSendEntry* entry, void* backing ) :
+    ShmemGetbRespRecvEntry( Shmem* shmem, int core, size_t length, ShmemGetbSendEntry* entry, void* backing ) :
         ShmemGetRespRecvEntry( entry )
     { 
 
         NicShmemGetCmdEvent* cmd =    static_cast<NicShmemGetCmdEvent*>(entry->getCmd());
 
         assert( length ==  cmd->getLength() );
-        m_shmemMove = new ShmemRecvMoveMem( backing, length, shmem, cmd->getMyAddr() );
+        m_shmemMove = new ShmemRecvMoveMem( backing, length, shmem, core, cmd->getMyAddr() );
     }
 
+    size_t totalBytes( ) { return m_shmemMove->totalBytes(); }
     virtual void notify( int src_vNic, int src_node, int tag, size_t length ) {
         static_cast<ShmemGetbSendEntry*>(m_entry)->callback( );
     }

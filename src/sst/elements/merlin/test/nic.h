@@ -1,10 +1,10 @@
 // -*- mode: c++ -*-
 
-// Copyright 2009-2017 Sandia Corporation. Under the terms
-// of Contract DE-NA0003525 with Sandia Corporation, the U.S.
+// Copyright 2009-2018 NTESS. Under the terms
+// of Contract DE-NA0003525 with NTESS, the U.S.
 // Government retains certain rights in this software.
 // 
-// Copyright (c) 2009-2017, Sandia Corporation
+// Copyright (c) 2009-2018, NTESS
 // All rights reserved.
 // 
 // Portions are copyright of other developers:
@@ -48,10 +48,14 @@ public:
         {"id",           "Network ID of endpoint."},
         {"num_peers",    "Total number of endpoints in network."},
         {"num_messages", "Total number of messages to send to each endpoint."},
+        {"message_size", "Size of each message to be sent specified in either b or B (can include SI prefix)."},
         {"num_vns",      "Number of requested virtual networks."},
         {"link_bw",      "Bandwidth of the router link specified in either b/s or B/s (can include SI prefix)."},
+        {"in_buf_size",  "Size of linkcontrol input buffer specified in either b/s or B/s (can include SI prefix).", "1kB"},
+        {"out_buf_size", "Size of linkcontrol output buffer specified in either b/s or B/s (can include SI prefix).", "1kB"},
         {"topology",     "Name of the topology subcomponent that should be loaded to control routing."},
-        {"remap",        "Creates a logical to physical mapping shifted by remap amount.", "0"}
+        {"remap",        "Creates a logical to physical mapping shifted by remap amount.", "0"},
+        {"linkcontrol_type","Set the SimpleNetwork ", "merlin.linkcontrol"}
     )
 
     SST_ELI_DOCUMENT_PORTS(
@@ -63,18 +67,25 @@ private:
 
     // SST::Interfaces::SimpleNetwork::nid_t id;
     int id;
-    int net_id;
-    int num_peers;
     int num_vns;
     int last_vn;
 
+    // passed in parameters
+    int net_id;
+    int num_peers;
+    int msg_size;
     int num_msg;
+    
     int packets_sent;
     int packets_recd;
     int stalled_cycles;
-
+    int expected_recv_count;
+    
     bool done;
     bool initialized;
+    int init_state;
+    int init_count;
+    int init_broadcast_count;
     
     SST::Interfaces::SimpleNetwork* link_control;
 
@@ -91,12 +102,14 @@ public:
     ~nic();
 
     void init(unsigned int phase);
+    void complete(unsigned int phase);
     void setup(); 
     void finish();
 
 
 private:
     bool clock_handler(Cycle_t cycle);
+    void init_complete(unsigned int phase);
 
 };
 

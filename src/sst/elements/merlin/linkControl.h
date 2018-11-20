@@ -1,10 +1,10 @@
 // -*- mode: c++ -*-
 
-// Copyright 2009-2017 Sandia Corporation. Under the terms
-// of Contract DE-NA0003525 with Sandia Corporation, the U.S.
+// Copyright 2009-2018 NTESS. Under the terms
+// of Contract DE-NA0003525 with NTESS, the U.S.
 // Government retains certain rights in this software.
 //
-// Copyright (c) 2009-2017, Sandia Corporation
+// Copyright (c) 2009-2018, NTESS
 // All rights reserved.
 //
 // Portions are copyright of other developers:
@@ -160,6 +160,7 @@ public:
                     const UnitAlgebra& out_buf_size);
     void setup();
     void init(unsigned int phase);
+    void complete(unsigned int phase);
     void finish();
 
     // Returns true if there is space in the output buffer and false
@@ -180,6 +181,9 @@ public:
 
     void sendInitData(SST::Interfaces::SimpleNetwork::Request* ev);
     SST::Interfaces::SimpleNetwork::Request* recvInitData();
+
+    void sendUntimedData(SST::Interfaces::SimpleNetwork::Request* ev);
+    SST::Interfaces::SimpleNetwork::Request* recvUntimedData();
 
     // const PacketStats& getPacketStats(void) const { return stats; }
 

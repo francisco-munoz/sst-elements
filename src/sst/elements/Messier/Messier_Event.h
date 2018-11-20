@@ -1,8 +1,8 @@
-// Copyright 2009-2017 Sandia Corporation. Under the terms
-// of Contract DE-NA0003525 with Sandia Corporation, the U.S.
+// Copyright 2009-2018 NTESS. Under the terms
+// of Contract DE-NA0003525 with NTESS, the U.S.
 // Government retains certain rights in this software.
 //
-// Copyright (c) 2009-2017, Sandia Corporation
+// Copyright (c) 2009-2018, NTESS
 // All rights reserved.
 //
 // This file is part of the SST software package. For license
@@ -34,6 +34,11 @@ using namespace SST;
 
 namespace SST{ namespace MessierComponent{
 
+#if defined(__clang__)
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Winconsistent-missing-override"
+#endif
+    
 	enum EventType { READ_COMPLETION, WRITE_COMPLETION, DEVICE_READY, HIT_MISS, INVALIDATE_WRITE};
 
 	// Thie defines a class for events of Messier
@@ -71,6 +76,9 @@ namespace SST{ namespace MessierComponent{
 
 	};
 
+#if defined(__clang__)
+#pragma clang diagnostic pop
+#endif
 
 }}
 

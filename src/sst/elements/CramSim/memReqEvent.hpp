@@ -1,8 +1,8 @@
-// Copyright 2009-2016 Sandia Corporation. Under the terms
-// of Contract DE-AC04-94AL85000 with Sandia Corporation, the U.S.
+// Copyright 2009-2016 NTESS. Under the terms
+// of Contract DE-NA0003525 with NTESS, the U.S.
 // Government retains certain rights in this software.
 //
-// Copyright (c) 2009-2017, Sandia Corporation
+// Copyright (c) 2009-2018, NTESS
 // All rights reserved.
 //
 // Portions are copyright of other developers:
@@ -20,6 +20,11 @@
 
 namespace SST {
 namespace CramSim {
+
+#if defined(__clang__)
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Winconsistent-missing-override"
+#endif
 
 typedef uint64_t Addr;
 typedef uint64_t ReqId;
@@ -95,6 +100,11 @@ class MemRespEvent : public SST::Event {
 
     ImplementSerializable(MemRespEvent);
 };
+
+#if defined(__clang__)
+#pragma clang diagnostic pop
+#endif
+
 }
 }
 

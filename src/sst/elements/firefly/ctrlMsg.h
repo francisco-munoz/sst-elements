@@ -1,8 +1,8 @@
-// Copyright 2009-2017 Sandia Corporation. Under the terms
-// of Contract DE-NA0003525 with Sandia Corporation, the U.S.
+// Copyright 2009-2018 NTESS. Under the terms
+// of Contract DE-NA0003525 with NTESS, the U.S.
 // Government retains certain rights in this software.
 // 
-// Copyright (c) 2009-2017, Sandia Corporation
+// Copyright (c) 2009-2018, NTESS
 // All rights reserved.
 // 
 // Portions are copyright of other developers:
@@ -16,6 +16,7 @@
 #ifndef COMPONENTS_FIREFLY_CTRLMSG_H
 #define COMPONENTS_FIREFLY_CTRLMSG_H
 
+#include <sst/core/elementinfo.h>
 #include <sst/core/component.h>
 #include "protocolAPI.h"
 #include "ctrlMsgFunctors.h"
@@ -53,6 +54,17 @@ class API : public ProtocolAPI {
     typedef std::function<void(nid_t, uint32_t, size_t)> Callback2;
 
   public:
+   SST_ELI_REGISTER_SUBCOMPONENT(
+        API,
+        "firefly",
+        "CtrlMsgProto",
+        SST_ELI_ELEMENT_VERSION(1,0,0),
+        "",
+        ""
+    )
+
+    SST_ELI_DOCUMENT_PARAMS(
+    )
     API( Component* owner, Params& );
     ~API();
 
@@ -68,8 +80,11 @@ class API : public ProtocolAPI {
     void send( const Hermes::MemAddr&, size_t len, MP::RankID dest, uint64_t tag, 
                             MP::Communicator grp );
     void isend( const Hermes::MemAddr&, size_t len, nid_t dest, uint64_t tag, CommReq* );
+    void isend( const Hermes::MemAddr&, size_t len, nid_t dest, uint64_t tag,
+							MP::Communicator, CommReq* );
     void sendv( std::vector<IoVec>&, nid_t dest, uint64_t tag );
     void recv( const Hermes::MemAddr&, size_t len, nid_t src, uint64_t tag );
+    void recv( const Hermes::MemAddr&, size_t len, nid_t src, uint64_t tag, MP::Communicator grp );
     void irecv( const Hermes::MemAddr&, size_t len, nid_t src, uint64_t tag, CommReq* );
     void irecv( const Hermes::MemAddr&, size_t len, MP::RankID src, uint64_t tag, 
                 MP::Communicator grp, CommReq* );

@@ -1,8 +1,8 @@
-// Copyright 2009-2017 Sandia Corporation. Under the terms
-// of Contract DE-NA0003525 with Sandia Corporation, the U.S.
+// Copyright 2009-2018 NTESS. Under the terms
+// of Contract DE-NA0003525 with NTESS, the U.S.
 // Government retains certain rights in this software.
 //
-// Copyright (c) 2009-2017, Sandia Corporation
+// Copyright (c) 2009-2018, NTESS
 // All rights reserved.
 //
 // Portions are copyright of other developers:
@@ -36,7 +36,6 @@
 
 // CramSim includes
 #include "c_BankState.hpp"
-//#include "c_BankGroup.hpp"
 
 namespace SST {
 namespace n_Bank {
@@ -56,7 +55,7 @@ public:
 
 	void handleCommand(c_BankCommand* x_bankCommandPtr, SimTime_t x_simCycle);
 
-	void clockTic();
+	void clockTic(SimTime_t x_cycle);
 
 	std::list<e_BankCommandType> getAllowedCommands();
 
@@ -98,13 +97,16 @@ public:
 	SimTime_t getAutoPreTimer() {
 		return (m_autoPrechargeTimer);
 	}
+	void setBankId(const unsigned x_bankId) {
+		m_bankId=x_bankId;
+	}
 
 	void print();
         unsigned getBankId() {
 	  return m_bankId;
 	}
   
-        c_BankGroup *getBankGroup() {
+	c_BankGroup *getBankGroupPtr() {
 	  return m_bankGroupPtr;
 	}
 private:

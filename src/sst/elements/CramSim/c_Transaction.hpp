@@ -1,8 +1,8 @@
-// Copyright 2009-2017 Sandia Corporation. Under the terms
-// of Contract DE-NA0003525 with Sandia Corporation, the U.S.
+// Copyright 2009-2018 NTESS. Under the terms
+// of Contract DE-NA0003525 with NTESS, the U.S.
 // Government retains certain rights in this software.
 //
-// Copyright (c) 2009-2017, Sandia Corporation
+// Copyright (c) 2009-2018, NTESS
 // All rights reserved.
 //
 // Portions are copyright of other developers:
@@ -40,9 +40,12 @@
 #include <memory>
 
 //sst includes
-#include <sst/core/serialization/serializable.h>
 
+#include <sst/core/component.h>
+#include <sst/core/serialization/serializable.h>
+#include <output.h>
 //local includes
+#include "c_HashedAddress.hpp"
 
 typedef unsigned long ulong;
 
@@ -57,10 +60,10 @@ class c_Transaction : public SST::Core::Serialization::serializable
 {
 
 private:
-  ulong m_seqNum;
+  uint64_t m_seqNum;
   e_TransactionType m_txnMnemonic;
   ulong m_addr;
-  std::map<e_TransactionType,std::string> m_txnToString;
+  //std::map<e_TransactionType,std::string> m_txnToString;
   
   bool m_isResponseReady;
   unsigned m_numWaitingCommands;
@@ -69,6 +72,8 @@ private:
 
   //std::list<c_BankCommand*> m_cmdPtrList; //<! list of c_BankCommand shared_ptrs that compose this c_Transaction
   std::list<ulong> m_cmdSeqNumList; //<! list of c_BankCommand Sequence numbers that compose this c_Transaction
+    c_HashedAddress m_hashedAddr;
+    bool m_hasHashedAddr;
 
 public:
 
@@ -100,6 +105,27 @@ public:
   bool isProcessed() const;
   void isProcessed(bool x_processed);
   void print() const;
+  void print(SST::Output *x_output, std::string x_prefix, SimTime_t x_cycle) const;
+
+  const c_HashedAddress& getHashedAddress() const {
+         return (m_hashedAddr);
+  }
+  void setHashedAddress(c_HashedAddress &x_hashedAddr) {
+      m_hashedAddr = x_hashedAddr;
+      m_hasHashedAddr=true;
+  }
+        bool hasHashedAddress(){
+            return m_hasHashedAddr;
+        }
+
+        bool isRead(){
+            return m_txnMnemonic==e_TransactionType ::READ;
+        }
+
+        bool isWrite(){
+            return m_txnMnemonic==e_TransactionType ::WRITE;
+        }
+
 
   void serialize_order(SST::Core::Serialization::serializer &ser) override ;
   

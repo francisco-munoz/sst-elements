@@ -2,7 +2,8 @@
 AM_CPPFLAGS = \
 	$(MPI_CPPFLAGS) \
 	-I$(top_srcdir)/src/sst/elements/ember/sirius/include \
-	-I$(top_srcdir)/src
+	-I$(top_srcdir)/src \
+	$(OTF2_CPPFLAGS)
 
 compdir = $(pkglibdir)
 comp_LTLIBRARIES = libember.la
@@ -33,6 +34,11 @@ libember_la_SOURCES = \
 	embermotiflog.h \
 	embermotiflog.cc \
 	embermemoryev.h \
+	libs/emberLib.h \
+	libs/misc.h \
+	libs/miscEvents/emberGetNodeNumEvent.h \
+	libs/miscEvents/emberGetNumNodesEvent.h \
+	libs/miscEvents/emberMiscEvent.h \
 	mpi/embermpigen.h \
 	mpi/embermpigen.cc \
 	mpi/emberrecvev.h \
@@ -99,6 +105,8 @@ libember_la_SOURCES = \
 	mpi/motifs/emberreduce.h \
 	mpi/motifs/emberhalo3d.h \
 	mpi/motifs/emberhalo3d.cc \
+	mpi/motifs/emberlqcd.h \
+	mpi/motifs/emberlqcd.cc \
 	mpi/motifs/emberhalo3dsv.h \
 	mpi/motifs/emberhalo3dsv.cc \
 	mpi/motifs/emberhalo3d26.h \
@@ -134,13 +142,20 @@ libember_la_SOURCES = \
 	mpi/motifs/emberrandomgen.h \
 	mpi/motifs/emberrandomgen.cc \
 	sirius/include/sirius/siriusglobals.h \
+	shmem/emberShmemAddEv.h \
+	shmem/emberShmemAlltoallEv.h \
+	shmem/emberShmemAlltoallsEv.h \
+	shmem/emberShmemBarrierAllEv.h \
 	shmem/emberShmemBarrierEv.h \
+	shmem/emberShmemBroadcastEv.h \
+	shmem/emberShmemCollectEv.h \
 	shmem/emberShmemCswapEv.h \
 	shmem/emberShmemEvent.h \
 	shmem/emberShmemFaddEv.h \
+	shmem/emberShmemFcollectEv.h \
 	shmem/emberShmemFenceEv.h \
-	shmem/emberShmemFreeEv.h \
 	shmem/emberShmemFiniEv.h \
+	shmem/emberShmemFreeEv.h \
 	shmem/emberShmemGen.cc \
 	shmem/emberShmemGen.h \
 	shmem/emberShmemGetEv.h \
@@ -151,18 +166,35 @@ libember_la_SOURCES = \
 	shmem/emberShmemNPesEv.h \
 	shmem/emberShmemPutEv.h \
 	shmem/emberShmemPutVEv.h \
+	shmem/emberShmemQuietEv.h \
+	shmem/emberShmemReductionEv.h \
 	shmem/emberShmemSwapEv.h \
 	shmem/emberShmemWaitEv.h \
+	shmem/motifs/emberShmemAdd.h \
+	shmem/motifs/emberShmemAlltoall.h \
+	shmem/motifs/emberShmemAlltoalls.h \
+	shmem/motifs/emberShmemBarrier.h \
+	shmem/motifs/emberShmemBarrierAll.h \
+	shmem/motifs/emberShmemBroadcast.h \
+	shmem/motifs/emberShmemCollect.h \
 	shmem/motifs/emberShmemCswap.h \
 	shmem/motifs/emberShmemFadd.h \
+	shmem/motifs/emberShmemFcollect.h \
 	shmem/motifs/emberShmemGet.h \
+	shmem/motifs/emberShmemGetNBI.h \
 	shmem/motifs/emberShmemGetv.h \
 	shmem/motifs/emberShmemPut.h \
 	shmem/motifs/emberShmemPutv.h \
+	shmem/motifs/emberShmemReduction.h \
+	shmem/motifs/emberShmemRing.h \
+	shmem/motifs/emberShmemRing2.h \
 	shmem/motifs/emberShmemSwap.h \
 	shmem/motifs/emberShmemTest.h \
 	shmem/motifs/emberShmemWait.h \
 	shmem/motifs/emberShmemWaitUntil.h \
+	shmem/motifs/emberShmemAtomicInc.h \
+	shmem/motifs/emberShmemFAM_Get.h \
+	shmem/motifs/emberShmemFAM_Get2.h \
 	mpi/motifs/emberunstructured.h \
 	mpi/motifs/emberunstructured.cc
 
@@ -177,6 +209,8 @@ EXTRA_DIST = \
 	test/emberLoad.py \
 	test/exaParams.py \
 	test/loadInfo.py \
+	test/EmberEP.py \
+	test/loadFileParse.py \
 	test/CrossProduct.py \
 	test/networkConfig.py \
 	test/Tester.py \
@@ -191,3 +225,15 @@ libember_la_SOURCES += \
 	embermpicxtgen.h \
 	embermpicxtgen.cc
 endif
+
+if EMBER_HAVE_OTF2
+libember_la_SOURCES += \
+	mpi/motifs/emberotf2.h \
+	mpi/motifs/emberotf2.cc
+
+libember_la_LIBADD = \
+	$(OTF2_LDFLAGS) \
+	$(OTF2_LIBS)
+
+endif
+

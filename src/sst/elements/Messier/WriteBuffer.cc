@@ -1,8 +1,8 @@
-// Copyright 2009-2017 Sandia Corporation. Under the terms
-// of Contract DE-NA0003525 with Sandia Corporation, the U.S.
+// Copyright 2009-2018 NTESS. Under the terms
+// of Contract DE-NA0003525 with NTESS, the U.S.
 // Government retains certain rights in this software.
 //
-// Copyright (c) 2009-2017, Sandia Corporation
+// Copyright (c) 2009-2018, NTESS
 // All rights reserved.
 //
 // This file is part of the SST software package. For license
@@ -61,7 +61,7 @@ bool NVM_WRITE_BUFFER::insert_write_request(NVM_Request * req)
 			std::cout<<"Massive error 1"<<std::endl;
 
 
-		if( curr_entries >= (int) (flush_th*1.0*max_size/100.0) )
+		if( curr_entries >= (flush_th*1.0*max_size/100.0) )
 			still_flushing=true;
 
 
@@ -100,7 +100,7 @@ NVM_Request * NVM_WRITE_BUFFER::pop_entry()
 		if(mem_reqs.size() != curr_entries)
 			std::cout<<"Massive error 2"<<std::endl;
 
-	if(curr_entries <= (int) (flush_th_low*1.0*max_size/100.0) )
+	if(curr_entries <= (flush_th_low*1.0*max_size/100.0) )
 		still_flushing=false;
 
 	return TEMP;
@@ -118,7 +118,7 @@ void NVM_WRITE_BUFFER::erase_entry(NVM_Request * TEMP)
 		if(mem_reqs.size() != curr_entries)
 			std::cout<<"Massive error 3  curr_entrie="<<curr_entries<<"  mem_reqs.size()= "<<mem_reqs.size()<<std::endl;
 
-	 if(curr_entries <= (int) (flush_th_low*1.0*max_size/100.0) )
+	 if(curr_entries <= (flush_th_low*1.0*max_size/100.0) )
                 still_flushing=false;
 
 }

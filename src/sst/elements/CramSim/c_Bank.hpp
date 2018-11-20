@@ -1,8 +1,8 @@
-// Copyright 2009-2017 Sandia Corporation. Under the terms
-// of Contract DE-NA0003525 with Sandia Corporation, the U.S.
+// Copyright 2009-2018 NTESS. Under the terms
+// of Contract DE-NA0003525 with NTESS, the U.S.
 // Government retains certain rights in this software.
 //
-// Copyright (c) 2009-2017, Sandia Corporation
+// Copyright (c) 2009-2018, NTESS
 // All rights reserved.
 //
 // Portions are copyright of other developers:
@@ -52,7 +52,7 @@ class c_Bank {
 public:
 
 	//FIXME: Will this need a reference to the c_Dimm's link?
-	c_Bank(SST::Params& x_params);
+	c_Bank(SST::Params& x_params,unsigned x_bankid);
 	~c_Bank();
 
 	void print();
@@ -162,6 +162,7 @@ public:
 	}
 
   unsigned getBankNum() const {return m_bankNum;}
+	void setBankNum(unsigned x_bankNum){m_bankNum=x_bankNum;}
   void acceptStatistics(c_BankStatistics *x_bankStats);
   
 private:
@@ -226,6 +227,8 @@ private:
 	unsigned m_READCmdsSent;
 	unsigned m_WRITECmdsSent;
 	unsigned m_PRECmdsSent;
+
+        uint32_t m_prevOpenRow;
 
   // Statistics
   c_BankStatistics *m_bankStats;

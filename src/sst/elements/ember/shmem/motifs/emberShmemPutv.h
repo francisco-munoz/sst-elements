@@ -1,8 +1,8 @@
-// Copyright 2009-2017 Sandia Corporation. Under the terms
-// of Contract DE-NA0003525 with Sandia Corporation, the U.S.
+// Copyright 2009-2018 NTESS. Under the terms
+// of Contract DE-NA0003525 with NTESS, the U.S.
 // Government retains certain rights in this software.
 //
-// Copyright (c) 2009-2017, Sandia Corporation
+// Copyright (c) 2009-2018, NTESS
 // All rights reserved.
 //
 // Portions are copyright of other developers:
@@ -19,66 +19,186 @@
 
 #include <strings.h>
 #include "shmem/emberShmemGen.h"
+#include <cxxabi.h>
 
 namespace SST {
 namespace Ember {
 
+template< class TYPE >
 class EmberShmemPutvGenerator : public EmberShmemGenerator {
+
+    template<class T>
+    typename std::enable_if<std::is_floating_point<T>::value,T>::type
+    genSeed( ) {
+		return 489173890.047781;
+    }
+
+    template<class T>
+    typename std::enable_if<std::is_integral<T>::value,T>::type
+    genSeed( ) {
+		return  (T)0xf00d000deadbee0;
+    }
 
 public:
 	EmberShmemPutvGenerator(SST::Component* owner, Params& params) :
-		EmberShmemGenerator(owner, params, "ShmemPutv" ), m_phase(0) 
-	{ }
+		EmberShmemGenerator(owner, params, "ShmemPutv" ), m_phase(-2) 
+	{ 
+        m_printResults = params.find<bool>("arg.printResults", false );
+		m_iterations = (uint32_t) params.find("arg.iterations", 1);
+        int status;
+        std::string tname = typeid(TYPE).name();
+		char* tmp = abi::__cxa_demangle(tname.c_str(), NULL, NULL, &status);
+        m_type_name = tmp;
+		free(tmp);
+	}
 
     bool generate( std::queue<EmberEvent*>& evQ) 
 	{
         bool ret = false;
-        switch ( m_phase ) {
-        case 0:
+		if ( -2 == m_phase ) {
             enQ_init( evQ );
-            break;
-        case 1:
-            enQ_n_pes( evQ, &m_n_pes );
+            enQ_n_pes( evQ, &m_num_pes );
             enQ_my_pe( evQ, &m_my_pe );
-            break;
+            enQ_malloc( evQ, &m_dest, sizeof(TYPE) );
+		} else if ( -1 == m_phase ) {
 
-        case 2:
-
-            printf("%d:%s: %d\n",m_my_pe, getMotifName().c_str(),m_n_pes);
-            enQ_malloc( evQ, &m_addr, 4 );
-            break;
-
-        case 3:
+            if ( 0 == m_my_pe ) {
+                printf("%d:%s: num_pes=%d type=\"%s\"\n",m_my_pe,
+                        getMotifName().c_str(), m_num_pes, m_type_name.c_str());
+                assert( 2 == m_num_pes );
+            }
             
-            m_ptr = (int*) m_addr.getBacking();
+			m_dest.at<TYPE>(0) = 0;
+            enQ_barrier_all( evQ );
+			enQ_getTime( evQ, &m_startTime );
 
-            bzero( m_ptr, 4 );
+			m_value = genSeed<TYPE>() + m_my_pe; 
+		} else if ( m_phase < m_iterations ) {
 
-            printf("%d:%s: simVAddr %#" PRIx64 " backing %p\n",m_my_pe, 
-                    getMotifName().c_str(), m_addr.getSimVAddr(), m_ptr );
-            enQ_barrier( evQ );
-            enQ_putv( evQ, 
-                    m_addr,
-                    (int) (0xdead0000 + m_my_pe), 
-                    (m_my_pe + 1) % m_n_pes );
-            enQ_barrier( evQ );
-            break;
+            enQ_putv( evQ, m_dest, m_value, (m_my_pe + 1) % m_num_pes );
 
-        case 4:
-            printf("%d:%s: PUT value=%#" PRIx32 "\n",m_my_pe, getMotifName().c_str(), m_ptr[0]);
-            assert ( m_ptr[0] == (0xdead0000 + ((m_my_pe + 1 ) % m_n_pes) ) ); 
+            if ( m_phase + 1 == m_iterations ) {
+                enQ_getTime( evQ, &m_stopTime );
+                enQ_barrier_all( evQ );
+            }
+
+		} else {
+
+			if ( m_printResults ) {
+				std::stringstream tmp;
+               	tmp << " got="<< m_dest.at<TYPE>(0) << " want=" <<  genSeed<TYPE>() + ((m_my_pe + 1) % 2);
+
+            	printf("%d:%s: PUT %s\n",m_my_pe, getMotifName().c_str(), tmp.str().c_str());
+			}
+			assert( m_dest.at<TYPE>(0) == genSeed<TYPE>() + ((m_my_pe + 1) % 2) );
+
 		    ret = true;
+
+            if ( 0 == m_my_pe ) {
+                double totalTime = (double)(m_stopTime - m_startTime)/1000000000.0;
+                double latency = (totalTime/m_iterations);
+                printf("%d:%s: iterations %d, total-time %.3lf us, time-per %.3lf us\n",m_my_pe,
+                            getMotifName().c_str(),
+                            m_iterations,
+                            totalTime * 1000000.0,
+                            latency * 1000000.0 );
+            }
 
         }
         ++m_phase;
         return ret;
 	}
   private:
-    Hermes::MemAddr m_addr;
-    int* m_ptr;
+	int m_iterations;
+    uint64_t m_startTime;
+    uint64_t m_stopTime;
+	bool m_printResults;
+	std::string  m_type_name;
+    Hermes::MemAddr m_dest;
+	TYPE m_value;
     int m_phase;
     int m_my_pe;
-    int m_n_pes;
+    int m_num_pes;
+};
+
+class EmberShmemPutvIntGenerator : public EmberShmemPutvGenerator<int> {
+public:
+    SST_ELI_REGISTER_SUBCOMPONENT(
+        EmberShmemPutvIntGenerator,
+        "ember",
+        "ShmemPutvIntMotif",
+        SST_ELI_ELEMENT_VERSION(1,0,0),
+        "SHMEM putv int",
+        "SST::Ember::EmberGenerator"
+
+    )
+
+    SST_ELI_DOCUMENT_PARAMS(
+    )
+
+public:
+    EmberShmemPutvIntGenerator( SST::Component* owner, Params& params ) :
+        EmberShmemPutvGenerator(owner,  params) { }
+};
+
+class EmberShmemPutvLongGenerator : public EmberShmemPutvGenerator<long> {
+public:
+    SST_ELI_REGISTER_SUBCOMPONENT(
+        EmberShmemPutvLongGenerator,
+        "ember",
+        "ShmemPutvLongMotif",
+        SST_ELI_ELEMENT_VERSION(1,0,0),
+        "SHMEM putv long",
+        "SST::Ember::EmberGenerator"
+
+    )
+
+    SST_ELI_DOCUMENT_PARAMS(
+    )
+
+public:
+    EmberShmemPutvLongGenerator( SST::Component* owner, Params& params ) :
+        EmberShmemPutvGenerator(owner,  params) { }
+};
+
+class EmberShmemPutvDoubleGenerator : public EmberShmemPutvGenerator<double> {
+public:
+    SST_ELI_REGISTER_SUBCOMPONENT(
+        EmberShmemPutvDoubleGenerator,
+        "ember",
+        "ShmemPutvDoubleMotif",
+        SST_ELI_ELEMENT_VERSION(1,0,0),
+        "SHMEM putv double",
+        "SST::Ember::EmberGenerator"
+
+    )
+
+    SST_ELI_DOCUMENT_PARAMS(
+    )
+
+public:
+    EmberShmemPutvDoubleGenerator( SST::Component* owner, Params& params ) :
+        EmberShmemPutvGenerator(owner,  params) { }
+};
+
+class EmberShmemPutvFloatGenerator : public EmberShmemPutvGenerator<float> {
+public:
+    SST_ELI_REGISTER_SUBCOMPONENT(
+        EmberShmemPutvFloatGenerator,
+        "ember",
+        "ShmemPutvFloatMotif",
+        SST_ELI_ELEMENT_VERSION(1,0,0),
+        "SHMEM putv float",
+        "SST::Ember::EmberGenerator"
+
+    )
+
+    SST_ELI_DOCUMENT_PARAMS(
+    )
+
+public:
+    EmberShmemPutvFloatGenerator( SST::Component* owner, Params& params ) :
+        EmberShmemPutvGenerator(owner,  params) { }
 };
 
 }

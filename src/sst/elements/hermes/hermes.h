@@ -1,8 +1,8 @@
-// Copyright 2013-2017 Sandia Corporation. Under the terms
-// of Contract DE-NA0003525 with Sandia Corporation, the U.S.
+// Copyright 2013-2018 NTESS. Under the terms
+// of Contract DE-NA0003525 with NTESS, the U.S.
 // Government retains certain rights in this software.
 //
-// Copyright (c) 2013-2017, Sandia Corporation
+// Copyright (c) 2013-2018, NTESS
 // All rights reserved.
 //
 // Portions are copyright of other developers:
@@ -30,6 +30,8 @@ using namespace SST;
 namespace SST {
 
 namespace Hermes {
+
+typedef std::function<void(int)> Callback;
 
 typedef uint64_t Vaddr;
 
@@ -98,34 +100,73 @@ class Value {
 
     Value( Type type, void* ptr ) : m_type(type), m_length(getLength(type)), m_ptr(ptr) {}
 
+#define MATH_OP(op)\
+        assert( getType() == rh.getType() );\
+        switch( getType() ) {\
+          case Short:\
+            set( get<short>() op rh.get<short>() );\
+            break;\
+          case Int:\
+            set( get<int>() op rh.get<int>() );\
+            break;\
+          case Long:\
+            set( get<long>() op rh.get<long>() );\
+            break;\
+          case LongLong:\
+            set( get<long long>() op rh.get<long long>() );\
+            break;\
+          case Float:\
+            set( get<float>() op rh.get<float>() );\
+            break;\
+          case Double:\
+            set( get<double>() op rh.get<double>() );\
+            break;\
+          case LongDouble:\
+            set( get<long double>() op rh.get<long double>() );\
+            break;\
+          default:\
+            assert(0);\
+        }\
+        return *this;\
+
+    Value& operator-=( const Value& rh ) {
+        MATH_OP(-) 
+    }
     Value& operator+=( const Value& rh ) {
-        assert( getType() == rh.getType() );
-        switch( getType() ) {
-          case Short:
-            set( get<short>() + rh.get<short>() );
-            break;
-          case Int:
-            set( get<int>() + rh.get<int>() );
-            break;
-          case Long:
-            set( get<long>() + rh.get<long>() );
-            break;
-          case LongLong:
-            set( get<long long>() + rh.get<long long>() );
-            break;
-          case Float:
-            set( get<float>() + rh.get<float>() );
-            break;
-          case Double:
-            set( get<double>() + rh.get<double>() );
-            break;
-          case LongDouble:
-            set( get<long double>() + rh.get<long double>() );
-            break;
-          default:
-            assert(0);
-        } 
-        return *this;
+        MATH_OP(+) 
+    }
+    Value& operator*=( const Value& rh ) {
+        MATH_OP(*) 
+    }
+
+#define BIT_OP(op)\
+        assert( getType() == rh.getType() );\
+        switch( getType() ) {\
+          case Short:\
+            set( get<short>() op rh.get<short>() );\
+            break;\
+          case Int:\
+            set( get<int>() op rh.get<int>() );\
+            break;\
+          case Long:\
+            set( get<long>() op rh.get<long>() );\
+            break;\
+          case LongLong:\
+            set( get<long long>() op rh.get<long long>() );\
+            break;\
+          default:\
+            assert(0);\
+        }\
+        return *this;\
+
+    Value& operator&=( const Value& rh ) {
+        BIT_OP(&) 
+    }
+    Value& operator|=( const Value& rh ) {
+        BIT_OP(|) 
+    }
+    Value& operator^=( const Value& rh ) {
+        BIT_OP(^) 
     }
 
     template< class TYPE >
@@ -162,6 +203,9 @@ class Value {
   private:
     void copy( Value& dest, const Value& src ) {
 
+		if ( NULL == src.m_ptr ) { 
+			return; 
+		}
         if ( dest.m_type == Empty ) {
             dest.m_type = src.m_type;
             dest.m_length = src.getLength();
@@ -274,7 +318,7 @@ class MemAddr {
     }
 
     template < class TYPE = char >
-        TYPE& at(size_t index) {
+    TYPE& at(size_t index) {
         return ((TYPE*)backing)[index];
     }
 
@@ -289,11 +333,11 @@ class MemAddr {
     }
 
     template< class TYPE >
-    uint64_t getSimVAddr( size_t offset = 0 ) {
+    uint64_t getSimVAddr( size_t offset = 0 ) const {
         return simVAddr + offset * sizeof( TYPE );
     }
 
-    uint64_t getSimVAddr( size_t offset = 0) {
+    uint64_t getSimVAddr( size_t offset = 0) const {
         return simVAddr + offset;
     }
 
@@ -301,8 +345,12 @@ class MemAddr {
         simVAddr = addr;
     }
 
-    void* getBacking( size_t offset = 0 ) {
-        return (uint8_t*) backing + offset;
+    void* getBacking( size_t offset = 0 ) const {
+	   	void* ptr = NULL;
+		if ( backing ) {
+        	ptr =  (uint8_t*) backing + offset;
+		}
+		return ptr;
     }
     void setBacking( void* ptr ) {
         backing = ptr;
@@ -328,7 +376,8 @@ class OS : public SubComponent {
     virtual void _componentInit( unsigned int phase ) {}
     virtual void _componentSetup( void ) {}
     virtual void printStatus( Output& ) {}
-    virtual int  getNid() { assert(0); }
+    virtual int  getRank() { assert(0); }
+    virtual int  getNodeNum() { assert(0); }
     virtual void finish() {}
     virtual NodePerf* getNodePerf() { assert(0); }
     virtual Thornhill::DetailedCompute* getDetailedCompute() { assert(0); }

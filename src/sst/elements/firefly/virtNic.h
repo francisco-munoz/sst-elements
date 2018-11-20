@@ -1,9 +1,9 @@
 
-// Copyright 2013-2017 Sandia Corporation. Under the terms
-// of Contract DE-NA0003525 with Sandia Corporation, the U.S.
+// Copyright 2013-2018 NTESS. Under the terms
+// of Contract DE-NA0003525 with NTESS, the U.S.
 // Government retains certain rights in this software.
 //
-// Copyright (c) 2013-2017, Sandia Corporation
+// Copyright (c) 2013-2018, NTESS
 // All rights reserved.
 //
 // Portions are copyright of other developers:
@@ -17,6 +17,7 @@
 #ifndef COMPONENTS_FIREFLY_VIRTNIC_H
 #define COMPONENTS_FIREFLY_VIRTNIC_H
 
+#include <sst/core/elementinfo.h>
 #include <sst/core/module.h>
 #include <sst/core/output.h>
 #include <sst/core/component.h>
@@ -31,6 +32,24 @@ class NicRespEvent;
 class NicShmemRespBaseEvent;
 
 class VirtNic : public SST::Module {
+
+  public:
+    SST_ELI_REGISTER_MODULE(
+        VirtNic,
+        "firefly",
+        "VirtNic",
+        SST_ELI_ELEMENT_VERSION(1,0,0),
+        "",
+        "SST::Firefly::VirtNic"
+    )
+
+    SST_ELI_DOCUMENT_PARAMS(
+        {"debugLevel", "Sets the output verbosity of the component", "1"},
+        {"debug", "Sets the messaging API of the end point", "0"},
+        {"portName", "Sets the name of the port for the link", "nic"},
+    ) 
+
+  private:
 
     // Functor classes for handling callbacks
     template < typename argT >
@@ -128,6 +147,10 @@ class VirtNic : public SST::Module {
 		return m_coreId;
 	}
 
+    int getRealNodeId() {
+		return m_realNicId;
+    }
+
     int getNodeId() {
 		return m_realNicId * m_numCores + m_coreId;
     }
@@ -152,20 +175,17 @@ class VirtNic : public SST::Module {
     void get( int node, int tag, std::vector<IoVec>& vec, void* key );
     void regMem( int node, int tag, std::vector<IoVec>& vec, void *key );
 
-    void shmemBlocked( Callback );
+    void shmemInit( Hermes::Vaddr, Callback );
     void shmemRegMem( Hermes::MemAddr&, size_t len, Callback );
-    void shmemFence( Callback );
-
     void shmemWait( Hermes::Vaddr dest, Hermes::Shmem::WaitOp, Hermes::Value&, Callback );
-
     void shmemPutv( int node, Hermes::Vaddr dest, Hermes::Value&, Callback );
     void shmemGetv( int node, Hermes::Vaddr src, Hermes::Value::Type, CallbackV );
-
-    void shmemPut( int node, Hermes::Vaddr dest, Hermes::Vaddr src, size_t len, Callback );
-    void shmemGet( int node, Hermes::Vaddr dest, Hermes::Vaddr src, size_t len, Callback );
-
+    void shmemPut( int node, Hermes::Vaddr dest, Hermes::Vaddr src, size_t len, bool blocking, Callback );
+    void shmemGet( int node, Hermes::Vaddr dest, Hermes::Vaddr src, size_t len, bool blocking, Callback );
+    void shmemPutOp( int node, Hermes::Vaddr dest, Hermes::Vaddr src, size_t len, Hermes::Shmem::ReduOp, Hermes::Value::Type, Callback );
     void shmemSwap( int node, Hermes::Vaddr dest, Hermes::Value& value, CallbackV );
     void shmemCswap( int node, Hermes::Vaddr dest, Hermes::Value& cond, Hermes::Value& value, CallbackV );
+    void shmemAdd( int node, Hermes::Vaddr dest, Hermes::Value&, Callback );
     void shmemFadd( int node, Hermes::Vaddr dest, Hermes::Value&, CallbackV );
 
     void setNotifyOnRecvDmaDone(
@@ -182,7 +202,6 @@ class VirtNic : public SST::Module {
   private:
 
     void sendCmd( SimTime_t delay ,Event* ev) {
-        ++m_numPendingShmem;
         m_toNicLink->send( delay, ev );  
     }
          
@@ -206,10 +225,6 @@ class VirtNic : public SST::Module {
     int         m_numCores;
     Output      m_dbg;
     Link*       m_toNicLink;
-
-    int         m_numPendingShmem;
-    int         m_maxPendingShmem;
-    Callback    m_shmemBlockedCallback;
 
     VirtNic::HandlerBase<void*>* m_notifyGetDone; 
     VirtNic::HandlerBase<void*>* m_notifyPutDone; 

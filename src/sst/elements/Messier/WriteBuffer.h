@@ -1,8 +1,8 @@
-// Copyright 2009-2017 Sandia Corporation. Under the terms
-// of Contract DE-NA0003525 with Sandia Corporation, the U.S.
+// Copyright 2009-2018 NTESS. Under the terms
+// of Contract DE-NA0003525 with NTESS, the U.S.
 // Government retains certain rights in this software.
 //
-// Copyright (c) 2009-2017, Sandia Corporation
+// Copyright (c) 2009-2018, NTESS
 // All rights reserved.
 //
 // This file is part of the SST software package. For license
@@ -37,7 +37,7 @@ class NVM_WRITE_BUFFER
 { 
 
 	// This determines the size in number of entries
-	int max_size;
+	unsigned int max_size;
 
 	// scheduling mode: this can be used to optimize writing to NVMs, cache lines within the same rowbuffer are prioritized to be written together
 	int sched_mode;
@@ -49,7 +49,7 @@ class NVM_WRITE_BUFFER
 	int flush_th_low;
 
 	// the current number of entries
-	int curr_entries;
+	unsigned int curr_entries;
 
 	// This tracks them in order
 	std::list<NVM_Request *> mem_reqs;
