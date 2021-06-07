@@ -117,7 +117,7 @@ MemController::MemController(ComponentId_t id, Params &params) : Component(id), 
         } else {
             out.output("%s, WARNING: loading backend in legacy mode (from parameter set). Instead, load backend into this controller's 'backend' slot via ctrl.setSubComponent() in configuration.\n", getName().c_str());
         }
-        Params tmpParams = params.find_prefix_params("backendConvertor.backend.");
+        Params tmpParams = params.get_scoped_params("backendConvertor.backend");
         std::string name = params.find<std::string>("backendConvertor.backend", "memHierarchy.simpleMem");
         memory = loadAnonymousSubComponent<MemBackend>(name, "backend", 0, ComponentInfo::INSERT_STATS | ComponentInfo::SHARE_PORTS, tmpParams);
         if (!memory) {
@@ -127,7 +127,7 @@ MemController::MemController(ComponentId_t id, Params &params) : Component(id), 
     }
 
     std::string convertortype = memory->getBackendConvertorType();
-    Params tmpParams = params.find_prefix_params("backendConvertor.");
+    Params tmpParams = params.get_scoped_params("backendConvertor");
     memBackendConvertor_ = loadAnonymousSubComponent<MemBackendConvertor>(convertortype, "backendConvertor", 0, ComponentInfo::INSERT_STATS, tmpParams, memory, requestWidth);
 
     if (memBackendConvertor_ == nullptr) {
@@ -159,8 +159,8 @@ MemController::MemController(ComponentId_t id, Params &params) : Component(id), 
             string listenerMod     = params.find<std::string>(nextListenerName, "");
 
             if (listenerMod != "") {
-                sprintf(nextListenerParams, "listener%" PRIu32 ".", i);
-                Params listenerParams = params.find_prefix_params(nextListenerParams);
+                sprintf(nextListenerParams, "listener%" PRIu32 "", i);
+                Params listenerParams = params.get_scoped_params(nextListenerParams);
 
                 CacheListener* loadedListener = loadAnonymousSubComponent<CacheListener>(listenerMod, "listener", i, ComponentInfo::INSERT_STATS, listenerParams);
                 listeners_.push_back(loadedListener);
@@ -202,7 +202,7 @@ MemController::MemController(ComponentId_t id, Params &params) : Component(id), 
     link_ = loadUserSubComponent<MemLinkBase>("cpulink");
 
     if (!link_ && isPortConnected("direct_link")) {
-        Params linkParams = params.find_prefix_params("cpulink.");
+        Params linkParams = params.get_scoped_params("cpulink");
         linkParams.insert("port", "direct_link");
         linkParams.insert("latency", link_lat, false);
         linkParams.insert("accept_region", "1", false);
@@ -213,7 +213,7 @@ MemController::MemController(ComponentId_t id, Params &params) : Component(id), 
             out.fatal(CALL_INFO,-1,"%s, Error: No connected port detected. Connect 'direct_link' or 'network' port.\n", getName().c_str());
         }
 
-        Params nicParams = params.find_prefix_params("memNIC.");
+        Params nicParams = params.get_scoped_params("memNIC");
         nicParams.insert("group", "4", false);
         nicParams.insert("accept_region", "1", false);
 
@@ -231,7 +231,6 @@ MemController::MemController(ComponentId_t id, Params &params) : Component(id), 
 
     clockLink_ = link_->isClocked();
     link_->setRecvHandler( new Event::Handler<MemController>(this, &MemController::handleEvent));
-    link_->setName(getName());
 
     if (gotRegion) {
         link_->setRegion(region_);
@@ -544,9 +543,6 @@ void MemController::finish(void) {
         Cycle_t cycle = turnClockOn();
         memBackendConvertor_->turnClockOn(cycle);
     }
-
-    backing_->printContents(dbg);
-
     memBackendConvertor_->finish();
     link_->finish();
 }
@@ -560,12 +556,6 @@ void MemController::writeData(MemEvent* event) {
         if (is_debug_event(event)) { Debug(_L4_, "\tUpdate backing. Addr = %" PRIx64 ", Size = %i\n", addr, event->getSize()); }
 
         backing_->set(addr, event->getSize(), event->getPayload());
-        if (is_debug_event(event)) {
-            Debug(_L4_, "\tContents ");
-            for( auto i : event->getPayload() )
-                std::cerr << uint32_t(i) << " ";
-            std::cerr << "\n";
-        }
 
         return;
     }
@@ -574,12 +564,6 @@ void MemController::writeData(MemEvent* event) {
         if (is_debug_event(event)) { Debug(_L4_, "\tUpdate backing. Addr = %" PRIx64 ", Size = %i\n", addr, event->getSize()); }
 
         backing_->set(addr, event->getSize(), event->getPayload());
-        if (is_debug_event(event)) {
-            Debug(_L4_, "\tContents ");
-            for( auto i : event->getPayload() )
-                std::cerr << uint32_t(i) << " ";
-            std::cerr << "\n";
-        }
 
         return;
     }
@@ -659,12 +643,6 @@ void MemController::processInitEvent( MemEventInit* me ) {
         if (is_debug_event(me)) { Debug(_L9_,"Memory init %s - Received GetX for %" PRIx64 " size %zu\n", getName().c_str(), me->getAddr(),me->getPayload().size()); }
         if ( isRequestAddressValid(addr) && backing_ ) {
             backing_->set(addr, me->getPayload().size(), me->getPayload());
-            if (is_debug_event(me)) {
-                Debug(_L4_, "\tContents ");
-                for( auto i : me->getPayload() )
-                    std::cerr << uint32_t(i) << " ";
-                std::cerr << "\n";
-            }
         }
     } else if (Command::NULLCMD == me->getCmd()) {
         if (is_debug_event(me)) { Debug(_L9_, "Memory (%s) received init event: %s\n", getName().c_str(), me->getVerboseString().c_str()); }
