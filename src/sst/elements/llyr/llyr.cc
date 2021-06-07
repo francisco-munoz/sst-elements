@@ -27,6 +27,8 @@
 #include "llyrTypes.h"
 #include "mappers/mapperList.h"
 
+using namespace SST::Interfaces;
+
 namespace SST {
 namespace Llyr {
 
@@ -57,7 +59,7 @@ LlyrComponent::LlyrComponent(ComponentId_t id, Params& params) :
         new SimpleMem::Handler<LlyrComponent>(this, &LlyrComponent::handleEvent));
 
     if( !mem_interface_ ) {
-        std::string interfaceName = params.find<std::string>("memoryinterface", "memHierarchy.mem_interface_");
+        std::string interfaceName = params.find<std::string>("memoryinterface", "memHierarchy.memInterface");
         output_->verbose(CALL_INFO, 1, 0, "Memory interface to be loaded is: %s\n", interfaceName.c_str());
 
         Params interfaceParams = params.find_prefix_params("memoryinterfaceparams.");
@@ -65,9 +67,9 @@ LlyrComponent::LlyrComponent(ComponentId_t id, Params& params) :
         mem_interface_ = loadAnonymousSubComponent<SimpleMem>(interfaceName, "memory", 0, ComponentInfo::SHARE_PORTS | ComponentInfo::INSERT_STATS,
                 interfaceParams, time_converter_, new SimpleMem::Handler<LlyrComponent>(this, &LlyrComponent::handleEvent));
 
-        if( !mem_interface_ ) {
-            output_->fatal(CALL_INFO, -1, "%s, Error loading memory interface\n", getName().c_str());
-        }
+//         if( !mem_interface_ ) {
+//             output_->fatal(CALL_INFO, -1, "%s, Error loading memory interface\n", getName().c_str());
+//         }
     }
 
     //need a 'global' LS queue for reordering
