@@ -177,15 +177,15 @@ void SDMemory::setTile(Tile* current_tile) {
         VNAT_iter_S = this->iter_S;
         VNAT_iter_C = this->iter_C;
     }
-    std::cout << "dnn_layer_X_: " << dnn_layer->get_X_() << std::endl;
-    std::cout << "current_tile_X: " << current_tile->get_T_X_() << std::endl;
-    std::cout << "Iter_X=" << this->iter_X << std::endl;
-    std::cout << "dnn_layer_Y_: " << dnn_layer->get_Y_() << std::endl;
-    std::cout << "current_tile_y: " << current_tile->get_T_Y_() << std::endl;
-    std::cout << "Iter_Y=" << iter_Y << std::endl;
+    //std::cout << "dnn_layer_X_: " << dnn_layer->get_X_() << std::endl;
+    //std::cout << "current_tile_X: " << current_tile->get_T_X_() << std::endl;
+    //std::cout << "Iter_X=" << this->iter_X << std::endl;
+    //std::cout << "dnn_layer_Y_: " << dnn_layer->get_Y_() << std::endl;
+    //std::cout << "current_tile_y: " << current_tile->get_T_Y_() << std::endl;
+    //std::cout << "Iter_Y=" << iter_Y << std::endl;
     this->current_tile = current_tile;
     unsigned int num_vn = this->current_tile->get_Num_VNs();
-    std::cout << "num vn = " << num_vn << std::endl;
+    //std::cout << "num vn = " << num_vn << std::endl;
     this->current_output_pixel = 0; //Setting the current pixels computed
     //The number of opixels to compute is iter_N*iter_K*iter_X*iter_Y * num_vn since each neuron is going to perform those iterations.
     // Notice this number might be different to the number of opixels in the dnn (it would be dnn_layer->get_K()*dnn_layer->get_X_()*dnn_layer->get_Y()
@@ -193,10 +193,9 @@ void SDMemory::setTile(Tile* current_tile) {
     this->output_pixels_to_compute = this->iter_N*this->iter_G*this->iter_K*this->iter_X*this->iter_Y*VNAT_iter_R*VNAT_iter_S*VNAT_iter_C*num_vn;  
     //Number of output psums per each channel. Used to avoid sending packages of new k iterations if the previous have not been 
     //calculated yet;
-    std::cout << "dnn_layer X: " << this->dnn_layer->get_X_() << std::endl; 
+    //std::cout << "dnn_layer X: " << this->dnn_layer->get_X_() << std::endl; 
    
     this->output_psums_per_channel = this->dnn_layer->get_X_()*this->dnn_layer->get_Y_()*VNAT_iter_R*VNAT_iter_S*VNAT_iter_C; 
-    std::cout << "psums to compute " << this->output_pixels_to_compute << std::endl;
     //Assigning to each VN an output initial address depending on N, K, X' and Y'
     this->VNAT = new VNAT_Register*[num_vn];
     for(unsigned n=0;n<this->current_tile->get_T_N(); n++) {
@@ -307,19 +306,14 @@ array de bool de destinos.
 void SDMemory::cycle() {
     //Sending input data over read_connection
     //TODO By the moment we suppose we have enough bandwidth
-	std::cout << "Running cycle inside SDMemory" << std::endl;
     std::vector<DataPackage*> data_to_send; //Input and weight temporal storage
     std::vector<DataPackage*> psum_to_send; // psum temporal storage
     this->local_cycle+=1;
     this->sdmemoryStats.total_cycles++; //To track information
     /* CHANGES DONE TO SAVE MEMORY */
-    std::cout << "Number of output psums per channel: " << output_psums_per_channel << std::endl;
     unsigned int current_iteration=current_output_pixel / output_psums_per_channel;
-    std::cout << "1 is executed" << std::endl;
     unsigned index_G=current_G*this->current_tile->get_T_G();
-    std::cout << "2 is executed" << std::endl;
-     unsigned index_K=current_K*this->current_tile->get_T_K();
-     std::cout << "3 os execited" << std::endl;
+    unsigned index_K=current_K*this->current_tile->get_T_K();
     unsigned int pck_iteration=(index_G)*this->dnn_layer->get_K() + index_K*this->current_tile->get_T_G();
     /* END CHANGES TO SAVE MEMORY */
     if(!this->input_finished && (pck_iteration <= current_iteration)) { //If 
@@ -327,7 +321,6 @@ void SDMemory::cycle() {
         unsigned window_size = this->current_tile->get_T_R()*this->current_tile->get_T_S()*this->current_tile->get_T_C();
         unsigned folding_shift = 0;
         if(this->current_tile->get_folding_enabled()) { //If there is folding we leave a MS to perform the psum accumulation
-           // std::cout << "Aqui hay folding" << std::endl;
             window_size+=1;
             folding_shift+=1;
         }
@@ -370,7 +363,6 @@ void SDMemory::cycle() {
                                     unsigned index_R=current_R*this->current_tile->get_T_R();
                                     unsigned index_S=current_S*this->current_tile->get_T_S();
                                     this->sdmemoryStats.n_SRAM_weight_reads++; //To track information
-				    std::cout << "Accessing to filter" << std::endl;
                                     data_t data = filter_address[(index_G+g)*this->group_size*word_size + (index_K+k)*this->filter_size*word_size + (index_R+r)*this->row_filter_size*word_size + (index_S+s)*dnn_layer->get_C()*word_size + (index_C+c)];  //Fetching. Note the distribution in memory is interleaving the channels
                            
                                     //Creating the package with the weight and the destination vector
@@ -400,7 +392,6 @@ void SDMemory::cycle() {
                                     unsigned index_R=current_R*this->current_tile->get_T_R();
                                     unsigned index_S=current_S*this->current_tile->get_T_S();
                                     this->sdmemoryStats.n_SRAM_weight_reads++; //To track information
-				    std::cout << "Accessing to filter" << std::endl;
                                     data_t data = filter_address[(index_G+g)*this->group_size*word_size + (index_K+k)*this->filter_size*word_size + 
 				        + (index_R+r)*this->row_filter_size*word_size + (index_S+s)*dnn_layer->get_C()*word_size + (index_C+c)];
                                     

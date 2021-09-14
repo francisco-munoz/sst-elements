@@ -23,8 +23,29 @@ public:
     )
 
     SST_ELI_DOCUMENT_PARAMS(
-       // { "fp_mul_latency", "Number of clock ticks for FP MUL operations", "4" },
-       // { "fp_div_latency", "Number of clock ticks for FP DIV operations", "4" }
+        {"clock","Clock frequency", "1GHz" },
+	{"hardware_configuration","stonne hardware configuration file", "hardware.cfg"},
+        { "R", "Number of filter rows in a CONV operation", "3"},
+	{ "S", "Number of filter cols in a CONV operation", "3"},
+	{ "C", "Number of input channels in a CONV operation", "1"},
+	{ "K", "Number of output channels in a CONV operation", "1"},
+	{ "G", "Number of groups in a CONV operation", "1"},
+	{ "N", "Batch size in a CONV operation", "1"},
+	{ "X", "Number of ifmap rows in a CONV operation", "9"},
+	{ "Y", "Number of ifmap cols in a CONV operation", "9"},
+	{ "strides", "Stride to use in a CONV operation", "1"},
+	{ "kernelName", "Name of the kernel to execute", "DefaultKernelName"},
+	{ "T_R", "Number of mapped filter rows in a CONV operation", "3"},
+	{ "T_S", "Number of mapped filter cols in a CONV operation", "3"},
+	{ "T_C", "Number of mapped channels in a CONV operation", "1"},
+	{ "T_K", "Number of mapped output channels in a CONV operation", "1"},
+	{ "T_G", "Number of mapped filter groups in a CONV operation", "1"},
+	{ "T_N", "Number of mapped batches in a CONV operation", "1"},
+	{ "T_X_", "Number of mapped output rows in a CONV operation", "1"},
+	{ "T_Y_", "Number of mapped output cols in a CONV operation", "1"},
+        {"mem_ifmap_init","ifmap elements to compute separated by commas", "" },
+	{"mem_filter_init","filter elements to compute separated by commas", "" },
+	{"mem_output_init","file where the output elements will be dumped", "" },
     )
 
     ///TODO
@@ -43,12 +64,15 @@ public:
     ~sstStonne();
 
     // Override SST::Component Virtual Methods
-    void Setup();
+    void setup();
     void Finish();
     //void Status();
     bool tic(Cycle_t);
 
 private:
+    //SST Variables
+    SST::Output* output_;
+
     Stonne* stonne_instance;
 
 
@@ -68,6 +92,10 @@ private:
     unsigned int Y_;                                 // Y_
     unsigned int strides;                            // Strides
 
+    unsigned int ifmap_size;
+    unsigned int filter_size;
+    unsigned int ofmap_size;
+
     //Tile parameters (See MAERI paper to find out the taxonomy meaning)
     unsigned int T_R;                                // T_R
     unsigned int T_S;                                // T_S
@@ -78,8 +106,12 @@ private:
     unsigned int T_X_;                               // T_X
     unsigned int T_Y_;                               // T_Y   
 
+
     //Hardware parameters
     Config stonne_cfg; 
+    std::string memIfmapFileName;
+    std::string memFilterFileName;
+    std::string memOutputFileName;
 
     //Data 
     float* ifmap;
@@ -89,6 +121,10 @@ private:
     //Aux 
     float EPSILON=0.05;
     unsigned int MAX_RANDOM=10; //Variable used to generate the random values
+
+    //Private functions
+    void constructMemory(std::string fileName, float* array, unsigned int size);
+    void dumpMemoryToFile(std::string fileName, float* array, unsigned int size);
 
 
 

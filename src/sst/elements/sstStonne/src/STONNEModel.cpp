@@ -384,9 +384,7 @@ bool Stonne::isExecutionFinished() {
 
 
 void Stonne::cycle() {
-	std::cout << "RUNNING CYCLE FUNCTION" << std::endl;
         this->mem->cycle();
-	std::cout << "The execution passes from mem" << std::endl;
         this->collectionBus->cycle(); 
         this->asnet->cycle();
         this->lt->cycle();

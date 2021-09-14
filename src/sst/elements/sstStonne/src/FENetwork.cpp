@@ -177,8 +177,8 @@ void FENetwork::setMemoryConnections(std::vector<std::vector<Connection*>>  memo
         Connection* conn_second = memoryConnections[busID][inputID+1];
         as_first->setMemoryConnection(conn_first, busID, inputID);
         as_second->setMemoryConnection(conn_second, busID, inputID+1);
-        std::cout << "FEASwitch " << as_first->getLevel() << ":" << as_first->getNumInLevel() << " connected to BUS " << busID << " INPUT " << inputID << std::endl;
-        std::cout << "FEASwitch " << as_second->getLevel() << ":" << as_second->getNumInLevel() << " connected to BUS " << busID << " INPUT " << inputID+1 << std::endl;
+        //std::cout << "FEASwitch " << as_first->getLevel() << ":" << as_first->getNumInLevel() << " connected to BUS " << busID << " INPUT " << inputID << std::endl;
+        //std::cout << "FEASwitch " << as_second->getLevel() << ":" << as_second->getNumInLevel() << " connected to BUS " << busID << " INPUT " << inputID+1 << std::endl;
 
 
 
