@@ -307,14 +307,19 @@ array de bool de destinos.
 void SDMemory::cycle() {
     //Sending input data over read_connection
     //TODO By the moment we suppose we have enough bandwidth
+	std::cout << "Running cycle inside SDMemory" << std::endl;
     std::vector<DataPackage*> data_to_send; //Input and weight temporal storage
     std::vector<DataPackage*> psum_to_send; // psum temporal storage
     this->local_cycle+=1;
     this->sdmemoryStats.total_cycles++; //To track information
     /* CHANGES DONE TO SAVE MEMORY */
+    std::cout << "Number of output psums per channel: " << output_psums_per_channel << std::endl;
     unsigned int current_iteration=current_output_pixel / output_psums_per_channel;
+    std::cout << "1 is executed" << std::endl;
     unsigned index_G=current_G*this->current_tile->get_T_G();
+    std::cout << "2 is executed" << std::endl;
      unsigned index_K=current_K*this->current_tile->get_T_K();
+     std::cout << "3 os execited" << std::endl;
     unsigned int pck_iteration=(index_G)*this->dnn_layer->get_K() + index_K*this->current_tile->get_T_G();
     /* END CHANGES TO SAVE MEMORY */
     if(!this->input_finished && (pck_iteration <= current_iteration)) { //If 
@@ -345,12 +350,14 @@ void SDMemory::cycle() {
                                     for(int i=0; i<this->num_ms; i++) {
                                         vector_to_send[i]=false;
                                     }
+
                                  
                                     for(int n=0; n<this->current_tile->get_T_N(); n++) {
                                         unsigned desp_n = n*this->current_tile->get_T_G()*this->current_tile->get_T_K()*this->current_tile->get_T_X_()*this->current_tile->get_T_Y_()*window_size;
                                         for(int x=0; x<this->current_tile->get_T_X_(); x++) {
                                             for(int y=0; y<this->current_tile->get_T_Y_(); y++) {
                                                 unsigned desp_this_neuron = x*this->current_tile->get_T_Y_()*window_size + y*window_size;
+
                                                 vector_to_send[desp_n + desp_g + desp_k + desp_this_neuron +  c*this->current_tile->get_T_S()*this->current_tile->get_T_R() + r*this->current_tile->get_T_S() + s + folding_shift]=true;    //+1 because we skip the first MS again for the folding issue
                                             
                                             }
@@ -363,6 +370,7 @@ void SDMemory::cycle() {
                                     unsigned index_R=current_R*this->current_tile->get_T_R();
                                     unsigned index_S=current_S*this->current_tile->get_T_S();
                                     this->sdmemoryStats.n_SRAM_weight_reads++; //To track information
+				    std::cout << "Accessing to filter" << std::endl;
                                     data_t data = filter_address[(index_G+g)*this->group_size*word_size + (index_K+k)*this->filter_size*word_size + (index_R+r)*this->row_filter_size*word_size + (index_S+s)*dnn_layer->get_C()*word_size + (index_C+c)];  //Fetching. Note the distribution in memory is interleaving the channels
                            
                                     //Creating the package with the weight and the destination vector
@@ -392,6 +400,7 @@ void SDMemory::cycle() {
                                     unsigned index_R=current_R*this->current_tile->get_T_R();
                                     unsigned index_S=current_S*this->current_tile->get_T_S();
                                     this->sdmemoryStats.n_SRAM_weight_reads++; //To track information
+				    std::cout << "Accessing to filter" << std::endl;
                                     data_t data = filter_address[(index_G+g)*this->group_size*word_size + (index_K+k)*this->filter_size*word_size + 
 				        + (index_R+r)*this->row_filter_size*word_size + (index_S+s)*dnn_layer->get_C()*word_size + (index_C+c)];
                                     

@@ -167,6 +167,7 @@ void Stonne::loadDNNLayer(Layer_t layer_type, std::string layer_name, unsigned i
     this->dnn_layer = new DNNLayer(layer_type, layer_name, R,S, C, K, G, N, X, Y, strides);   
     this->layer_loaded = true;
     this->mem->setLayer(this->dnn_layer, input_address, filter_address, output_address, dataflow);
+    std::cout << "MEMORY IS CONFIGURED" << std::endl;
 }
 
 void Stonne::loadCONVLayer(std::string layer_name, unsigned int R, unsigned int S, unsigned int C, unsigned int K, unsigned int G, unsigned int N, unsigned int X, unsigned int Y, unsigned int strides, address_t input_address, address_t filter_address, address_t output_address) {
@@ -383,7 +384,9 @@ bool Stonne::isExecutionFinished() {
 
 
 void Stonne::cycle() {
+	std::cout << "RUNNING CYCLE FUNCTION" << std::endl;
         this->mem->cycle();
+	std::cout << "The execution passes from mem" << std::endl;
         this->collectionBus->cycle(); 
         this->asnet->cycle();
         this->lt->cycle();

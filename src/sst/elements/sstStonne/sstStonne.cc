@@ -18,11 +18,11 @@ sstStonne::sstStonne(SST::ComponentId_t id, SST::Params& params) : Component(id)
   R=1;
   S=3;
   C=1;
-  K=1;
+  K=2;
   G=1;
   N=1;
-  X=1;
-  Y=3;
+  X=9;
+  Y=9;
   strides=1;
   layer_name="TestLayer";
   T_R=1;
@@ -31,6 +31,8 @@ sstStonne::sstStonne(SST::ComponentId_t id, SST::Params& params) : Component(id)
   T_K=1;
   T_G=1;
   T_N=1;
+  T_X_=1;
+  T_Y_=1;
   X_= (X - R + strides) / strides;      // X_
   Y_=(Y - S + strides) / strides;       // Y_
 
@@ -60,14 +62,19 @@ sstStonne::sstStonne(SST::ComponentId_t id, SST::Params& params) : Component(id)
   stonne_cfg.m_ASNetworkCfg.reduce_network_type=ASNETWORK;
   stonne_cfg.m_SDMemoryCfg.mem_controller_type=MAERI_DENSE_WORKLOAD;
   stonne_cfg.m_MSNetworkCfg.multiplier_network_type=LINEAR;
-
+  std::cout << "The execution gets here" << std::endl;
   stonne_instance = new Stonne(stonne_cfg);
   stonne_instance->loadDNNLayer(CONV, layer_name, R, S, C, K, G, N, X, Y, strides, ifmap, filters, ofmap, CNN_DATAFLOW); //Loading the layer
+  stonne_instance->loadTile(T_R, T_S, T_C, T_K, T_G, T_N, T_X_, T_Y_);
 
   registerAsPrimaryComponent();
    primaryComponentDoNotEndSim();
   registerClock("1 GHz", new Clock::Handler<sstStonne>(this,&sstStonne::tic));
 
+}
+
+sstStonne::~sstStonne() {
+        
 }
 
 bool sstStonne::tic(Cycle_t) {
