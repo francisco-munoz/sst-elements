@@ -49,7 +49,6 @@ private:
     unsigned int n_psums; //Number of psums before accumulation
     unsigned int current_psum; //Current psum performed
     unsigned int n_accumulator;
-    bool snapea_activated; 
 
     AccumulatorStats accumulatorStats; //Object to track the behaviour of the Accumulator
 

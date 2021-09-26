@@ -193,7 +193,6 @@ void SDMemory::setTile(Tile* current_tile) {
     this->output_pixels_to_compute = this->iter_N*this->iter_G*this->iter_K*this->iter_X*this->iter_Y*VNAT_iter_R*VNAT_iter_S*VNAT_iter_C*num_vn;  
     //Number of output psums per each channel. Used to avoid sending packages of new k iterations if the previous have not been 
     //calculated yet;
-    //std::cout << "dnn_layer X: " << this->dnn_layer->get_X_() << std::endl; 
    
     this->output_psums_per_channel = this->dnn_layer->get_X_()*this->dnn_layer->get_Y_()*VNAT_iter_R*VNAT_iter_S*VNAT_iter_C; 
     //Assigning to each VN an output initial address depending on N, K, X' and Y'
@@ -313,7 +312,7 @@ void SDMemory::cycle() {
     /* CHANGES DONE TO SAVE MEMORY */
     unsigned int current_iteration=current_output_pixel / output_psums_per_channel;
     unsigned index_G=current_G*this->current_tile->get_T_G();
-    unsigned index_K=current_K*this->current_tile->get_T_K();
+     unsigned index_K=current_K*this->current_tile->get_T_K();
     unsigned int pck_iteration=(index_G)*this->dnn_layer->get_K() + index_K*this->current_tile->get_T_G();
     /* END CHANGES TO SAVE MEMORY */
     if(!this->input_finished && (pck_iteration <= current_iteration)) { //If 
@@ -321,6 +320,7 @@ void SDMemory::cycle() {
         unsigned window_size = this->current_tile->get_T_R()*this->current_tile->get_T_S()*this->current_tile->get_T_C();
         unsigned folding_shift = 0;
         if(this->current_tile->get_folding_enabled()) { //If there is folding we leave a MS to perform the psum accumulation
+           // std::cout << "Aqui hay folding" << std::endl;
             window_size+=1;
             folding_shift+=1;
         }
@@ -343,14 +343,12 @@ void SDMemory::cycle() {
                                     for(int i=0; i<this->num_ms; i++) {
                                         vector_to_send[i]=false;
                                     }
-
                                  
                                     for(int n=0; n<this->current_tile->get_T_N(); n++) {
                                         unsigned desp_n = n*this->current_tile->get_T_G()*this->current_tile->get_T_K()*this->current_tile->get_T_X_()*this->current_tile->get_T_Y_()*window_size;
                                         for(int x=0; x<this->current_tile->get_T_X_(); x++) {
                                             for(int y=0; y<this->current_tile->get_T_Y_(); y++) {
                                                 unsigned desp_this_neuron = x*this->current_tile->get_T_Y_()*window_size + y*window_size;
-
                                                 vector_to_send[desp_n + desp_g + desp_k + desp_this_neuron +  c*this->current_tile->get_T_S()*this->current_tile->get_T_R() + r*this->current_tile->get_T_S() + s + folding_shift]=true;    //+1 because we skip the first MS again for the folding issue
                                             
                                             }

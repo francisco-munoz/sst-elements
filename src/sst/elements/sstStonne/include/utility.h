@@ -15,6 +15,10 @@ bool ispowerof2(unsigned int x);
 
 std::string getstr(std::istringstream& instr);
 
+std::string get_string_layer_t(Layer_t kernelOperation);
+
+Layer_t get_type_layer_t(std::string kernelOperation);
+
 std::string get_string_adder_configuration(adderconfig_t config);
 
 std::string get_string_fwlink_direction(fl_t fl_direction);

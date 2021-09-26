@@ -131,7 +131,7 @@ ASNetwork::~ASNetwork() {
 
 void ASNetwork::setMemoryConnections(std::vector<std::vector<Connection*>>  memoryConnections) {
      unsigned int n_bus_lines = memoryConnections.size();
-     std::cout << "N_bus_lines: " << n_bus_lines << std::endl;
+     //std::cout << "N_bus_lines: " << n_bus_lines << std::endl;
 
      //If the accumulation buffer is enabled then the object must be created 
      if(this->accumulation_buffer_enabled > 0) {

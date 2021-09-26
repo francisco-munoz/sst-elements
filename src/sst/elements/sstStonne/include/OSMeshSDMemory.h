@@ -60,7 +60,6 @@ private:
     address_t MK_address;
     address_t KN_address;
     address_t output_address;
-    unsigned int* snapea_filter_order;
 
 
 
@@ -104,7 +103,6 @@ private:
    void send();
    void sendPackageToInputFifos(DataPackage* pck);
    std::vector<Connection*> getWritePortConnections()    const {return this->write_port_connections;}
-   
     
     
 public:
@@ -118,7 +116,6 @@ public:
     bool isExecutionFinished();
 
     void setSparseMatrixMetadata(metadata_address_t MK_metadata_id, metadata_address_t MK_metadata_pointer) {assert(false);} // Supported by this controller
-    void setValueBasedMetadata(unsigned int* filter_metadata) {this->snapea_filter_order = filter_metadata;}
     void setDenseSpatialData(unsigned int T_N, unsigned int T_K) {assert(false);}
     void setReduceNetwork(ReduceNetwork* reduce_network) {this->reduce_network=reduce_network;}
     //Used to configure the MultiplierNetwork according to the controller

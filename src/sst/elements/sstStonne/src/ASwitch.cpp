@@ -97,8 +97,6 @@ ASwitch::~ASwitch() {
 
 void ASwitch::resetSignals() {
     //End collecting parameters from the configuration file
-    this->receive_childs();
-    this->receive_fwlink();
     this->current_capacity = 0;
     this->fl_direction = NOT_CONFIGURED;  //This is configured in the first step of the execution
     this->config_mode = ADD_2_1;  //This is configured in the first step of the execution
@@ -107,11 +105,11 @@ void ASwitch::resetSignals() {
     this->right_child_enabled = false;
     this->fw_enabled = false; 
     this->forward_to_memory=false;
-    while(!input_psum_left_fifo->isEmpty()) {
+          while(!input_psum_left_fifo->isEmpty()) {
         input_psum_left_fifo->pop();
-     }
+    }
 
-    while(!input_psum_right_fifo->isEmpty()) {
+      while(!input_psum_right_fifo->isEmpty()) {
         input_psum_right_fifo->pop();
     }
 

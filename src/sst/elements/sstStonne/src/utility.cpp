@@ -34,6 +34,36 @@ bool ispowerof2(unsigned int x) {
     return x && !(x & (x - 1));
 }
 
+std::string get_string_layer_t(Layer_t kernelOperation) {
+    switch(kernelOperation) {
+        case CONV:
+            return "CONV";
+            break;
+        case GEMM:
+            return "GEMM";
+            break;
+        default:
+            assert(false);
+            break;
+    }
+}
+
+Layer_t get_type_layer_t(std::string kernelOperation) {
+        if(kernelOperation=="CONV") {
+            return CONV;
+        }
+        else if(kernelOperation=="GEMM") {
+            return GEMM;
+        }
+
+        else {
+            std::cout << kernelOperation << " Not found" << std::endl;
+            assert(false);
+        }
+
+}
+
+
 std::string get_string_adder_configuration(adderconfig_t config) {
     switch(config) {
         case ADD_2_1:
@@ -164,8 +194,6 @@ std::string get_string_memory_controller_type(MemoryController_t memory_controll
 	    return "TPU_OS_DENSE";
 	    break;
 
-	case SNAPEA_OS_DENSE:
-	    return "SNAPEA_OS_DENSE";
         default:
             assert(false);
             break;
@@ -185,9 +213,6 @@ MemoryController_t get_type_memory_controller_type(std::string memory_controller
             return TPU_OS_DENSE;
         }
 
-	else if(memory_controller_type == "SNAPEA_OS_DENSE") {
-            return SNAPEA_OS_DENSE;
-	}
         else {
             std::cout << memory_controller_type << " Not found" << std::endl;
             assert(false);

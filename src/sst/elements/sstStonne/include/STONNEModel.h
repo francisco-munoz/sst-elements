@@ -21,7 +21,6 @@
 #include "TemporalRN.h"
 #include "OSMeshSDMemory.h"
 #include "OSMeshMN.h"
-#include "SnapeaSDMemory.h"
 
 class Stonne {
 private:
@@ -39,7 +38,6 @@ private:
     Connection* outputLTConnection; //Output of the lookup table connection and write port to the SDMemory
     Connection** addersBusConnections; //Array of output connections between the adders and the bus
     Connection** BusMemoryConnections; //Array of output Connections between the bus and the memory. (Write output ports)
-    unsigned int* snapea_filter_order;
 
     //Software parameters
     DNNLayer* dnn_layer; 
@@ -99,7 +97,6 @@ public:
 
     void loadTile(unsigned int T_R, unsigned int T_S, unsigned int T_C, unsigned int T_K, unsigned int T_G, unsigned int T_N, unsigned int T_X_, unsigned int T_Y_); //Load general and CONV tile
     void loadFCTile(unsigned int T_S, unsigned int T_N, unsigned int T_K); //VNSize = T_S, NumVNs= T_N*T_K
-    unsigned int* snapeaOrderFilters(unsigned int K, unsigned int n_filters, address_t filter_address);
     void run();
     void cycle();
     bool isExecutionFinished();

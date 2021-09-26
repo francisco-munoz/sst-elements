@@ -2,7 +2,7 @@
 #include "sstStonne.h"
 #include <math.h>
 #include <iostream>
-
+#include "include/utility.h"
 using namespace SST;
 using namespace SST::SST_STONNE;
 
@@ -14,7 +14,9 @@ sstStonne::sstStonne(SST::ComponentId_t id, SST::Params& params) : Component(id)
   std::cout << "Clock is configured for: " << clock_rate << std::endl;
 
   //Load operation parameters
-  
+  std::string kernelOperationString = params.find<std::string>("kernelOperation", "CONV");
+  kernelOperation=get_type_layer_t(kernelOperationString);
+  //Convolution parameters
   R=params.find<unsigned>("R", 3);
   S=params.find<unsigned>("S", 3);
   C=params.find<unsigned>("C", 1);
@@ -35,6 +37,15 @@ sstStonne::sstStonne(SST::ComponentId_t id, SST::Params& params) : Component(id)
   T_Y_=params.find<unsigned>("T_Y_", 1);
   X_= (X - R + strides) / strides;      // X_
   Y_=(Y - S + strides) / strides;       // Y_
+  
+  //Gemm Parameters
+  GEMM_K=params.find<unsigned>("GEMM_K", 3);
+  GEMM_M=params.find<unsigned>("GEMM_M", 3);
+  GEMM_N=params.find<unsigned>("GEMM_N", 3);
+  GEMM_T_K=params.find<unsigned>("GEMM_T_K", 3);
+  GEMM_T_M=params.find<unsigned>("GEMM_T_M", 3);
+  GEMM_T_N=params.find<unsigned>("GEMM_T_N", 3);
+
 
   //Load hardware parameters via configuration file
   std::string hwFileName = params.find< std::string >("hardware_configuration", "hardware.cfg");
@@ -42,9 +53,9 @@ sstStonne::sstStonne(SST::ComponentId_t id, SST::Params& params) : Component(id)
   stonne_cfg.loadFile(hwFileName); 
 
   //Load memory file 
-  memIfmapFileName = params.find< std::string >("mem_ifmap_init", "");
-  memFilterFileName = params.find<std::string>("mem_filter_init", "");
-  memOutputFileName = params.find<std::string>("mem_output_init", "");
+  memMatrixAFileName = params.find< std::string >("mem_matrix_a_init", "");
+  memMatrixBFileName = params.find<std::string>("mem_matrix_b_init", "");
+  memMatrixCFileName = params.find<std::string>("mem_matrix_c_init", "");
 
   registerAsPrimaryComponent();
    primaryComponentDoNotEndSim();
@@ -67,40 +78,64 @@ bool sstStonne::tic(Cycle_t) {
 
 void sstStonne::setup() {
   //Creating arrays for this version of the integration
-  ifmap_size=N*X*Y*C;
-  filter_size=R*S*(C/G)*K;
-  ofmap_size=N*X_*Y_*K;
-  ifmap = new float[ifmap_size];
-  filters = new float[filter_size];
-  ofmap = new float[ofmap_size];
+  switch(kernelOperation) {
+      case CONV:
+        matrixA_size=N*X*Y*C; //ifmap
+        matrixB_size=R*S*(C/G)*K;
+        matrixC_size=N*X_*Y_*K;
+	break;
+      case GEMM:
+	matrixA_size=GEMM_M*GEMM_K;
+	matrixB_size=GEMM_N*GEMM_K;
+	matrixC_size=GEMM_M*GEMM_N;
+	break;
+      default:
+	output_->fatal(CALL_INFO, -1, "Error: Operation unknown\n");
 
-  if(memIfmapFileName=="") {
-    //Filling the arrays with random values. Later this will come in files
-    for(int i=0; i<ifmap_size; i++) {
-          ifmap[i]=rand()%MAX_RANDOM;
+  };
+  matrixA = new float[matrixA_size];
+  matrixB = new float[matrixB_size];
+  matrixC = new float[matrixC_size];
+
+  if(memMatrixAFileName=="") {
+    for(int i=0; i<matrixA_size; i++) {
+          matrixA[i]=rand()%MAX_RANDOM;
     }
 
   }
 
   else {
-    constructMemory(memIfmapFileName, ifmap, ifmap_size);
+    constructMemory(memMatrixAFileName, matrixA, matrixA_size);
   }
 
-  if(memFilterFileName=="") {
+  if(memMatrixBFileName=="") {
 
-    for(int i=0;i<filter_size; i++) {
-      filters[i]=rand()%MAX_RANDOM;
+    for(int i=0;i<matrixB_size; i++) {
+      matrixB[i]=rand()%MAX_RANDOM;
     }
   }
 
   else {
-    constructMemory(memFilterFileName, filters, filter_size);
+    constructMemory(memMatrixBFileName, matrixB, matrixB_size);
   }
 
   //Updating hardware parameters
   stonne_instance = new Stonne(stonne_cfg);
-  stonne_instance->loadDNNLayer(CONV, layer_name, R, S, C, K, G, N, X, Y, strides, ifmap, filters, ofmap, CNN_DATAFLOW); //Loading the layer
-  stonne_instance->loadTile(T_R, T_S, T_C, T_K, T_G, T_N, T_X_, T_Y_);
+
+  switch(kernelOperation) {
+      case CONV:
+          stonne_instance->loadDNNLayer(CONV, layer_name, R, S, C, K, G, N, X, Y, strides, matrixA, matrixB, matrixC, CNN_DATAFLOW); //Loading the layer
+          stonne_instance->loadTile(T_R, T_S, T_C, T_K, T_G, T_N, T_X_, T_Y_);
+	  break;
+      case GEMM:
+          stonne_instance->loadDenseGEMM(layer_name, GEMM_N, GEMM_K, GEMM_M, matrixA, matrixB, matrixC, CNN_DATAFLOW);
+          stonne_instance->loadGEMMTile(GEMM_T_N, GEMM_T_K, GEMM_T_M);
+	  break;
+      default:
+	  output_->fatal(CALL_INFO, -1, "Error: Operation unknown\n");
+
+
+  };
 }
 
 void sstStonne::constructMemory(std::string fileName, float* array, unsigned int size) { //In the future version this will be directly simulated memory
@@ -135,30 +170,34 @@ void sstStonne::constructMemory(std::string fileName, float* array, unsigned int
 
 }
 
-void sstStonne::Finish() {
+void sstStonne::finish() {
     //This code should have the logic to write the output memory into a certain file passed by parameter. TODO
     std::cout << "The execution of STONNE has finished" << std::endl;
-    dumpMemoryToFile(memOutputFileName, ofmap, ofmap_size);
+    dumpMemoryToFile(memMatrixCFileName, matrixC, matrixC_size);
     delete stonne_instance;
-    delete[] ifmap;
-    delete[] filters;
-    delete[] ofmap; 
+    delete[] matrixA;
+    delete[] matrixB;
+    delete[] matrixC; 
 }
 
 void sstStonne::dumpMemoryToFile(std::string fileName, float* array, unsigned int size) {
-  std::ofstream outputStream (fileName, std::ios::out);
-  if( outputStream.is_open()) {
-    for(unsigned i=0; i<size; i++) {
-       float value = array[i];
-       outputStream << value << ","; 
+  if(fileName != "") {
+    std::ofstream outputStream (fileName, std::ios::out);
+    if( outputStream.is_open()) {
+      for(unsigned i=0; i<size; i++) {
+         float value = array[i];
+         outputStream << value << ","; 
+      }
+
+      outputStream.close();
     }
 
-    outputStream.close();
+    else {
+      output_->fatal(CALL_INFO, -1, "Error: Unable to open file\n");
+      exit(0);
+    }
   }
 
-  else {
-    output_->fatal(CALL_INFO, -1, "Error: Unable to open file\n");
-    exit(0);
-  }
+
 }
 

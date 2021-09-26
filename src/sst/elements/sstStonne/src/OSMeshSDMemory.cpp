@@ -140,8 +140,7 @@ void OSMeshSDMemory::cycle() {
        for(int i=0; i<this->cols_used; i++) {
 	   data_t data;//Accessing to memory
 	   int index_N=current_N*T_N;
-	   //data = this->KN_address[(index_N+i)*this->K + this->snapea_filter_order[(index_N+i)*this->K+this->current_K]]; //Notice that in dense operation the KN matrix is actually NK 
-	   data = this->KN_address[(index_N+i)*this->K + this->current_K];
+	   data = this->KN_address[(index_N+i)*this->K + this->current_K]; //Notice that in dense operation the KN matrix is actually NK 
 	   sdmemoryStats.n_SRAM_weight_reads++;  
 	   DataPackage* pck_to_send = new DataPackage(sizeof(data_t), data, WEIGHT, 0, UNICAST, i);
 	   this->sendPackageToInputFifos(pck_to_send);
@@ -151,8 +150,7 @@ void OSMeshSDMemory::cycle() {
        for(int i=0; i<rows_used; i++) {
            data_t data;//Accessing to memory
 	   int index_M=current_M*T_M;
-           //data = this->MK_address[(index_M+i)*this->K + this->snapea_filter_order[(index_M+i)*this->K+this->current_K]]; 
-	   data = this->MK_address[(index_M+i)*this->K +  this->current_K];
+           data = this->MK_address[(index_M+i)*this->K + this->current_K]; 
            sdmemoryStats.n_SRAM_input_reads++;  
            DataPackage* pck_to_send = new DataPackage(sizeof(data_t), data, IACTIVATION, 0, UNICAST, i+this->ms_cols);
            this->sendPackageToInputFifos(pck_to_send);
