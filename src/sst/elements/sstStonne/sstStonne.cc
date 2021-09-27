@@ -60,6 +60,9 @@ sstStonne::sstStonne(SST::ComponentId_t id, SST::Params& params) : Component(id)
   bitmapMatrixAFileName = params.find< std::string >("bitmap_matrix_a_init", "");
   bitmapMatrixBFileName = params.find< std::string >("bitmap_matrix_a_init", "");
 
+  rowpointerMatrixAFileName = params.find< std::string >("rowpointer_matrix_a_init", "");
+  colpointerMatrixAFileName = params.find< std::string >("colpointer_matrix_a_init", "");
+
 
   registerAsPrimaryComponent();
    primaryComponentDoNotEndSim();
@@ -173,6 +176,52 @@ void sstStonne::setup() {
 
     } //End bitmapSpMSpM operation
 
+    else if(kernelOperation==csrSpMM) {
+      if(rowpointerMatrixAFileName=="") {
+        output_->fatal(CALL_INFO, -1, "rowpointer_matrix_a_init parameter is not introduced\n");
+      }
+      if(colpointerMatrixAFileName=="") {
+        output_->fatal(CALL_INFO, -1, "colpointer_matrix_a_init parameter is not introduced\n");
+      }
+
+      matrixA_size=GEMM_M*GEMM_K;
+      matrixB_size=GEMM_N*GEMM_K;
+      matrixC_size=GEMM_M*GEMM_N;
+
+      rowpointerMatrixA=new unsigned int[matrixA_size]; //Change to the minimum using vector class
+      colpointerMatrixA=new unsigned int[matrixA_size];
+      unsigned int nValuesRowPointer=constructCSRStructure(rowpointerMatrixAFileName,rowpointerMatrixA);
+      unsigned int nValuesColPointer=constructCSRStructure(colpointerMatrixAFileName, colpointerMatrixA);
+      matrixA=new float[matrixA_size]; //TODO fix this
+      matrixB=new float[matrixB_size];
+      matrixC=new float[matrixC_size];
+      // Data is not mandatory
+      if(memMatrixAFileName=="") {
+      for(int i=0; i<nValuesColPointer; i++) {
+          matrixA[i]=rand()%MAX_RANDOM;
+      }
+
+      }
+
+      else {
+        constructMemory(memMatrixAFileName, matrixA, nValuesColPointer);
+      }
+
+
+      if(memMatrixBFileName=="") {
+        for(int i=0; i<matrixB_size; i++) {
+            matrixB[i]=rand()%MAX_RANDOM;
+        }
+
+      }
+
+      else {
+        constructMemory(memMatrixBFileName, matrixB, matrixB_size);
+      }
+
+
+    }
+
     else {
       output_->fatal(CALL_INFO, -1, "Error: Operation unknown\n");
     }
@@ -192,6 +241,9 @@ void sstStonne::setup() {
 	  break;
       case bitmapSpMSpM:
           stonne_instance->loadGEMM(layer_name, GEMM_N, GEMM_K, GEMM_M, matrixA, matrixB, bitmapMatrixA, bitmapMatrixB, matrixC, bitmapMatrixC, MK_STR_KN_STA );
+	  break;
+      case csrSpMM: 
+	  stonne_instance->loadSparseDense(layer_name, GEMM_N, GEMM_K, GEMM_M, matrixA, matrixB, colpointerMatrixA, rowpointerMatrixA, matrixC, GEMM_T_N, GEMM_T_K);
 	  break;
       default:
 	  output_->fatal(CALL_INFO, -1, "Error: Operation unknown\n");
@@ -257,6 +309,34 @@ unsigned int sstStonne::constructBitmap(std::string fileName, unsigned int * arr
 
 }
 
+//Return number of active elements to build later the data array. This is necessary because we do not know the number of elements.
+unsigned int sstStonne::constructCSRStructure(std::string fileName, unsigned int * array) { //In the future version this will be directly simulated memory
+  std::ifstream inputStream(fileName, std::ios::in);
+  unsigned int currentIndex=0;
+  if( inputStream.is_open() ) {
+
+        std::string thisLine;
+        while( std::getline( inputStream, thisLine ) )
+        {
+            std::string value;
+            std::stringstream stringIn(thisLine);
+            while( std::getline(stringIn, value, ',') ) {
+                array[currentIndex]=stoi(value);
+                currentIndex++;
+            }
+        }
+
+
+        inputStream.close();
+    } else {
+        output_->fatal(CALL_INFO, -1, "Error: Unable to open file\n");
+        exit(0);
+    }
+
+   return currentIndex;
+
+}
+
 
 void sstStonne::finish() {
     //This code should have the logic to write the output memory into a certain file passed by parameter. TODO
@@ -269,6 +349,11 @@ void sstStonne::finish() {
     if(kernelOperation==bitmapSpMSpM) {
      delete[] bitmapMatrixA;
       delete[] bitmapMatrixB;
+    }
+
+    else if(kernelOperation==csrSpMM) {
+      delete[] rowpointerMatrixA;
+      delete[] colpointerMatrixA;
     }
 }
 

@@ -62,7 +62,7 @@ Stonne::Stonne(Config stonne_cfg) {
 	    this->mem = new  OSMeshSDMemory(0, "OSMeshSDMemory", stonne_cfg, this->outputLTConnection);
 	    break;
 	case MAGMA_SPARSE_DENSE:
-            //this->mem = new  SparseDenseSDMemory(0, "SparseDenseSDMemory", stonne_cfg, this->outputLTConnection);
+            this->mem = new  SparseDenseSDMemory(0, "SparseDenseSDMemory", stonne_cfg, this->outputLTConnection);
             break;
 	default:
 	    assert(false);

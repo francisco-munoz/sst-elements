@@ -44,6 +44,9 @@ std::string get_string_layer_t(Layer_t kernelOperation) {
             break;
 	case bitmapSpMSpM:
 	    return "bitmapSpMSpM";
+
+	case csrSpMM: 
+	    return "csrSpMM";
         default:
             assert(false);
             break;
@@ -61,6 +64,10 @@ Layer_t get_type_layer_t(std::string kernelOperation) {
 	else if(kernelOperation=="bitmapSpMSpM") {
             return bitmapSpMSpM;
         }
+
+	else if(kernelOperation=="csrSpMM") {
+            return csrSpMM;
+	}
 
         else {
             std::cout << kernelOperation << " Not found" << std::endl;
@@ -200,6 +207,10 @@ std::string get_string_memory_controller_type(MemoryController_t memory_controll
 	    return "TPU_OS_DENSE";
 	    break;
 
+        case MAGMA_SPARSE_DENSE:
+	    return "MAGMA_SPARSE_DENSE";
+	    break;
+
         default:
             assert(false);
             break;
@@ -217,6 +228,10 @@ MemoryController_t get_type_memory_controller_type(std::string memory_controller
 
 	else if(memory_controller_type=="TPU_OS_DENSE") {
             return TPU_OS_DENSE;
+        }
+
+	else if(memory_controller_type=="MAGMA_SPARSE_DENSE") {
+            return MAGMA_SPARSE_DENSE;
         }
 
         else {

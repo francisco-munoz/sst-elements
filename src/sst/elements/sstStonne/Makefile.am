@@ -39,6 +39,7 @@ libsstStonne_la_SOURCES = \
 	src/OSMeshSDMemory.cpp \
 	src/SDMemory.cpp \
 	src/SparseSDMemory.cpp \
+	src/SparseDenseSDMemory.cpp \
 	src/Stats.cpp \
 	src/STONNEModel.cpp \
 	src/TemporalRN.cpp \
@@ -82,6 +83,7 @@ libsstStonne_la_SOURCES = \
 	include/ReduceNetworks \
 	include/SDMemory.h \
 	include/SparseSDMemory.h \
+	include/SparseDenseSDMemory.h \
 	include/Stats.h \
 	include/STONNEModel.h \
 	include/TemporalRN.h \

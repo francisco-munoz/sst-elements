@@ -25,7 +25,7 @@ public:
     SST_ELI_DOCUMENT_PARAMS(
         {"clock","Clock frequency", "1GHz" },
 	{"hardware_configuration","stonne hardware configuration file", "hardware.cfg"},
-	{ "kernelOperation", "Type of the kernel to execute (CONV or GEMM)", "CONV"},
+	{ "kernelOperation", "Type of the kernel to execute (CONV,GEMM,bitmapSpMSpM,csrSpMM)", "CONV"},
         { "R", "Number of filter rows in a CONV operation", "3"},
 	{ "S", "Number of filter cols in a CONV operation", "3"},
 	{ "C", "Number of input channels in a CONV operation", "1"},
@@ -55,6 +55,8 @@ public:
 	{"mem_matrix_c_init","file where the output elements will be dumped", "" },
 	{"bitmap_matrix_a_init", "MK bitmap used for bitmapSpMSpM operation", ""},
 	{"bitmap_matrix_b_init", "MK bitmap used for bitmapSpMSpM operation", ""},
+	{"rowpointer_matrix_a_init","MK row pointer for csrSpMM operation",""},
+	{"colpointer_matrix_a_init","MK col pointer for csrSpMM operation",""},
 
     )
 
@@ -142,6 +144,9 @@ private:
     std::string bitmapMatrixAFileName;
     std::string bitmapMatrixBFileName;
 
+    std::string rowpointerMatrixAFileName;
+    std::string colpointerMatrixAFileName;
+
 
     /**************************************************************************/
     /* Data pointers */
@@ -157,6 +162,9 @@ private:
     unsigned int* bitmapMatrixA; //This is the bitmap of MK matrix in bitmapSpMSpM operation
     unsigned int* bitmapMatrixB; //This is the bitmap of KN matrix in bitmapSpMSpM operation
     unsigned int* bitmapMatrixC; //This is the bitmap for the resulting matrix in bitmapSpMSpM operation
+
+    unsigned int* rowpointerMatrixA; //This is the row pointer of MK matrix in csrSpMM operation
+    unsigned int* colpointerMatrixA; //This is the col pointer of MK matrix in csrSpMM operation
     
     /**************************************************************************/
     /* Auxiliary variables */
@@ -170,6 +178,7 @@ private:
     void constructMemory(std::string fileName, float* array, unsigned int size);
     unsigned int constructBitmap(std::string fileName, unsigned int * array, unsigned int size);
     void dumpMemoryToFile(std::string fileName, float* array, unsigned int size);
+    unsigned int constructCSRStructure(std::string fileName, unsigned int * array);
 
 
 
