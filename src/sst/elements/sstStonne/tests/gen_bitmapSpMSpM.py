@@ -23,16 +23,18 @@ rand_largest=10;
 
 # Generating matrix A
 with open(in_file_matrix_a, "w") as fd, open(in_file_bitmap_a, "w") as fb:
+    n_nonzeros=0
     for m in range(M):  # Row major
         for k in range(K):
             sparse_prob=random.randint(0,100);
             if(sparse_prob > sparsity_ratio_a):  # value is generated
-                if((m==0) and (k==0)):  # this is to insert comma.
+                if(n_nonzeros==0):  # this is to insert comma.
                     fb.write(str(1)); #writing a 1 in bitmap
                     fd.write(str(random.randint(rand_smallest, rand_largest))); # a new data element is included
                 else:
                     fb.write(","+str(1));
                     fd.write(","+str(random.randint(rand_smallest, rand_largest)))
+                n_nonzeros+=1;
             else:
                 if((m==0) and (k==0)): # this is to insert a comma
                     fb.write(str(0)); #writing a 1
@@ -48,16 +50,18 @@ print("File "+in_file_bitmap_a+" generated correctly");
 
 # Generating matrix B
 with open(in_file_matrix_b, "w") as fd, open(in_file_bitmap_b, "w") as fb:
+    n_nonzeros=0;
     for k in range(K):  # Row major
         for n in range(N):
             sparse_prob=random.randint(0,100);
             if(sparse_prob > sparsity_ratio_b):  # value is generated
-                if((k==0) and (n==0)):  # this is to insert comma.
+                if(n_nonzeros==0):  # this is to insert comma.
                     fb.write(str(1)); #writing a 1 in bitmap
                     fd.write(str(random.randint(rand_smallest, rand_largest))); # a new data element is included
                 else:
                     fb.write(","+str(1));
                     fd.write(","+str(random.randint(rand_smallest, rand_largest)))
+                n_nonzeros+=1;
             else:
                 if((k==0) and (n==0)): # this is to insert a comma
                     fb.write(str(0)); #writing a 1

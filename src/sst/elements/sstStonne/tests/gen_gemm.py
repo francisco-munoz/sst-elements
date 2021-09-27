@@ -4,7 +4,7 @@ import random;
 
 M = 3;
 N = 3;
-K = 20;
+K = 9;
 
 in_file_matrix_a="gemm_file_matrixA_"+str(M)+"_"+str(N)+"_"+str(K)+".in";
 in_file_matrix_b="gemm_file_matrixB_"+str(M)+"_"+str(N)+"_"+str(K)+".in";

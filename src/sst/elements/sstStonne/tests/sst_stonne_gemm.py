@@ -15,8 +15,8 @@ comp_stonne.addParams({
     "GEMM_T_K" : 5,
     "GEMM_T_M" : 1,
     "GEMM_T_N" : 1,
-    "mem_matrix_a_init" : "gemm_file_matrixA_3_3_20.in",
-    "mem_matrix_b_init" : "gemm_file_matrixB_3_3_20.in",
+    "mem_matrix_a_init" : "gemm_file_matrixA_3_3_9.in",
+    "mem_matrix_b_init" : "gemm_file_matrixB_3_3_9.in",
     "mem_matrix_c_init" : "result.out"
 
 })
