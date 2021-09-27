@@ -42,6 +42,8 @@ std::string get_string_layer_t(Layer_t kernelOperation) {
         case GEMM:
             return "GEMM";
             break;
+	case bitmapSpMSpM:
+	    return "bitmapSpMSpM";
         default:
             assert(false);
             break;
@@ -54,6 +56,10 @@ Layer_t get_type_layer_t(std::string kernelOperation) {
         }
         else if(kernelOperation=="GEMM") {
             return GEMM;
+        }
+
+	else if(kernelOperation=="bitmapSpMSpM") {
+            return bitmapSpMSpM;
         }
 
         else {

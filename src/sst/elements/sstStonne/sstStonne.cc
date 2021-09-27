@@ -57,6 +57,10 @@ sstStonne::sstStonne(SST::ComponentId_t id, SST::Params& params) : Component(id)
   memMatrixBFileName = params.find<std::string>("mem_matrix_b_init", "");
   memMatrixCFileName = params.find<std::string>("mem_matrix_c_init", "");
 
+  bitmapMatrixAFileName = params.find< std::string >("bitmap_matrix_a_init", "");
+  bitmapMatrixBFileName = params.find< std::string >("bitmap_matrix_a_init", "");
+
+
   registerAsPrimaryComponent();
    primaryComponentDoNotEndSim();
   registerClock(clock_rate, new Clock::Handler<sstStonne>(this,&sstStonne::tic));
@@ -78,45 +82,100 @@ bool sstStonne::tic(Cycle_t) {
 
 void sstStonne::setup() {
   //Creating arrays for this version of the integration
-  switch(kernelOperation) {
-      case CONV:
-        matrixA_size=N*X*Y*C; //ifmap
-        matrixB_size=R*S*(C/G)*K;
-        matrixC_size=N*X_*Y_*K;
-	break;
-      case GEMM:
-	matrixA_size=GEMM_M*GEMM_K;
-	matrixB_size=GEMM_N*GEMM_K;
-	matrixC_size=GEMM_M*GEMM_N;
-	break;
-      default:
-	output_->fatal(CALL_INFO, -1, "Error: Operation unknown\n");
+  if((kernelOperation==CONV) || (kernelOperation==GEMM)) { //Initializing dense operation
+    switch(kernelOperation) {
+        case CONV:
+          matrixA_size=N*X*Y*C; //ifmap
+          matrixB_size=R*S*(C/G)*K;
+          matrixC_size=N*X_*Y_*K;
+	  break;
+        case GEMM:
+	  matrixA_size=GEMM_M*GEMM_K;
+	  matrixB_size=GEMM_N*GEMM_K;
+	  matrixC_size=GEMM_M*GEMM_N;
+	  break;
+        default:
+	  output_->fatal(CALL_INFO, -1, "Error: Operation unknown\n");
 
-  };
-  matrixA = new float[matrixA_size];
-  matrixB = new float[matrixB_size];
-  matrixC = new float[matrixC_size];
+    };
+    matrixA = new float[matrixA_size];
+    matrixB = new float[matrixB_size];
+    matrixC = new float[matrixC_size];
+    if(memMatrixAFileName=="") {
+      for(int i=0; i<matrixA_size; i++) {
+            matrixA[i]=rand()%MAX_RANDOM;
+      }
 
-  if(memMatrixAFileName=="") {
-    for(int i=0; i<matrixA_size; i++) {
+    }
+
+    else {
+      constructMemory(memMatrixAFileName, matrixA, matrixA_size);
+    }
+
+
+    if(memMatrixBFileName=="") {
+  
+      for(int i=0;i<matrixB_size; i++) {
+        matrixB[i]=rand()%MAX_RANDOM;
+      }
+    }
+
+    else {
+      constructMemory(memMatrixBFileName, matrixB, matrixB_size);
+    }
+
+  } //End initializing dense operation
+
+  else { //Initializing sparse operation
+    if(kernelOperation==bitmapSpMSpM) {
+      if(bitmapMatrixAFileName=="") {
+        output_->fatal(CALL_INFO, -1, "bitmap_matrix_a_init parameter is not introduced\n");
+      }
+      if(bitmapMatrixBFileName=="") {
+        output_->fatal(CALL_INFO, -1, "bitmap_matrix_b_init parameter is not introduced\n");
+      }
+
+      matrixA_size=GEMM_M*GEMM_K;
+      matrixB_size=GEMM_N*GEMM_K;
+      matrixC_size=GEMM_M*GEMM_N;
+      bitmapMatrixA=new unsigned int[matrixA_size]; 
+      bitmapMatrixB=new unsigned int[matrixB_size];
+      bitmapMatrixC=new unsigned int[matrixC_size];
+      unsigned int nActiveValuesA=constructBitmap(bitmapMatrixAFileName, bitmapMatrixA, matrixA_size);
+      unsigned int nActiveValuesB=constructBitmap(bitmapMatrixBFileName, bitmapMatrixB, matrixB_size);
+      matrixA=new float[matrixA_size]; //TODO fix this
+      matrixB=new float[matrixB_size];
+      matrixC=new float[matrixC_size];
+
+      // Data is not mandatory
+      if(memMatrixAFileName=="") {
+        for(int i=0; i<nActiveValuesA; i++) {
           matrixA[i]=rand()%MAX_RANDOM;
+        }
+
+      }
+
+      else {
+        constructMemory(memMatrixAFileName, matrixA, nActiveValuesA);
+      }
+
+
+      if(memMatrixBFileName=="") {
+        for(int i=0; i<matrixB_size; i++) {
+            matrixB[i]=rand()%MAX_RANDOM;
+        }
+
+      }
+
+      else {
+        constructMemory(memMatrixBFileName, matrixB, nActiveValuesB);
+      }
+
+    } //End bitmapSpMSpM operation
+
+    else {
+      output_->fatal(CALL_INFO, -1, "Error: Operation unknown\n");
     }
-
-  }
-
-  else {
-    constructMemory(memMatrixAFileName, matrixA, matrixA_size);
-  }
-
-  if(memMatrixBFileName=="") {
-
-    for(int i=0;i<matrixB_size; i++) {
-      matrixB[i]=rand()%MAX_RANDOM;
-    }
-  }
-
-  else {
-    constructMemory(memMatrixBFileName, matrixB, matrixB_size);
   }
 
   //Updating hardware parameters
@@ -130,6 +189,9 @@ void sstStonne::setup() {
       case GEMM:
           stonne_instance->loadDenseGEMM(layer_name, GEMM_N, GEMM_K, GEMM_M, matrixA, matrixB, matrixC, CNN_DATAFLOW);
           stonne_instance->loadGEMMTile(GEMM_T_N, GEMM_T_K, GEMM_T_M);
+	  break;
+      case bitmapSpMSpM:
+          stonne_instance->loadGEMM(layer_name, GEMM_N, GEMM_K, GEMM_M, matrixA, matrixB, bitmapMatrixA, bitmapMatrixB, matrixC, bitmapMatrixC, MK_STR_KN_STA );
 	  break;
       default:
 	  output_->fatal(CALL_INFO, -1, "Error: Operation unknown\n");
@@ -154,12 +216,6 @@ void sstStonne::constructMemory(std::string fileName, float* array, unsigned int
             }
         }
 
-//         std::cout << "Init Vector(" << tempVector->size() << "):  ";
-//         for( auto it = tempVector->begin(); it != tempVector->end(); ++it ) {
-//             std::cout << *it;
-//             std::cout << " ";
-//         }
-//         std::cout << std::endl;
 
         inputStream.close();
     } else {
@@ -167,8 +223,40 @@ void sstStonne::constructMemory(std::string fileName, float* array, unsigned int
         exit(0);
     }
  
+}
+
+//Return number of active elements to build later the data array. This is necessary because we do not know the number of elements.
+unsigned int sstStonne::constructBitmap(std::string fileName, unsigned int * array, unsigned int size) { //In the future version this will be directly simulated memory
+  std::ifstream inputStream(fileName, std::ios::in);
+  unsigned int currentIndex=0;
+  unsigned int nActiveValues=0;
+  if( inputStream.is_open() ) {
+
+        std::string thisLine;
+        while( std::getline( inputStream, thisLine ) )
+        {
+            std::string value;
+            std::stringstream stringIn(thisLine);
+            while( std::getline(stringIn, value, ',') ) {
+                array[currentIndex]=stoi(value);
+                currentIndex++;
+		if(stoi(value)==1) {
+                    nActiveValues++;
+		}
+            }
+        }
+
+
+        inputStream.close();
+    } else {
+        output_->fatal(CALL_INFO, -1, "Error: Unable to open file\n");
+        exit(0);
+    }
+
+   return nActiveValues;
 
 }
+
 
 void sstStonne::finish() {
     //This code should have the logic to write the output memory into a certain file passed by parameter. TODO
@@ -178,6 +266,10 @@ void sstStonne::finish() {
     delete[] matrixA;
     delete[] matrixB;
     delete[] matrixC; 
+    if(kernelOperation==bitmapSpMSpM) {
+     delete[] bitmapMatrixA;
+      delete[] bitmapMatrixB;
+    }
 }
 
 void sstStonne::dumpMemoryToFile(std::string fileName, float* array, unsigned int size) {

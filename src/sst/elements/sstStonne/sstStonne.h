@@ -53,6 +53,9 @@ public:
         {"mem_matrix_a_init","ifmap/matrix MK elements to compute separated by commas", "" },
 	{"mem_matrix_b_init","filter/matrix elements to compute separated by commas", "" },
 	{"mem_matrix_c_init","file where the output elements will be dumped", "" },
+	{"bitmap_matrix_a_init", "MK bitmap used for bitmapSpMSpM operation", ""},
+	{"bitmap_matrix_b_init", "MK bitmap used for bitmapSpMSpM operation", ""},
+
     )
 
     ///TODO
@@ -136,6 +139,10 @@ private:
     std::string memMatrixBFileName;
     std::string memMatrixCFileName;
 
+    std::string bitmapMatrixAFileName;
+    std::string bitmapMatrixBFileName;
+
+
     /**************************************************************************/
     /* Data pointers */
     /**************************************************************************/
@@ -143,6 +150,13 @@ private:
     float* matrixA;  //This is input ifmaps in CONV operation or MK matrix in GEMM operation
     float* matrixB;  //This is filter matrix in CONV operation or KN matrix in GEMM operation
     float* matrixC;  //This is output fmap in CONV operation or resulting MN matrix in GEMM operation
+
+    //These three structures are used to represent the bitmaps in a bitmapSpMSpM operation. The datatype
+    //could be smaller to unsigned int (one single bit per element is necessary) but will use this for simplicity 
+    //In terms of functionallity the simulation is not affected
+    unsigned int* bitmapMatrixA; //This is the bitmap of MK matrix in bitmapSpMSpM operation
+    unsigned int* bitmapMatrixB; //This is the bitmap of KN matrix in bitmapSpMSpM operation
+    unsigned int* bitmapMatrixC; //This is the bitmap for the resulting matrix in bitmapSpMSpM operation
     
     /**************************************************************************/
     /* Auxiliary variables */
@@ -154,6 +168,7 @@ private:
     /* Private functions */
     /**************************************************************************/
     void constructMemory(std::string fileName, float* array, unsigned int size);
+    unsigned int constructBitmap(std::string fileName, unsigned int * array, unsigned int size);
     void dumpMemoryToFile(std::string fileName, float* array, unsigned int size);
 
 
