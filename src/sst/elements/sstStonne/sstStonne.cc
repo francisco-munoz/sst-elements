@@ -65,14 +65,75 @@ sstStonne::sstStonne(SST::ComponentId_t id, SST::Params& params) : Component(id)
 
 
   registerAsPrimaryComponent();
-   primaryComponentDoNotEndSim();
-  registerClock(clock_rate, new Clock::Handler<sstStonne>(this,&sstStonne::tic));
+  primaryComponentDoNotEndSim();
+  time_converter_ = registerClock(clock_rate, new Clock::Handler<sstStonne>(this,&sstStonne::tic));
+
+  //set up memory interfaces
+  mem_interface_ = loadUserSubComponent<SimpleMem>("memory", ComponentInfo::SHARE_NONE, time_converter_,
+  new SimpleMem::Handler<sstStonne>(this, &sstStonne::handleEvent));
+
+  if( !mem_interface_ ) {
+      std::string interfaceName = params.find<std::string>("memoryinterface", "memHierarchy.memInterface");
+      output_->verbose(CALL_INFO, 1, 0, "Memory interface to be loaded is: %s\n", interfaceName.c_str());
+      Params interfaceParams = params.find_prefix_params("memoryinterfaceparams.");
+      interfaceParams.insert("port", "cache_link");
+      mem_interface_ = loadAnonymousSubComponent<SimpleMem>(interfaceName, "memory", 0, ComponentInfo::SHARE_PORTS | ComponentInfo::INSERT_STATS,
+      interfaceParams, time_converter_, new SimpleMem::Handler<sstStonne>(this, &sstStonne::handleEvent));
+
+    }
+    //Inititating memory parameters
+  write_queue_ = new LSQueue();
+  read_queue_ = new LSQueue();
+
+
 
 }
 
 sstStonne::~sstStonne() {
         
 }
+
+void sstSTONNE::init( uint32_t phase )
+{
+    mem_interface_->init( phase );
+
+    if( 0 == phase ) {
+	/*
+        std::vector< uint64_t >* initVector;
+
+        //Check to see if there is any memory being initialized
+        if( memFileName_ != "" ) {
+            initVector = constructMemory(memFileName_);
+        } else {
+            initVector = new std::vector< uint64_t > {16, 64, 32, 0 , 16382, 0, 0};
+        }
+
+        std::vector<uint8_t> memInit;
+        constexpr auto buff_size = sizeof(uint64_t);
+        uint8_t buffer[buff_size] = {};
+        for( auto it = initVector->begin(); it != initVector->end(); ++it ) {
+            std::memcpy(buffer, std::addressof(*it), buff_size);
+            for( uint32_t i = 0; i < buff_size; ++i ){
+                memInit.push_back(buffer[i]);
+            }
+        }
+
+        output_->verbose(CALL_INFO, 2, 0, ">> Writing memory contents (%" PRIu64 " bytes at index 0)\n",
+                        (uint64_t) memInit.size());
+//         for( std::vector< uint8_t >::iterator it = memInit.begin() ; it != memInit.end(); ++it ) {
+//             std::cout << uint32_t(*it) << ' ';
+//         }
+//
+//         std::cout << "\n";
+
+        SimpleMem::Request* initMemory = new SimpleMem::Request(SimpleMem::Request::Write, 0, memInit.size(), memInit);
+        output_->verbose(CALL_INFO, 1, 0, "Sending initialization data to memory...\n");
+        mem_interface_->sendInitData(initMemory);
+        output_->verbose(CALL_INFO, 1, 0, "Initialization data sent.\n");
+	*/
+    }
+}
+
 
 bool sstStonne::tic(Cycle_t) {
     stonne_instance->cycle();
@@ -228,7 +289,7 @@ void sstStonne::setup() {
   }
 
   //Updating hardware parameters
-  stonne_instance = new Stonne(stonne_cfg);
+  stonne_instance = new Stonne(stonne_cfg, load_queue_, write_queue_, mem_interface_);
 
   switch(kernelOperation) {
       case CONV:
@@ -377,4 +438,36 @@ void sstStonne::dumpMemoryToFile(std::string fileName, float* array, unsigned in
 
 
 }
+
+void sstStonne::handleEvent( SimpleMem::Request* ev ) {
+    output_->verbose(CALL_INFO, 4, 0, "Recv response from cache\n");
+
+    for( auto &it : ev->data ) {
+        std::cout << unsigned(it) << " ";
+    }
+    std::cout << std::endl;
+
+    if( ev->cmd == SimpleMem::Request::Command::ReadResp ) {
+        // Read request needs some special handling
+        uint64_t addr = ev->addr;
+        data_t memValue = 0.0;
+
+        std::memcpy( std::addressof(memValue), std::addressof(ev->data[0]), sizeof(memValue) );
+
+        //output_->verbose(CALL_INFO, 8, 0, "Response to a read, payload=%" PRIu64 ", for addr: %" PRIu64
+          //               " to PE %" PRIu32 "\n", memValue, addr, ls_queue_->lookupEntry( ev->id ).second );
+
+        load_queue_->setEntryData( ev->id, memValue);
+        load_queue_->setEntryReady( ev->id, 1 );
+    } else {
+        //output_->verbose(CALL_INFO, 8, 0, "Response to a write for addr: %" PRIu64 " to PE %" PRIu32 "\n",
+        //                 ev->addr, ls_queue_->lookupEntry( ev->id ).second );
+        write_queue_->setEntryReady( ev->id, 1 );
+    }
+
+    // Need to clean up the events coming back from the cache
+    delete ev;
+    output_->verbose(CALL_INFO, 4, 0, "Complete cache response handling.\n");
+}
+
 

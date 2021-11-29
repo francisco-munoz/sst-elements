@@ -22,6 +22,8 @@
 #include "TemporalRN.h"
 #include "OSMeshSDMemory.h"
 #include "OSMeshMN.h"
+#include "lsQueue.h"
+#include <sst/core/interfaces/simpleMem.h>
 
 class Stonne {
 private:

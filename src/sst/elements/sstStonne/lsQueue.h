@@ -26,14 +26,13 @@
 #include <utility>
 #include <cstdint>
 #include "include/types.h"
-#incldue "include/DataPackage.h"
+#include "include/DataPackage.h"
 
-#include "llyrTypes.h"
 
 using namespace SST::Interfaces;
 
 namespace SST {
-namespace Llyr {
+namespace SST_STONNE {
 
 
 class LSEntry
@@ -47,7 +46,8 @@ public:
     DataPackage* getDataPackage() const {return data_package_;}
     
     void setDataPackage( DataPackage* data_package ) { data_package_ = data_package; }
-    LlyrData getData() const{ return data_; }
+    data_t getData() const{ return data_package_->get_data(); }
+    void setData(data_t data) const { data_package_->setData(data);  }
 
     void setWrite( uint32_t write ) { write_ = write; }
     uint32_t getWrite() const{return write_;}
@@ -65,6 +65,10 @@ private:
 
 };
 
+
+/* The idea is to have the requests in this QUEUE and as long as the requests com through from the memory hierachy
+ * being able to remove the entry and send the package out to the distribution networrk */
+
 class LSQueue
 {
 public:
@@ -80,70 +84,69 @@ public:
         output_ = copy.output_;
         memory_queue_ = copy.memory_queue_;
         pending_ = copy.pending_;
+	completed_ = copy.completed_;
     }
     ~LSQueue() {}
 
-    uint32_t getNumEntries() const { return memory_queue_.size(); }
-    SimpleMem::Request::id_t getNextEntry() const { return memory_queue_.front(); }
+    uint32_t getNumCompletedEntries() const { return completed_memory_queue_.size(); }
+    uint32_t getNumPendingEntries() const { return pending_.size(); }
+    SimpleMem::Request::id_t getNextCompletedEntry() const { return completed_memory_queue_.front(); }
+
 
     void addEntry( LSEntry* entry )
     {
-        memory_queue_.push( entry->getReqId() );
+        pending_memory_queue_.push( entry->getReqId() );
         pending_.emplace( entry->getReqId(), entry );
     }
 
-    std::pair< uint32_t, uint32_t > lookupEntry( SimpleMem::Request::id_t id )
-    {
-        auto entry = pending_.find( id );
-        if( entry == pending_.end() )
-        {
-            output_->verbose(CALL_INFO, 0, 0, "Error: response from memory could not be found.\n");
-            exit(-1);
-        }
-
-        return std::make_pair( entry->second->getSourcePe(), entry->second->getTargetPe() );
-    }
 
     void removeEntry( SimpleMem::Request::id_t id )
     {
-        memory_queue_.pop();
-        auto entry = pending_.find( id );
-        if( entry != pending_.end() )
-        {
-            pending_.erase(entry);
-        }
+        completed_memory_queue_.pop(); //Always call first to getNextCompletedEntry
+        auto entry = completed_.find( id );
+
+	if(entry != completed_.end()) {
+	    completed_.erase(entry);
+	}
     }
 
-    LlyrData getEntryData( SimpleMem::Request::id_t id ) const
+    DataPackage* getEntryPackage( SimpleMem::Request::id_t id)
+    {
+        auto entry = completed_.find( id );
+        if( entry != completed_.end() )
+        {
+            return entry->second->getDataPackage();
+        }
+
+	else {
+ 	    output_->verbose(CALL_INFO, 0, 0, "Error: request from memory could not be found.\n");
+            exit(-1);
+
+	}
+
+    }
+
+    void setEntryPackage( SimpleMem::Request::id_t id, DataPackage* data_package )
     {
         auto entry = pending_.find( id );
         if( entry != pending_.end() )
         {
-            return entry->second->getData();
+            entry->second->setDataPackage(data_package);
         }
-
-        return 0;
     }
 
-    void setEntryData( SimpleMem::Request::id_t id, LlyrData data )
-    {
-        auto entry = pending_.find( id );
-        if( entry != pending_.end() )
-        {
+    void setEntryData( SimpleMem::Request::id_t id, data_t data ) {
+        auto entry = pending_.find(id);
+	if(entry != pending_.end()) {
             entry->second->setData(data);
-        }
+	}
+
+	else {
+            output_->verbose(CALL_INFO, 0, 0, "Error: request from memory could not be found.\n");
+            exit(-1);
+	}
     }
 
-    uint32_t getEntryReady( SimpleMem::Request::id_t id ) const
-    {
-        auto entry = pending_.find( id );
-        if( entry != pending_.end() )
-        {
-            return entry->second->getReady();
-        }
-
-        return 0;
-    }
 
     void setEntryReady( SimpleMem::Request::id_t id, uint32_t ready )
     {
@@ -151,7 +154,15 @@ public:
         if( entry != pending_.end() )
         {
             entry->second->setReady(ready);
+	    completed_.emplace(entry->second->getReqId(), entry->second);
+	    pending_.erase(entry);
         }
+
+	else {
+            output_->verbose(CALL_INFO, 0, 0, "Error: request from memory could not be found.\n");
+            exit(-1);
+        }
+
     }
 
 
@@ -161,8 +172,9 @@ protected:
 private:
     SST::Output* output_;
 
-    std::queue< SimpleMem::Request::id_t > memory_queue_;
+    std::queue< SimpleMem::Request::id_t> completed_memory_queue_;
     std::map< SimpleMem::Request::id_t, LSEntry* > pending_;
+    std::map< SimpleMem::Request::id_t, LSEntry*> completed_;
 
 };
 

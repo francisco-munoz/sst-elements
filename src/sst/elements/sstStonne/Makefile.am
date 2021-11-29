@@ -10,6 +10,7 @@ comp_LTLIBRARIES = libsstStonne.la
 libsstStonne_la_SOURCES = \
 	sstStonne.h \
 	sstStonne.cc \
+	lsQueue.h    \
 	src/AccumulationBuffer.cpp \
 	src/Accumulator.cpp \
 	src/ASNetwork.cpp \

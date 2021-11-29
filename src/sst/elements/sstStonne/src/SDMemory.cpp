@@ -87,14 +87,21 @@ void VNAT_Register::update() {
     
 }
 
-SDMemory::SDMemory(id_t id, std::string name, Config stonne_cfg, Connection* write_connection) : MemoryController(id, name) {
+SDMemory::SDMemory(id_t id, std::string name, Config stonne_cfg, Connection* write_connection, LSQueue* load_queue_, LSQueue* write_queue_, SimpleMem*  mem_interface_) : MemoryController(id, name) {
     this->write_connection = write_connection;
+    this->load_queue_ = load_queue_;
+    this->write_queue_ = write_queue_;
+    this->mem_interface_ = mem_interface_;
     //Collecting parameters from the configuration file
     this->num_ms = stonne_cfg.m_MSNetworkCfg.ms_size;  //Used to send data
     this->n_read_ports=stonne_cfg.m_SDMemoryCfg.n_read_ports;
     this->n_write_ports=stonne_cfg.m_SDMemoryCfg.n_write_ports;
     this->write_buffer_capacity=stonne_cfg.m_SDMemoryCfg.write_buffer_capacity;
     this->port_width=stonne_cfg.m_SDMemoryCfg.port_width;
+    this->weight_address=stonne_cfg.m_SDMemoryCfg.weight_address;
+    this->input_address=stonne_cfg.m_SDMemoryCfg.input_address;
+    this->output_address=stonne_cfg.m_SDMemoryCfg.output_address;
+    this->data_width=stonne_cfg.m_SDMemoryCfg.data_width;
     //End collecting parameters from the configuration file
     //Initializing parameters
     this->ms_size_per_input_port = this->num_ms / this->n_read_ports;
@@ -315,6 +322,16 @@ void SDMemory::cycle() {
      unsigned index_K=current_K*this->current_tile->get_T_K();
     unsigned int pck_iteration=(index_G)*this->dnn_layer->get_K() + index_K*this->current_tile->get_T_G();
     /* END CHANGES TO SAVE MEMORY */
+    //Processing the memory requests
+    while(load_queue_->getNumCompletedEntries() > 0) {
+      SimpleMem::Request::id_t req_id = load_queue_->getNextCompletedEntry();
+      DataPackage* pck = load_queue_->getEntryPackage(req_id);
+      load_queue_->removeEntry(req_id);
+      this->sendPackageToInputFifos(pck); //Sending the package
+
+    }
+
+    if(load_queue_->getNumPendingEntries() == 0) {
     if(!this->input_finished && (pck_iteration <= current_iteration)) { //If 
         //1. Weight distribution for the T_K filters
         unsigned window_size = this->current_tile->get_T_R()*this->current_tile->get_T_S()*this->current_tile->get_T_C();
@@ -361,13 +378,15 @@ void SDMemory::cycle() {
                                     unsigned index_R=current_R*this->current_tile->get_T_R();
                                     unsigned index_S=current_S*this->current_tile->get_T_S();
                                     this->sdmemoryStats.n_SRAM_weight_reads++; //To track information
-                                    data_t data = filter_address[(index_G+g)*this->group_size*word_size + (index_K+k)*this->filter_size*word_size + (index_R+r)*this->row_filter_size*word_size + (index_S+s)*dnn_layer->get_C()*word_size + (index_C+c)];  //Fetching. Note the distribution in memory is interleaving the channels
+				    uint64_t new_addr = this->weight_address + this->data_width*((index_G+g)*this->group_size + (index_K+k)*this->filter_size + (index_R+r)*this->row_filter_size + (index_S+s)*dnn_layer->get_C() + (index_C+c));
+                                    data_t data = 0.0
                            
                                     //Creating the package with the weight and the destination vector
                                     DataPackage* pck_to_send = new DataPackage(sizeof(data_t), data, WEIGHT, 0, MULTICAST, vector_to_send, this->num_ms);
                                     //index_K*this->current_tile->get_T_G() because even though index_K iterations have been calculated previously, there are G groups mapped, so really real index_K*T_G
                                     pck_to_send->setIterationK((index_G)*this->dnn_layer->get_K() + index_K*this->current_tile->get_T_G()); //To avoid sending it to the architecture if the output psums of the previous k channels have not been calculated yet.
-                                    this->sendPackageToInputFifos(pck_to_send);
+                                    //this->sendPackageToInputFifos(pck_to_send);
+				    doLoad(new_address, pck_to_send);
 
                                 }
                             }
@@ -390,8 +409,8 @@ void SDMemory::cycle() {
                                     unsigned index_R=current_R*this->current_tile->get_T_R();
                                     unsigned index_S=current_S*this->current_tile->get_T_S();
                                     this->sdmemoryStats.n_SRAM_weight_reads++; //To track information
-                                    data_t data = filter_address[(index_G+g)*this->group_size*word_size + (index_K+k)*this->filter_size*word_size + 
-				        + (index_R+r)*this->row_filter_size*word_size + (index_S+s)*dnn_layer->get_C()*word_size + (index_C+c)];
+				    uint64_t new_address = this->weight_address + this->data_width*((index_G+g)*this->group_size + (index_K+k)*this->filter_size + (index_R+r)*this->row_filter_size + (index_S+s)*dnn_layer->get_C() + (index_C+c));
+                                    data_t data = 0.0;
                                     
 			            //Shift of this weight is g*group_tile_size + k*filter_tile_size + c*filter_channel_tile_size + r*s_tile_size + s
 			            unsigned int receiver = g*current_tile->get_T_K()*window_size  + k*window_size + 
@@ -400,7 +419,8 @@ void SDMemory::cycle() {
                                     DataPackage* pck_to_send = new DataPackage(sizeof(data_t), data, WEIGHT, 0, UNICAST, receiver);
                                     pck_to_send->setIterationK((index_G)*this->dnn_layer->get_K() + index_K*this->current_tile->get_T_G()); //To avoid sending it to the architecture if the output psums of the previous k channels have not been calculated yet.
 
-                                    this->sendPackageToInputFifos(pck_to_send);
+                                    //this->sendPackageToInputFifos(pck_to_send);
+				    doLoad(new_address, pck_to_send);
                                 }
                             }
                         }
@@ -565,12 +585,14 @@ void SDMemory::cycle() {
                                 //    std::cout << destination_vector[i];
                                 //std::cout << std::endl;
                                 this->sdmemoryStats.n_SRAM_input_reads++; 
-                                data_t data = input_address[(index_N+i)*this->input_size+((index_X*this->dnn_layer->get_strides()+ x) + index_R)*this->dnn_layer->get_Y()*this->dnn_layer->get_C()*this->dnn_layer->get_G()*word_size+((index_Y*this->dnn_layer->get_strides() + y) + index_S)*this->dnn_layer->get_C()*this->dnn_layer->get_G()*word_size + (index_G+g)*dnn_layer->get_C()*word_size + (index_C+c)*word_size]; //Read value input(x,y)
+				uint64_t new_address = this->input_address + data_width*((index_N+i)*this->input_size+((index_X*this->dnn_layer->get_strides()+ x) + index_R)*this->dnn_layer->get_Y()*this->dnn_layer->get_C()*this->dnn_layer->get_G()+((index_Y*this->dnn_layer->get_strides() + y) + index_S)*this->dnn_layer->get_C()*this->dnn_layer->get_G() + (index_G+g)*dnn_layer->get_C() + (index_C+c));
+                                data_t data = 0.0;
                                 //Creating multicast package. Even though the package was unicast, multicast format is used anyway with just one element true in the destination vector
                                 DataPackage* pck = new DataPackage(sizeof(data_t), data,IACTIVATION,0, MULTICAST, destination_vector, this->num_ms);
                                 pck->setIterationK((index_G)*this->dnn_layer->get_K() + index_K*this->current_tile->get_T_G()); //To avoid sending it to the architecture if the output psums of the previous k channels have not been calculated yet.
 
-                                this->sendPackageToInputFifos(pck);
+                                //this->sendPackageToInputFifos(pck);
+				doLoad(new_address, pck);
                                 //destinations[i][g][c] is not deleted as it is used in the package
                             } //End C
                             delete[] destinations[i][g];
@@ -643,7 +665,7 @@ void SDMemory::cycle() {
 
     
        
- 
+   } //End if there are no pending memory requests.
          
 
     //Receiving output data from write_connection
@@ -884,4 +906,56 @@ void SDMemory::printEnergy(std::ofstream& out, unsigned int indent) {
    out << ind(indent) << " WRITE=" << writes << std::endl;
         
 }
+
+bool SDMemory::doLoad(uint64_t addr, DataPackage* data_package)
+    {
+        SimpleMem::Request* req = new SimpleMem::Request(SimpleMem::Request::Read, addr, 8);
+
+        output_->verbose(CALL_INFO, 4, 0, "Creating a load request (%" PRIu32 ") from address: %" PRIu64 "\n", uint32_t(req->id), addr);
+
+        LSEntry* tempEntry = new LSEntry( req->id, data_package, 0 );
+        load_queue_->addEntry( tempEntry );
+
+        mem_interface_->sendRequest( req );
+
+        return 1;
+
+    }
+
+/*
+   bool SDMemory::doStore(uint64_t addr, DataPackage* data_package)
+    {
+        SimpleMem::Request* req = new SimpleMem::Request(SimpleMem::Request::Write, addr, 8);
+
+        output_->verbose(CALL_INFO, 4, 0, "Creating a store request (%" PRIu32 ") to address: %" PRIu64 "\n", uint32_t(req->id), addr);
+
+        const auto newValue = data.to_ullong();
+
+        constexpr auto size = sizeof(uint64_t);
+        uint8_t buffer[size] = {};
+        std::memcpy(buffer, std::addressof(newValue), size);
+
+        std::cout << "llyr:  " << data << "\n";
+        std::cout << "conv:  " << newValue << "\n";
+        for(uint32_t i = 0; i < size; ++i) {
+            std::cout << static_cast<uint16_t>(buffer[i]) << ", ";
+        }
+        std::cout << std::endl;
+
+        std::vector< uint8_t > payload(8);
+        memcpy( std::addressof(payload[0]), std::addressof(newValue), size );
+        for( auto it = payload.begin(); it != payload.end(); ++it ) {
+            std::cout << static_cast<uint16_t>(*it) << ", ";
+        }
+        std::cout << std::endl;
+        req->setPayload( payload );
+
+        LSEntry* tempEntry = new LSEntry( req->id, processor_id_, targetPe );
+        lsqueue_->addEntry( tempEntry );
+
+        mem_interface_->sendRequest( req );
+
+        return 1;
+    }
+*/
 

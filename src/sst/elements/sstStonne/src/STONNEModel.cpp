@@ -11,10 +11,14 @@
 #include "utility.h"
 #include "Config.h"
 #include <time.h>
+#include "../lsQueue.h"
 
-Stonne::Stonne(Config stonne_cfg) {
+Stonne::Stonne(Config stonne_cfg, LSQueue* load_queue_, LSQueue* write_queue_, SimpleMem*  mem_interface_) {
     this->stonne_cfg=stonne_cfg;
     this->ms_size = stonne_cfg.m_MSNetworkCfg.ms_size;
+    this->load_queue_ = load_queue_;
+    this->write_queue_ = write_queue_;
+    this->mem_interface_ = mem_interface_;
     this->layer_loaded=false;
     this->tile_loaded=false;
     this->outputASConnection = new Connection(stonne_cfg.m_SDMemoryCfg.port_width);
@@ -56,7 +60,7 @@ Stonne::Stonne(Config stonne_cfg) {
             this->mem = new SparseSDMemory(0, "SparseSDMemory", stonne_cfg, this->outputLTConnection);
 	    break;
 	case MAERI_DENSE_WORKLOAD:
-	    this->mem = new  SDMemory(0, "SDMemory", stonne_cfg, this->outputLTConnection);
+	    this->mem = new  SDMemory(0, "SDMemory", stonne_cfg, this->outputLTConnection, load_queue_, write_queue_, mem_interface_);
 	    break;
 	case TPU_OS_DENSE:
 	    this->mem = new  OSMeshSDMemory(0, "OSMeshSDMemory", stonne_cfg, this->outputLTConnection);

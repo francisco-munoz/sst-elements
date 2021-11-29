@@ -13,6 +13,10 @@
 #include "DataPackage.h"
 #include "Stats.h"
 #include "MemoryController.h"
+#include "lsQueue.h"
+#include <sst/core/interfaces/simpleMem.h>
+
+
 
 //This class contains for each VN the next address to write 
 class VNAT_Register {
@@ -131,6 +135,11 @@ private:
    VNAT_Register** VNAT;  //VNAT with as many registers as VN configured in the accelerator
    cycles_t local_cycle;
    SDMemoryStats sdmemoryStats; //To track information
+
+   //SST Memory hierarchy component structures and variables
+   LSQueue* load_queue_;
+   LSQueue* write_queue;
+   SimpleMem*  mem_interface_;
    
    //Aux functions
    void receive();
@@ -140,7 +149,7 @@ private:
     
     
 public:
-    SDMemory(id_t id, std::string name, Config stonne_cfg, Connection* write_connection);
+    SDMemory(id_t id, std::string name, Config stonne_cfg, Connection* write_connection, LSQueue* load_queue_, LSQueue* write_queue, SimpleMem*  mem_interface_);
     ~SDMemory();
     void setLayer(DNNLayer* dnn_layer,  address_t input_address, address_t filter_address, address_t output_address, Dataflow dataflow);
     void setTile(Tile* current_tile);

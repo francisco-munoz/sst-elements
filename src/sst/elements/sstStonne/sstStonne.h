@@ -6,6 +6,9 @@
 #include "include/types.h"
 #include <sst/core/component.h>
 #include <sst/core/sst_config.h>
+#include <sst/core/interfaces/simpleMem.h>
+
+#include "lsQueue.h"
 
 
 namespace SST {
@@ -78,12 +81,15 @@ public:
     // Override SST::Component Virtual Methods
     void setup();
     void finish();
+    void init( uint32_t phase );
+    void handleEvent( SimpleMem::Request* ev );
     //void Status();
     bool tic(Cycle_t);
 
 private:
     //SST Variables
     SST::Output* output_;
+    SST::TimeConverter*     time_converter_;
 
     Stonne* stonne_instance;
     Layer_t kernelOperation;
@@ -171,6 +177,13 @@ private:
     /**************************************************************************/
     float EPSILON=0.05;
     unsigned int MAX_RANDOM=10; //Variable used to generate the random values
+
+    /**************************************************************************/
+    /* Memory Hierarchy structures and variables */
+    /**************************************************************************/
+
+    LSQueue* load_queue_;    //This FIFO stores the load requests sent to the memory hirarchy component
+    LSQueue* write_queue_;   //This FIFO stores the write requests sent to the memory hierarchy component
 
     /**************************************************************************/
     /* Private functions */
