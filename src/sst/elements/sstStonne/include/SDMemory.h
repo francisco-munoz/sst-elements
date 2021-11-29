@@ -86,6 +86,12 @@ private:
     address_t input_address;
     address_t output_address;
 
+    uint64_t weight_dram_location;
+    uint64_t input_dram_location;
+    uint64_t output_dram_location;
+
+    uint32_t data_width;
+
     //Signals
     bool weights_distributed; //Indicates if the weights have been distributed for a certain iteration
     bool fw_link_enabled; //Indicates if the fw link is enabled in this cycle and therefore the number of bw used per cycle is less
@@ -137,19 +143,20 @@ private:
    SDMemoryStats sdmemoryStats; //To track information
 
    //SST Memory hierarchy component structures and variables
-   LSQueue* load_queue_;
-   LSQueue* write_queue;
+   SST::SST_STONNE::LSQueue* load_queue_;
+   SST::SST_STONNE::LSQueue* write_queue_;
    SimpleMem*  mem_interface_;
    
    //Aux functions
    void receive();
    void sendPackageToInputFifos(DataPackage* pck);
    void send();
+   bool doLoad(uint64_t addr, DataPackage* data_package);
    std::vector<Connection*> getWritePortConnections()    const {return this->write_port_connections;}
     
     
 public:
-    SDMemory(id_t id, std::string name, Config stonne_cfg, Connection* write_connection, LSQueue* load_queue_, LSQueue* write_queue, SimpleMem*  mem_interface_);
+    SDMemory(id_t id, std::string name, Config stonne_cfg, Connection* write_connection, SST::SST_STONNE::LSQueue* load_queue_, SST::SST_STONNE::LSQueue* write_queue_, SimpleMem*  mem_interface_);
     ~SDMemory();
     void setLayer(DNNLayer* dnn_layer,  address_t input_address, address_t filter_address, address_t output_address, Dataflow dataflow);
     void setTile(Tile* current_tile);

@@ -38,7 +38,7 @@ namespace SST_STONNE {
 class LSEntry
 {
 public:
-    LSEntry(const SimpleMem::Request::id_t reqId, DataPackage* data_package , uint32_t write_) :
+    LSEntry(const SimpleMem::Request::id_t reqId, DataPackage* data_package , uint32_t write) :
             req_id_(reqId), data_package_(data_package), write_(write), ready_(0) {}
     ~LSEntry() {}
 
@@ -47,7 +47,7 @@ public:
     
     void setDataPackage( DataPackage* data_package ) { data_package_ = data_package; }
     data_t getData() const{ return data_package_->get_data(); }
-    void setData(data_t data) const { data_package_->setData(data);  }
+    void setData(data_t data) const { data_package_->set_data(data);  }
 
     void setWrite( uint32_t write ) { write_ = write; }
     uint32_t getWrite() const{return write_;}
@@ -82,7 +82,7 @@ public:
     LSQueue(const LSQueue &copy)
     {
         output_ = copy.output_;
-        memory_queue_ = copy.memory_queue_;
+        completed_memory_queue_ = copy.completed_memory_queue_;
         pending_ = copy.pending_;
 	completed_ = copy.completed_;
     }
@@ -95,7 +95,7 @@ public:
 
     void addEntry( LSEntry* entry )
     {
-        pending_memory_queue_.push( entry->getReqId() );
+        //pendi_memory_queue_.push( entry->getReqId() );
         pending_.emplace( entry->getReqId(), entry );
     }
 

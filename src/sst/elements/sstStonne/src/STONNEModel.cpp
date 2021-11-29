@@ -11,9 +11,9 @@
 #include "utility.h"
 #include "Config.h"
 #include <time.h>
-#include "../lsQueue.h"
+#include "lsQueue.h"
 
-Stonne::Stonne(Config stonne_cfg, LSQueue* load_queue_, LSQueue* write_queue_, SimpleMem*  mem_interface_) {
+Stonne::Stonne(Config stonne_cfg, SST::SST_STONNE::LSQueue* load_queue_, SST::SST_STONNE::LSQueue* write_queue_, SimpleMem*  mem_interface_) {
     this->stonne_cfg=stonne_cfg;
     this->ms_size = stonne_cfg.m_MSNetworkCfg.ms_size;
     this->load_queue_ = load_queue_;

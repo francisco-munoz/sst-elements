@@ -83,7 +83,7 @@ sstStonne::sstStonne(SST::ComponentId_t id, SST::Params& params) : Component(id)
     }
     //Inititating memory parameters
   write_queue_ = new LSQueue();
-  read_queue_ = new LSQueue();
+  load_queue_ = new LSQueue();
 
 
 
@@ -93,7 +93,7 @@ sstStonne::~sstStonne() {
         
 }
 
-void sstSTONNE::init( uint32_t phase )
+void sstStonne::init( uint32_t phase )
 {
     mem_interface_->init( phase );
 

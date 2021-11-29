@@ -90,6 +90,7 @@ private:
     //SST Variables
     SST::Output* output_;
     SST::TimeConverter*     time_converter_;
+    SimpleMem*  mem_interface_;
 
     Stonne* stonne_instance;
     Layer_t kernelOperation;

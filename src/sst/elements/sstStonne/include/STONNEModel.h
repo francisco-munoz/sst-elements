@@ -72,9 +72,14 @@ private:
     //Statistics
     unsigned int n_cycles;   
 
+    //SST variables and structures
+    SST::SST_STONNE::LSQueue* load_queue_;
+    SST::SST_STONNE::LSQueue* write_queue_;
+    SimpleMem*  mem_interface_;
+
    
 public:
-    Stonne (Config stonne_cfg);
+    Stonne (Config stonne_cfg, SST::SST_STONNE::LSQueue* load_queue_, SST::SST_STONNE::LSQueue* write_queue_, SimpleMem*  mem_interface_);
     ~Stonne();
 
     void loadDNNLayer(Layer_t layer_type, std::string layer_name, unsigned int R, unsigned int S, unsigned int C, unsigned int K, unsigned int G,  unsigned int N, unsigned int X, unsigned int Y, unsigned int strides, address_t input_address, address_t filter_address, address_t output_address, Dataflow dataflow); //General constructor

@@ -87,7 +87,7 @@ void VNAT_Register::update() {
     
 }
 
-SDMemory::SDMemory(id_t id, std::string name, Config stonne_cfg, Connection* write_connection, LSQueue* load_queue_, LSQueue* write_queue_, SimpleMem*  mem_interface_) : MemoryController(id, name) {
+SDMemory::SDMemory(id_t id, std::string name, Config stonne_cfg, Connection* write_connection, SST::SST_STONNE::LSQueue* load_queue_, SST::SST_STONNE::LSQueue* write_queue_, SimpleMem*  mem_interface_) : MemoryController(id, name) {
     this->write_connection = write_connection;
     this->load_queue_ = load_queue_;
     this->write_queue_ = write_queue_;
@@ -98,9 +98,9 @@ SDMemory::SDMemory(id_t id, std::string name, Config stonne_cfg, Connection* wri
     this->n_write_ports=stonne_cfg.m_SDMemoryCfg.n_write_ports;
     this->write_buffer_capacity=stonne_cfg.m_SDMemoryCfg.write_buffer_capacity;
     this->port_width=stonne_cfg.m_SDMemoryCfg.port_width;
-    this->weight_address=stonne_cfg.m_SDMemoryCfg.weight_address;
-    this->input_address=stonne_cfg.m_SDMemoryCfg.input_address;
-    this->output_address=stonne_cfg.m_SDMemoryCfg.output_address;
+    this->weight_dram_location=stonne_cfg.m_SDMemoryCfg.weight_address;
+    this->input_dram_location=stonne_cfg.m_SDMemoryCfg.input_address;
+    this->output_dram_location=stonne_cfg.m_SDMemoryCfg.output_address;
     this->data_width=stonne_cfg.m_SDMemoryCfg.data_width;
     //End collecting parameters from the configuration file
     //Initializing parameters
@@ -378,15 +378,15 @@ void SDMemory::cycle() {
                                     unsigned index_R=current_R*this->current_tile->get_T_R();
                                     unsigned index_S=current_S*this->current_tile->get_T_S();
                                     this->sdmemoryStats.n_SRAM_weight_reads++; //To track information
-				    uint64_t new_addr = this->weight_address + this->data_width*((index_G+g)*this->group_size + (index_K+k)*this->filter_size + (index_R+r)*this->row_filter_size + (index_S+s)*dnn_layer->get_C() + (index_C+c));
-                                    data_t data = 0.0
+				    uint64_t new_addr = this->weight_dram_location + this->data_width*((index_G+g)*this->group_size + (index_K+k)*this->filter_size + (index_R+r)*this->row_filter_size + (index_S+s)*dnn_layer->get_C() + (index_C+c));
+                                    data_t data = 0.0;
                            
                                     //Creating the package with the weight and the destination vector
                                     DataPackage* pck_to_send = new DataPackage(sizeof(data_t), data, WEIGHT, 0, MULTICAST, vector_to_send, this->num_ms);
                                     //index_K*this->current_tile->get_T_G() because even though index_K iterations have been calculated previously, there are G groups mapped, so really real index_K*T_G
                                     pck_to_send->setIterationK((index_G)*this->dnn_layer->get_K() + index_K*this->current_tile->get_T_G()); //To avoid sending it to the architecture if the output psums of the previous k channels have not been calculated yet.
                                     //this->sendPackageToInputFifos(pck_to_send);
-				    doLoad(new_address, pck_to_send);
+				    doLoad(new_addr, pck_to_send);
 
                                 }
                             }
@@ -409,7 +409,7 @@ void SDMemory::cycle() {
                                     unsigned index_R=current_R*this->current_tile->get_T_R();
                                     unsigned index_S=current_S*this->current_tile->get_T_S();
                                     this->sdmemoryStats.n_SRAM_weight_reads++; //To track information
-				    uint64_t new_address = this->weight_address + this->data_width*((index_G+g)*this->group_size + (index_K+k)*this->filter_size + (index_R+r)*this->row_filter_size + (index_S+s)*dnn_layer->get_C() + (index_C+c));
+				    uint64_t new_address = this->weight_dram_location + this->data_width*((index_G+g)*this->group_size + (index_K+k)*this->filter_size + (index_R+r)*this->row_filter_size + (index_S+s)*dnn_layer->get_C() + (index_C+c));
                                     data_t data = 0.0;
                                     
 			            //Shift of this weight is g*group_tile_size + k*filter_tile_size + c*filter_channel_tile_size + r*s_tile_size + s
@@ -585,7 +585,7 @@ void SDMemory::cycle() {
                                 //    std::cout << destination_vector[i];
                                 //std::cout << std::endl;
                                 this->sdmemoryStats.n_SRAM_input_reads++; 
-				uint64_t new_address = this->input_address + data_width*((index_N+i)*this->input_size+((index_X*this->dnn_layer->get_strides()+ x) + index_R)*this->dnn_layer->get_Y()*this->dnn_layer->get_C()*this->dnn_layer->get_G()+((index_Y*this->dnn_layer->get_strides() + y) + index_S)*this->dnn_layer->get_C()*this->dnn_layer->get_G() + (index_G+g)*dnn_layer->get_C() + (index_C+c));
+				uint64_t new_address = this->input_dram_location + data_width*((index_N+i)*this->input_size+((index_X*this->dnn_layer->get_strides()+ x) + index_R)*this->dnn_layer->get_Y()*this->dnn_layer->get_C()*this->dnn_layer->get_G()+((index_Y*this->dnn_layer->get_strides() + y) + index_S)*this->dnn_layer->get_C()*this->dnn_layer->get_G() + (index_G+g)*dnn_layer->get_C() + (index_C+c));
                                 data_t data = 0.0;
                                 //Creating multicast package. Even though the package was unicast, multicast format is used anyway with just one element true in the destination vector
                                 DataPackage* pck = new DataPackage(sizeof(data_t), data,IACTIVATION,0, MULTICAST, destination_vector, this->num_ms);
@@ -911,9 +911,9 @@ bool SDMemory::doLoad(uint64_t addr, DataPackage* data_package)
     {
         SimpleMem::Request* req = new SimpleMem::Request(SimpleMem::Request::Read, addr, 8);
 
-        output_->verbose(CALL_INFO, 4, 0, "Creating a load request (%" PRIu32 ") from address: %" PRIu64 "\n", uint32_t(req->id), addr);
+        //output_->verbose(CALL_INFO, 4, 0, "Creating a load request (%" PRIu32 ") from address: %" PRIu64 "\n", uint32_t(req->id), addr);
 
-        LSEntry* tempEntry = new LSEntry( req->id, data_package, 0 );
+	SST::SST_STONNE::LSEntry* tempEntry = new SST::SST_STONNE::LSEntry( req->id, data_package, 0 );
         load_queue_->addEntry( tempEntry );
 
         mem_interface_->sendRequest( req );

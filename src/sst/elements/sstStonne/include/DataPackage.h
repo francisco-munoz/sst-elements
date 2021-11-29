@@ -58,6 +58,7 @@ public:
     //Getters
     const size_t get_size_package()            const {return this->size_package;}
     const data_t get_data()                    const {return this->data;}
+    void  set_data(data_t data)                            {this->data = data;}
     const operand_t get_data_type()            const {return this->data_type;}
     const id_t get_source()                    const {return this->source;}
     const traffic_t get_traffic_type()         const {return this->traffic_type;}
