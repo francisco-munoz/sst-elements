@@ -29,9 +29,11 @@ comp_stonne.addParams({
     "T_N" : 1,
     "T_X_" : 1,
     "T_Y_" : 1,
-    "mem_matrix_a_init" : "conv_file_matrixA_3_3_31_1_6_6.in",
-    "mem_matrix_b_init" : "conv_file_matrixB_3_3_31_1_6_6.in",
-    "mem_matrix_c_init" : "result.out"
+    "mem_init" : "conv_mem.ini",
+    "matrix_a_dram_address" : 0,
+    "matrix_b_dram_address" : 432,
+    "matrix_c_dram_address" : 540,
+    "mem_matrix_c_file_name" : "result.out"
 
 })
 

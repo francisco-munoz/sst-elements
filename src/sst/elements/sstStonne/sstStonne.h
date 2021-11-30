@@ -53,9 +53,11 @@ public:
 	{ "GEMM_T_K", "Mapped K in a GEMM operation", "3"},
 	{ "GEMM_T_M", "Mapped M in a GEMM operation", "3"},
 	{ "GEMM_T_N", "Mapped N in a GEMM operation", "3"},
-        {"mem_matrix_a_init","ifmap/matrix MK elements to compute separated by commas", "" },
-	{"mem_matrix_b_init","filter/matrix elements to compute separated by commas", "" },
-	{"mem_matrix_c_init","file where the output elements will be dumped", "" },
+        {"mem_init","DRAM initialization values", "" },
+	{"matrix_a_dram_address", "DRAM Address where the matrix a starts", "0"},
+	{"matrix_b_dram_address", "DRAM Address where the matrix b starts", "10000"},
+	{"matrix_c_dram_address", "DRAM Address where the matrix c will be stored", "20000"},
+	{"mem_matrix_c_file_name", "File where the matrix C will be written", ""},
 	{"bitmap_matrix_a_init", "MK bitmap used for bitmapSpMSpM operation", ""},
 	{"bitmap_matrix_b_init", "MK bitmap used for bitmapSpMSpM operation", ""},
 	{"rowpointer_matrix_a_init","MK row pointer for csrSpMM operation",""},
@@ -146,8 +148,11 @@ private:
     /* Hardware parameters */
     /**************************************************************************/
     Config stonne_cfg; 
-    std::string memMatrixAFileName;
-    std::string memMatrixBFileName;
+    std::string memFileName;
+    uint64_t dram_matrixA_address;
+    uint64_t dram_matrixB_address;
+    uint64_t dram_matrixC_address;
+
     std::string memMatrixCFileName;
 
     std::string bitmapMatrixAFileName;
@@ -191,7 +196,7 @@ private:
     /**************************************************************************/
     /* Private functions */
     /**************************************************************************/
-    void constructMemory(std::string fileName, float* array, unsigned int size);
+    std::vector< uint32_t >* constructMemory(std::string fileName);
     unsigned int constructBitmap(std::string fileName, unsigned int * array, unsigned int size);
     void dumpMemoryToFile(std::string fileName, float* array, unsigned int size);
     unsigned int constructCSRStructure(std::string fileName, unsigned int * array);

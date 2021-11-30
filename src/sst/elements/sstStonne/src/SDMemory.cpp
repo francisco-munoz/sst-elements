@@ -687,6 +687,7 @@ void SDMemory::cycle() {
             std::cout << "Memory received a psum " << data << std::endl;
             unsigned int addr_offset = this->VNAT[vn]->addr;
             this->sdmemoryStats.n_SRAM_psum_writes++; //To track information 
+	    std::cout << "WRITING DATA: " << data << std::endl;
             this->output_address[addr_offset]=data; //ofmap or psum, it does not matter.
             //std::cout << "value written " << data << std::endl;
             current_output_pixel+=1; 

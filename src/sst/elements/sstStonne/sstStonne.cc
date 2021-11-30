@@ -58,9 +58,17 @@ sstStonne::sstStonne(SST::ComponentId_t id, SST::Params& params) : Component(id)
   stonne_cfg.loadFile(hwFileName); 
 
   //Load memory file 
-  memMatrixAFileName = params.find< std::string >("mem_matrix_a_init", "");
-  memMatrixBFileName = params.find<std::string>("mem_matrix_b_init", "");
-  memMatrixCFileName = params.find<std::string>("mem_matrix_c_init", "");
+  memFileName = params.find< std::string >("mem_init", "");
+  dram_matrixA_address = params.find<uint64_t>("matrix_a_dram_address", "0");
+  dram_matrixB_address = params.find<uint64_t>("matrix_b_dram_address", "10000");
+  dram_matrixC_address = params.find<uint64_t>("matrix_c_dram_address", "20000");
+  //Loadding the addresses onto the hw file
+  stonne_cfg.m_SDMemoryCfg.input_address=dram_matrixA_address;
+  stonne_cfg.m_SDMemoryCfg.weight_address=dram_matrixB_address;
+  stonne_cfg.m_SDMemoryCfg.output_address=dram_matrixC_address;
+
+  memMatrixCFileName = params.find<std::string>("mem_matrix_c_file_name", "");
+
 
   bitmapMatrixAFileName = params.find< std::string >("bitmap_matrix_a_init", "");
   bitmapMatrixBFileName = params.find< std::string >("bitmap_matrix_a_init", "");
@@ -76,13 +84,9 @@ sstStonne::sstStonne(SST::ComponentId_t id, SST::Params& params) : Component(id)
   mem_interface_ = loadUserSubComponent<SimpleMem>("memory", ComponentInfo::SHARE_NONE, time_converter_, new SimpleMem::Handler<sstStonne>(this, &sstStonne::handleEvent));
 
   if( !mem_interface_ ) {
-      std::cout << "The code enters in this if function" << std::endl;
       std::string interfaceName = params.find<std::string>("memoryinterface", "memHierarchy.memInterface");
-      std::cout << "Parameter found" << std::endl;
       output_->verbose(CALL_INFO, 1, 0, "Memory interface to be loaded is: %s\n", interfaceName.c_str());
-      std::cout << "Output printed" << std::endl;
       Params interfaceParams = params.find_prefix_params("memoryinterfaceparams.");
-      std::cout << "InterfaceParams loaded" << std::endl;
       interfaceParams.insert("port", "cache_link");
       mem_interface_ = loadAnonymousSubComponent<SimpleMem>(interfaceName, "memory", 0, ComponentInfo::SHARE_PORTS | ComponentInfo::INSERT_STATS,
       interfaceParams, time_converter_, new SimpleMem::Handler<sstStonne>(this, &sstStonne::handleEvent));
@@ -106,18 +110,18 @@ void sstStonne::init( uint32_t phase )
     mem_interface_->init( phase );
 
     if( 0 == phase ) {
-	/*
-        std::vector< uint64_t >* initVector;
+	
+        std::vector< uint32_t >* initVector;
 
         //Check to see if there is any memory being initialized
-        if( memFileName_ != "" ) {
-            initVector = constructMemory(memFileName_);
+        if( memFileName != "" ) {
+            initVector = constructMemory(memFileName);
         } else {
-            initVector = new std::vector< uint64_t > {16, 64, 32, 0 , 16382, 0, 0};
+            initVector = new std::vector< uint32_t > {16, 64, 32, 0 , 16382, 0, 0};
         }
 
         std::vector<uint8_t> memInit;
-        constexpr auto buff_size = sizeof(uint64_t);
+        constexpr auto buff_size = sizeof(uint32_t);
         uint8_t buffer[buff_size] = {};
         for( auto it = initVector->begin(); it != initVector->end(); ++it ) {
             std::memcpy(buffer, std::addressof(*it), buff_size);
@@ -126,21 +130,13 @@ void sstStonne::init( uint32_t phase )
             }
         }
 
-        output_->verbose(CALL_INFO, 2, 0, ">> Writing memory contents (%" PRIu64 " bytes at index 0)\n",
-                        (uint64_t) memInit.size());
-//         for( std::vector< uint8_t >::iterator it = memInit.begin() ; it != memInit.end(); ++it ) {
-//             std::cout << uint32_t(*it) << ' ';
-//         }
-//
-//         std::cout << "\n";
 
         SimpleMem::Request* initMemory = new SimpleMem::Request(SimpleMem::Request::Write, 0, memInit.size(), memInit);
         output_->verbose(CALL_INFO, 1, 0, "Sending initialization data to memory...\n");
         mem_interface_->sendInitData(initMemory);
         output_->verbose(CALL_INFO, 1, 0, "Initialization data sent.\n");
-	*/
+	
     }
-    std::cout << "The init function finishes" << std::endl;
 }
 
 
@@ -171,31 +167,9 @@ void sstStonne::setup() {
 	  output_->fatal(CALL_INFO, -1, "Error: Operation unknown\n");
 
     };
-    matrixA = new float[matrixA_size];
-    matrixB = new float[matrixB_size];
+    matrixA = NULL; //TODO: remove when everything is done
+    matrixB = NULL;
     matrixC = new float[matrixC_size];
-    if(memMatrixAFileName=="") {
-      for(int i=0; i<matrixA_size; i++) {
-            matrixA[i]=rand()%MAX_RANDOM;
-      }
-
-    }
-
-    else {
-      constructMemory(memMatrixAFileName, matrixA, matrixA_size);
-    }
-
-
-    if(memMatrixBFileName=="") {
-  
-      for(int i=0;i<matrixB_size; i++) {
-        matrixB[i]=rand()%MAX_RANDOM;
-      }
-    }
-
-    else {
-      constructMemory(memMatrixBFileName, matrixB, matrixB_size);
-    }
 
   } //End initializing dense operation
 
@@ -216,33 +190,8 @@ void sstStonne::setup() {
       bitmapMatrixC=new unsigned int[matrixC_size];
       unsigned int nActiveValuesA=constructBitmap(bitmapMatrixAFileName, bitmapMatrixA, matrixA_size);
       unsigned int nActiveValuesB=constructBitmap(bitmapMatrixBFileName, bitmapMatrixB, matrixB_size);
-      matrixA=new float[matrixA_size]; //TODO fix this
-      matrixB=new float[matrixB_size];
       matrixC=new float[matrixC_size];
 
-      // Data is not mandatory
-      if(memMatrixAFileName=="") {
-        for(int i=0; i<nActiveValuesA; i++) {
-          matrixA[i]=rand()%MAX_RANDOM;
-        }
-
-      }
-
-      else {
-        constructMemory(memMatrixAFileName, matrixA, nActiveValuesA);
-      }
-
-
-      if(memMatrixBFileName=="") {
-        for(int i=0; i<matrixB_size; i++) {
-            matrixB[i]=rand()%MAX_RANDOM;
-        }
-
-      }
-
-      else {
-        constructMemory(memMatrixBFileName, matrixB, nActiveValuesB);
-      }
 
     } //End bitmapSpMSpM operation
 
@@ -262,33 +211,10 @@ void sstStonne::setup() {
       colpointerMatrixA=new unsigned int[matrixA_size];
       unsigned int nValuesRowPointer=constructCSRStructure(rowpointerMatrixAFileName,rowpointerMatrixA);
       unsigned int nValuesColPointer=constructCSRStructure(colpointerMatrixAFileName, colpointerMatrixA);
-      matrixA=new float[matrixA_size]; //TODO fix this
-      matrixB=new float[matrixB_size];
+      matrixA=NULL; //TODO fix this
+      matrixB=NULL;
       matrixC=new float[matrixC_size];
       // Data is not mandatory
-      if(memMatrixAFileName=="") {
-      for(int i=0; i<nValuesColPointer; i++) {
-          matrixA[i]=rand()%MAX_RANDOM;
-      }
-
-      }
-
-      else {
-        constructMemory(memMatrixAFileName, matrixA, nValuesColPointer);
-      }
-
-
-      if(memMatrixBFileName=="") {
-        for(int i=0; i<matrixB_size; i++) {
-            matrixB[i]=rand()%MAX_RANDOM;
-        }
-
-      }
-
-      else {
-        constructMemory(memMatrixBFileName, matrixB, matrixB_size);
-      }
-
 
     }
 
@@ -322,10 +248,11 @@ void sstStonne::setup() {
   };
 }
 
-void sstStonne::constructMemory(std::string fileName, float* array, unsigned int size) { //In the future version this will be directly simulated memory
-  std::ifstream inputStream(fileName, std::ios::in);
-  unsigned int currentIndex=0;
-  if( inputStream.is_open() ) {
+std::vector< uint32_t >* sstStonne::constructMemory(std::string fileName) { //In the future version this will be directly simulated memory
+  std::vector< uint32_t >* tempVector = new std::vector< uint32_t >;
+
+    std::ifstream inputStream(fileName, std::ios::in);
+    if( inputStream.is_open() ) {
 
         std::string thisLine;
         while( std::getline( inputStream, thisLine ) )
@@ -333,17 +260,17 @@ void sstStonne::constructMemory(std::string fileName, float* array, unsigned int
             std::string value;
             std::stringstream stringIn(thisLine);
             while( std::getline(stringIn, value, ',') ) {
-	        array[currentIndex]=stof(value);
-		currentIndex++;
+                tempVector->push_back(std::stoul(value));
             }
         }
-
 
         inputStream.close();
     } else {
         output_->fatal(CALL_INFO, -1, "Error: Unable to open file\n");
         exit(0);
     }
+
+    return tempVector;
  
 }
 
@@ -428,12 +355,14 @@ void sstStonne::finish() {
 }
 
 void sstStonne::dumpMemoryToFile(std::string fileName, float* array, unsigned int size) {
+  std::cout << "FUNCTION DUMP IS EXECUTED" << std::endl;
   if(fileName != "") {
+    std::cout << "THE CODE ENTERS HERE" << std::endl;
     std::ofstream outputStream (fileName, std::ios::out);
     if( outputStream.is_open()) {
       for(unsigned i=0; i<size; i++) {
          float value = array[i];
-         outputStream << value << ","; 
+         outputStream << std::fixed << std::setprecision(1) << value << ","; 
       }
 
       outputStream.close();
