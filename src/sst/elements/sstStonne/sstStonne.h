@@ -68,11 +68,11 @@ public:
     )
 
     SST_ELI_DOCUMENT_PORTS(
-       // { "cache_link",     "Link to Memory Controller", { "memHierarchy.memEvent" , "" } }
+        { "cache_link",     "Link to Memory Controller", { "memHierarchy.memEvent" , "" } }
     )
 
     SST_ELI_DOCUMENT_SUBCOMPONENT_SLOTS(
-        //{ "memory",         "The memory interface to use (e.g., interface to caches)", "Experimental::Interfaces::SST::StandardMem" }
+        { "memory",         "The memory interface to use (e.g., interface to caches)", "Experimental::Interfaces::SST::StandardMem" }
     )
     sstStonne(SST::ComponentId_t id, SST::Params& params);
     sstStonne();
@@ -91,6 +91,8 @@ private:
     SST::Output* output_;
     SST::TimeConverter*     time_converter_;
     SimpleMem*  mem_interface_;
+    SST::Link**  links_;
+    SST::Link*   clockLink_;
 
     Stonne* stonne_instance;
     Layer_t kernelOperation;

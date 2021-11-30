@@ -155,6 +155,7 @@ public:
         {
             entry->second->setReady(ready);
 	    completed_.emplace(entry->second->getReqId(), entry->second);
+	    completed_memory_queue_.push(entry->second->getReqId());
 	    pending_.erase(entry);
         }
 

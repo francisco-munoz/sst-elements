@@ -328,10 +328,15 @@ void SDMemory::cycle() {
       DataPackage* pck = load_queue_->getEntryPackage(req_id);
       load_queue_->removeEntry(req_id);
       this->sendPackageToInputFifos(pck); //Sending the package
+      std::cout << "Sending a package to input FIFOs" << std::endl;
 
     }
 
     if(load_queue_->getNumPendingEntries() == 0) {
+    //std::cout << "cycle " << this->local_cycle << ": Number of pending entries: " << load_queue_->getNumPendingEntries() << std::endl;
+    //std::cout << "input finished: " << input_finished << std::endl;
+    //std::cout << "pck_iteration: " << pck_iteration << std::endl;
+    //std::cout << "current_iteration: " << current_iteration << std::endl;
     if(!this->input_finished && (pck_iteration <= current_iteration)) { //If 
         //1. Weight distribution for the T_K filters
         unsigned window_size = this->current_tile->get_T_R()*this->current_tile->get_T_S()*this->current_tile->get_T_C();
@@ -679,7 +684,7 @@ void SDMemory::cycle() {
             //std::cout << "Writing data: " << data << std::endl;
             // using the VNAT register to get the address to write
             assert(vn==VNAT[vn]->VN);
-            //std::cout << "Memory received a psum " << data << std::endl;
+            std::cout << "Memory received a psum " << data << std::endl;
             unsigned int addr_offset = this->VNAT[vn]->addr;
             this->sdmemoryStats.n_SRAM_psum_writes++; //To track information 
             this->output_address[addr_offset]=data; //ofmap or psum, it does not matter.
@@ -715,6 +720,7 @@ void SDMemory::cycle() {
             //std::cout << "CURRENT_OUTPUT_PIXEL: " << current_output_pixel << std::endl;
             if(current_output_pixel == output_pixels_to_compute) {
                 this->execution_finished = true;
+		std::cout << "The execution has finished" << std::endl;
             }
             this->VNAT[vn]->update(); //Calculate next output address for that vn
             //Updating address
@@ -909,9 +915,10 @@ void SDMemory::printEnergy(std::ofstream& out, unsigned int indent) {
 
 bool SDMemory::doLoad(uint64_t addr, DataPackage* data_package)
     {
-        SimpleMem::Request* req = new SimpleMem::Request(SimpleMem::Request::Read, addr, 8);
+        SimpleMem::Request* req = new SimpleMem::Request(SimpleMem::Request::Read, addr, this->data_width);
 
         //output_->verbose(CALL_INFO, 4, 0, "Creating a load request (%" PRIu32 ") from address: %" PRIu64 "\n", uint32_t(req->id), addr);
+	std::cout << "Generating a load request from address " << addr << std::endl;
 
 	SST::SST_STONNE::LSEntry* tempEntry = new SST::SST_STONNE::LSEntry( req->id, data_package, 0 );
         load_queue_->addEntry( tempEntry );

@@ -12,6 +12,11 @@ sstStonne::sstStonne(SST::ComponentId_t id, SST::Params& params) : Component(id)
   //Load general parameters
   const std::string clock_rate = params.find< std::string >("clock", "1.0GHz");	
   std::cout << "Clock is configured for: " << clock_rate << std::endl;
+  const uint32_t verbosity = params.find< uint32_t >("verbose", 0);
+  //setup up i/o for messages
+  char prefix[256];
+  sprintf(prefix, "[t=@t][%s]: ", getName().c_str());
+  output_ = new SST::Output(prefix, verbosity, 0, Output::STDOUT);
 
   //Load operation parameters
   std::string kernelOperationString = params.find<std::string>("kernelOperation", "CONV");
@@ -63,19 +68,21 @@ sstStonne::sstStonne(SST::ComponentId_t id, SST::Params& params) : Component(id)
   rowpointerMatrixAFileName = params.find< std::string >("rowpointer_matrix_a_init", "");
   colpointerMatrixAFileName = params.find< std::string >("colpointer_matrix_a_init", "");
 
-
   registerAsPrimaryComponent();
   primaryComponentDoNotEndSim();
   time_converter_ = registerClock(clock_rate, new Clock::Handler<sstStonne>(this,&sstStonne::tic));
 
   //set up memory interfaces
-  mem_interface_ = loadUserSubComponent<SimpleMem>("memory", ComponentInfo::SHARE_NONE, time_converter_,
-  new SimpleMem::Handler<sstStonne>(this, &sstStonne::handleEvent));
+  mem_interface_ = loadUserSubComponent<SimpleMem>("memory", ComponentInfo::SHARE_NONE, time_converter_, new SimpleMem::Handler<sstStonne>(this, &sstStonne::handleEvent));
 
   if( !mem_interface_ ) {
+      std::cout << "The code enters in this if function" << std::endl;
       std::string interfaceName = params.find<std::string>("memoryinterface", "memHierarchy.memInterface");
+      std::cout << "Parameter found" << std::endl;
       output_->verbose(CALL_INFO, 1, 0, "Memory interface to be loaded is: %s\n", interfaceName.c_str());
+      std::cout << "Output printed" << std::endl;
       Params interfaceParams = params.find_prefix_params("memoryinterfaceparams.");
+      std::cout << "InterfaceParams loaded" << std::endl;
       interfaceParams.insert("port", "cache_link");
       mem_interface_ = loadAnonymousSubComponent<SimpleMem>(interfaceName, "memory", 0, ComponentInfo::SHARE_PORTS | ComponentInfo::INSERT_STATS,
       interfaceParams, time_converter_, new SimpleMem::Handler<sstStonne>(this, &sstStonne::handleEvent));
@@ -84,6 +91,7 @@ sstStonne::sstStonne(SST::ComponentId_t id, SST::Params& params) : Component(id)
     //Inititating memory parameters
   write_queue_ = new LSQueue();
   load_queue_ = new LSQueue();
+  std::cout << "The constructor function finishes" << std::endl;
 
 
 
@@ -132,6 +140,7 @@ void sstStonne::init( uint32_t phase )
         output_->verbose(CALL_INFO, 1, 0, "Initialization data sent.\n");
 	*/
     }
+    std::cout << "The init function finishes" << std::endl;
 }
 
 
@@ -453,7 +462,7 @@ void sstStonne::handleEvent( SimpleMem::Request* ev ) {
         data_t memValue = 0.0;
 
         std::memcpy( std::addressof(memValue), std::addressof(ev->data[0]), sizeof(memValue) );
-
+        std::cout << "Response to read addr " << addr << " has arrived" << std::endl;
         //output_->verbose(CALL_INFO, 8, 0, "Response to a read, payload=%" PRIu64 ", for addr: %" PRIu64
           //               " to PE %" PRIu32 "\n", memValue, addr, ls_queue_->lookupEntry( ev->id ).second );
 
