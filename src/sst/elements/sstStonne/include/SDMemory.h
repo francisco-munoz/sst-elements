@@ -91,6 +91,7 @@ private:
     uint64_t output_dram_location;
 
     uint32_t data_width;
+    uint32_t n_write_mshr;
 
     //Signals
     bool weights_distributed; //Indicates if the weights have been distributed for a certain iteration
@@ -152,6 +153,7 @@ private:
    void sendPackageToInputFifos(DataPackage* pck);
    void send();
    bool doLoad(uint64_t addr, DataPackage* data_package);
+   bool doStore(uint64_t addr, DataPackage* data_package);
    std::vector<Connection*> getWritePortConnections()    const {return this->write_port_connections;}
     
     

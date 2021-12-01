@@ -26,6 +26,7 @@ private:
     bool* dests;  // Used in multicast traffic to indicate the receivers
     unsigned int n_dests; //Number of receivers in multicast operation
     unsigned int unicast_dest; //Indicates the destination in case of unicast package
+    uint64_t address; //Indicate the address for the outputs
     traffic_t traffic_type; // IF UNICAST dest is unicast_dest. If multicast, dest is indicate using dests and n_dests.
 
     unsigned int VN; //Virtual network where the psum is found
@@ -59,6 +60,8 @@ public:
     const size_t get_size_package()            const {return this->size_package;}
     const data_t get_data()                    const {return this->data;}
     void  set_data(data_t data)                            {this->data = data;}
+    void  set_address(uint64_t addr)                       {this->address = addr;}
+    uint64_t get_address()                     const {return this->address;}
     const operand_t get_data_type()            const {return this->data_type;}
     const id_t get_source()                    const {return this->source;}
     const traffic_t get_traffic_type()         const {return this->traffic_type;}

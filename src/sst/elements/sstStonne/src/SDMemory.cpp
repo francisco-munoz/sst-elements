@@ -102,6 +102,7 @@ SDMemory::SDMemory(id_t id, std::string name, Config stonne_cfg, Connection* wri
     this->input_dram_location=stonne_cfg.m_SDMemoryCfg.input_address;
     this->output_dram_location=stonne_cfg.m_SDMemoryCfg.output_address;
     this->data_width=stonne_cfg.m_SDMemoryCfg.data_width;
+    this->n_write_mshr=stonne_cfg.m_SDMemoryCfg.n_write_mshr;
     //End collecting parameters from the configuration file
     //Initializing parameters
     this->ms_size_per_input_port = this->num_ms / this->n_read_ports;
@@ -332,7 +333,19 @@ void SDMemory::cycle() {
 
     }
 
-    if(load_queue_->getNumPendingEntries() == 0) {
+    //Processing write memory requests
+    while(write_queue_->getNumCompletedEntries() > 0) {
+      SimpleMem::Request::id_t req_id = write_queue_->getNextCompletedEntry();
+      DataPackage* pck = write_queue_->getEntryPackage(req_id);
+      write_queue_->removeEntry(req_id);
+      data_t data = pck->get_data();
+      uint64_t addr = pck->get_address();
+      addr = addr - this->output_dram_location; //To access to the array. If we remove the array feature this is no longer necessary
+      this->output_address[addr]=data;
+      delete pck;
+    }
+
+    if((load_queue_->getNumPendingEntries() == 0) && (write_queue_->getNumPendingEntries() < this->n_write_mshr)) {
     //std::cout << "cycle " << this->local_cycle << ": Number of pending entries: " << load_queue_->getNumPendingEntries() << std::endl;
     //std::cout << "input finished: " << input_finished << std::endl;
     //std::cout << "pck_iteration: " << pck_iteration << std::endl;
@@ -681,14 +694,14 @@ void SDMemory::cycle() {
             DataPackage* pck_received = write_fifo->pop();
             unsigned int vn = pck_received->get_vn();
             data_t data = pck_received->get_data();
-            //std::cout << "Writing data: " << data << std::endl;
-            // using the VNAT register to get the address to write
             assert(vn==VNAT[vn]->VN);
-            std::cout << "Memory received a psum " << data << std::endl;
-            unsigned int addr_offset = this->VNAT[vn]->addr;
+            uint64_t addr_offset = this->VNAT[vn]->addr;
             this->sdmemoryStats.n_SRAM_psum_writes++; //To track information 
-	    std::cout << "WRITING DATA: " << data << std::endl;
-            this->output_address[addr_offset]=data; //ofmap or psum, it does not matter.
+            //this->output_address[addr_offset]=data; //ofmap or psum, it does not matter.
+	    //Generating the request
+	    addr_offset = this->output_dram_location + addr_offset;
+	    pck_received->set_address(addr_offset); //Setting the address 
+            doStore(addr_offset, pck_received);
             //std::cout << "value written " << data << std::endl;
             current_output_pixel+=1; 
             this->sdmemoryStats.n_SRAM_write_ports_use[pck_received->getOutputPort()]++; //To track information
@@ -729,7 +742,7 @@ void SDMemory::cycle() {
             //std::cout << "Package " << pck_received->get_data() << " received with vn: ";
             //std::cout << vn << std::endl;
            // address_t addr = output_address +
-           delete pck_received; //Deleting the current package
+           //delete pck_received; //Deleting the current package
             
         }
     }
@@ -741,7 +754,7 @@ void SDMemory::cycle() {
 }
 
 bool SDMemory::isExecutionFinished() {
-    return this->execution_finished;
+    return ((this->execution_finished) && (write_queue_->getNumPendingEntries() == 0));
 }
 
 /* The traffic generation algorithm generates a package that contains a destination for all the ms. We have to divide it into smaller groups of ms since they are divided into several ports */
@@ -930,40 +943,26 @@ bool SDMemory::doLoad(uint64_t addr, DataPackage* data_package)
 
     }
 
-/*
+
    bool SDMemory::doStore(uint64_t addr, DataPackage* data_package)
     {
-        SimpleMem::Request* req = new SimpleMem::Request(SimpleMem::Request::Write, addr, 8);
+        SimpleMem::Request* req = new SimpleMem::Request(SimpleMem::Request::Write, addr, 4);
 
-        output_->verbose(CALL_INFO, 4, 0, "Creating a store request (%" PRIu32 ") to address: %" PRIu64 "\n", uint32_t(req->id), addr);
-
-        const auto newValue = data.to_ullong();
-
-        constexpr auto size = sizeof(uint64_t);
+        const auto newValue = data_package->get_data();
+        constexpr auto size = sizeof(uint32_t);
         uint8_t buffer[size] = {};
         std::memcpy(buffer, std::addressof(newValue), size);
 
-        std::cout << "llyr:  " << data << "\n";
-        std::cout << "conv:  " << newValue << "\n";
-        for(uint32_t i = 0; i < size; ++i) {
-            std::cout << static_cast<uint16_t>(buffer[i]) << ", ";
-        }
-        std::cout << std::endl;
-
         std::vector< uint8_t > payload(8);
         memcpy( std::addressof(payload[0]), std::addressof(newValue), size );
-        for( auto it = payload.begin(); it != payload.end(); ++it ) {
-            std::cout << static_cast<uint16_t>(*it) << ", ";
-        }
-        std::cout << std::endl;
         req->setPayload( payload );
 
-        LSEntry* tempEntry = new LSEntry( req->id, processor_id_, targetPe );
-        lsqueue_->addEntry( tempEntry );
+	SST::SST_STONNE::LSEntry* tempEntry = new SST::SST_STONNE::LSEntry( req->id, data_package, 1);
+        write_queue_->addEntry( tempEntry );
 
         mem_interface_->sendRequest( req );
 
         return 1;
     }
-*/
+
 

@@ -252,6 +252,7 @@ void Config::reset() {
     m_SDMemoryCfg.input_address=10000;
     m_SDMemoryCfg.output_address=20000;
     m_SDMemoryCfg.data_width=4;
+    m_SDMemoryCfg.n_write_mshr=16;
 
 
 }
