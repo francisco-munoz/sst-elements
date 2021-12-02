@@ -20,6 +20,9 @@ data_width=4;
 in_file_bitmap_a="bitmapSpMSpM_file_bitmapA_"+str(M)+"_"+str(N)+"_"+str(K)+".in";
 in_file_bitmap_b="bitmapSpMSpM_file_bitmapB_"+str(M)+"_"+str(N)+"_"+str(K)+".in";
 
+address_matrix_a=0;
+address_matrix_b=0; # to be updated in the code
+address_matrix_c=0; # to be updated in the code
 
 rand_smallest=1;
 rand_largest=10;
@@ -66,7 +69,7 @@ with open(file_name, "w") as fd, open(in_file_bitmap_a, "w") as fbA, open(in_fil
                     fbA.write(","+str(0));
                 if(generate_result):
                     matrixA.append(float(0.0));
-
+    address_matrix_b=n_nonzeros*data_width;
     #Generating matrix B
     n_nonzeros=0;
     for k in range(K):  # Row major
@@ -96,8 +99,13 @@ with open(file_name, "w") as fd, open(in_file_bitmap_a, "w") as fbA, open(in_fil
                     matrixB.append(float(0.0));
     
     fd.write(str(0)) # Adding a final 0 to the memory which will never be used. This is just to avoid having a last comma.
+    address_matrix_c=address_matrix_b+(n_nonzeros*data_width);
 
 
+
+print("Offset matrix A: "+str(address_matrix_a));
+print("Offset matrix B: "+str(address_matrix_b));
+print("Offset matrix C: "+str(address_matrix_c));
 
 print("File "+file_name+" generated correctly");
 print("File "+in_file_bitmap_a+" generated correctly");
