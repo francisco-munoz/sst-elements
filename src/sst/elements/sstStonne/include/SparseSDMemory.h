@@ -14,6 +14,8 @@
 #include "MemoryController.h"
 #include "MultiplierNetwork.h"
 #include "ReduceNetwork.h"
+#include "lsQueue.h"
+#include <sst/core/interfaces/simpleMem.h>
 
 
 class SparseSDMemory : public MemoryController {
@@ -50,6 +52,7 @@ private:
     unsigned int write_buffer_capacity;
     unsigned int port_width;
 
+
     unsigned int ms_size_per_input_port;
     //Fifos
     Fifo* write_fifo; //Fifo uses to store the writes before going to the memory
@@ -58,6 +61,17 @@ private:
     std::vector<Fifo*> psum_fifos; //Fifos used to store partial psums before being fetched
     //Fifo* read_fifo; //Fifo used to store the inputs before being fetched
     //Fifo* psums_fifo; //Fifo used to store partial psums before being fetched
+    //
+    uint64_t weight_dram_location;
+    uint64_t input_dram_location;
+    uint64_t output_dram_location;
+
+    uint32_t data_width;
+    uint32_t n_write_mshr;
+
+    uint64_t STA_dram_location;
+    uint64_t STR_dram_location;
+
  
     //Addresses
     address_t STA_address;
@@ -94,6 +108,12 @@ private:
     
     bool metadata_loaded;   //Flag that indicates whether the metadata has been loaded 
     bool layer_loaded; //Flag that indicates whether the layer has been loaded.
+
+    //SST Memory hierarchy component structures and variables
+    SST::SST_STONNE::LSQueue* load_queue_;
+    SST::SST_STONNE::LSQueue* write_queue_;
+    SimpleMem*  mem_interface_;
+
    
 
    unsigned int current_output;
@@ -112,12 +132,14 @@ private:
    //Aux functions
    void receive();
    void send();
+   bool doLoad(uint64_t addr, DataPackage* data_package);
+   bool doStore(uint64_t addr, DataPackage* data_package);
    void sendPackageToInputFifos(DataPackage* pck);
    std::vector<Connection*> getWritePortConnections()    const {return this->write_port_connections;}
     
     
 public:
-    SparseSDMemory(id_t id, std::string name, Config stonne_cfg, Connection* write_connection);
+    SparseSDMemory(id_t id, std::string name, Config stonne_cfg, Connection* write_connection, SST::SST_STONNE::LSQueue* load_queue_, SST::SST_STONNE::LSQueue* write_queue_, SimpleMem*  mem_interface_);
     ~SparseSDMemory();
     void setLayer(DNNLayer* dnn_layer,  address_t KN_address, address_t MK_address, address_t output_address, Dataflow dataflow);
     void setTile(Tile* current_tile) {assert(false);}

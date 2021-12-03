@@ -4,14 +4,23 @@
 #include <iostream>
 #include "utility.h"
 
-SparseSDMemory::SparseSDMemory(id_t id, std::string name, Config stonne_cfg, Connection* write_connection) : MemoryController(id, name) {
+SparseSDMemory::SparseSDMemory(id_t id, std::string name, Config stonne_cfg, Connection* write_connection, SST::SST_STONNE::LSQueue* load_queue_, SST::SST_STONNE::LSQueue* write_queue_, SimpleMem*  mem_interface_) : MemoryController(id, name) {
     this->write_connection = write_connection;
+    this->load_queue_ = load_queue_;
+    this->write_queue_ = write_queue_;
+    this->mem_interface_ = mem_interface_;
     //Collecting parameters from the configuration file
     this->num_ms = stonne_cfg.m_MSNetworkCfg.ms_size;  //Used to send data
     this->n_read_ports=stonne_cfg.m_SDMemoryCfg.n_read_ports;
     this->n_write_ports=stonne_cfg.m_SDMemoryCfg.n_write_ports;
     this->write_buffer_capacity=stonne_cfg.m_SDMemoryCfg.write_buffer_capacity;
     this->port_width=stonne_cfg.m_SDMemoryCfg.port_width;
+    this->weight_dram_location=stonne_cfg.m_SDMemoryCfg.weight_address;
+    this->input_dram_location=stonne_cfg.m_SDMemoryCfg.input_address;
+    this->output_dram_location=stonne_cfg.m_SDMemoryCfg.output_address;
+    this->data_width=stonne_cfg.m_SDMemoryCfg.data_width;
+    this->n_write_mshr=stonne_cfg.m_SDMemoryCfg.n_write_mshr;
+
     //End collecting parameters from the configuration file
     //Initializing parameters
     this->ms_size_per_input_port = this->num_ms / this->n_read_ports;
@@ -89,9 +98,9 @@ void SparseSDMemory::setLayer(DNNLayer* dnn_layer, address_t MK_address, address
 
     //Loading parameters according to the equivalence between CNN layer and GEMM. This is done
     //in this way to keep the same interface.
-    this->M = this->dnn_layer->get_K();
+    this->N = this->dnn_layer->get_K();
     this->K = this->dnn_layer->get_S();   //Be careful. K in GEMMs (SIGMA taxonomy) is not the same as K in CNN taxonomy (number of filters)
-    this->N = this->dnn_layer->get_X();  //In this case both parameters match each other.
+    this->M = this->dnn_layer->get_X();  //In this case both parameters match each other.
     std::cout << "Value of M=" << M << std::endl;
     std::cout << "Value of N=" << N << std::endl;
     std::cout << "Value of K=" << K << std::endl;
@@ -103,6 +112,9 @@ void SparseSDMemory::setLayer(DNNLayer* dnn_layer, address_t MK_address, address
 	this->dim_sta = M;
 	this->STR_address = KN_address;
 	this->dim_str = N;
+
+	this->STA_dram_location = input_dram_location;
+	this->STR_dram_location = weight_dram_location;
 
     
 	//MK_sta_ KN STR dataflow. According to the distribution of the bitmap
@@ -122,9 +134,12 @@ void SparseSDMemory::setLayer(DNNLayer* dnn_layer, address_t MK_address, address
 	std::cout << "Running MK_STR_KN_STA Dataflow" << std::endl;
         this->STA_address = KN_address;
 	this->dim_sta = N;
+	std::cout << "DIMENSION N: " << this->dim_sta << std::endl;
 	this->STR_address = MK_address;
 	this->dim_str= M;
 
+	this->STA_dram_location = weight_dram_location;
+	this->STR_dram_location = input_dram_location;
 	this->STA_DIST_ELEM=dim_sta;
 	this->STA_DIST_VECTOR=1;
 
@@ -172,6 +187,19 @@ void SparseSDMemory::setSparseMetadata(metadata_address_t MK_metadata, metadata_
     }
 
     this->metadata_loaded = true;
+    std::cout << "Printing bitmap of A: ";
+    for(int i=0; i<M*K; i++) {
+	    std::cout << MK_metadata[i];
+    }
+
+    std::cout << std::endl;
+
+    std::cout << "Printing bitmap of B: ";
+    for(int i=0; i<K*N; i++) {
+            std::cout << KN_metadata[i];
+    }
+
+    std::cout << std::endl;
 
 }
 
@@ -185,6 +213,33 @@ void SparseSDMemory::cycle() {
     std::vector<DataPackage*> psum_to_send; // psum temporal storage
     this->local_cycle+=1;
     this->sdmemoryStats.total_cycles++; //To track information
+
+        //Processing the memory requests
+    while(load_queue_->getNumCompletedEntries() > 0) {
+      SimpleMem::Request::id_t req_id = load_queue_->getNextCompletedEntry();
+      DataPackage* pck = load_queue_->getEntryPackage(req_id);
+      load_queue_->removeEntry(req_id);
+      std::cout  << "Data received: " << pck->get_data() << std::endl;
+      this->sendPackageToInputFifos(pck); //Sending the package
+      std::cout << "Sending a package to input FIFOs" << std::endl;
+
+    }
+
+    //Processing write memory requests
+    while(write_queue_->getNumCompletedEntries() > 0) {
+      SimpleMem::Request::id_t req_id = write_queue_->getNextCompletedEntry();
+      DataPackage* pck = write_queue_->getEntryPackage(req_id);
+      write_queue_->removeEntry(req_id);
+      data_t data = pck->get_data();
+      uint64_t addr = pck->get_address();
+      addr = addr - this->output_dram_location; //To access to the array. If we remove the array feature this is no longer necessary
+      addr = addr / this->data_width;
+      this->output_address[addr]=data;
+      std::cout << "Writing data " << data << " in subaddress " << addr << std::endl;
+      delete pck;
+    }
+
+    if((load_queue_->getNumPendingEntries() == 0) && (write_queue_->getNumPendingEntries() < this->n_write_mshr)) {
     
     if(current_state==CONFIGURING) {   //If the architecture has not been configured
         int i=sta_current_index_metadata;  //Rows
@@ -380,13 +435,14 @@ void SparseSDMemory::cycle() {
 	   }
            for(; j<this->configurationVNs[i].get_VN_Size(); j++) {
 	       //Accessing to memory
-	       data_t data = this->STA_address[sta_current_index_matrix+sub_address]; //In both dataflows adjacents elements are consecutive in mem
+	       uint64_t new_addr = this->STA_dram_location + (sta_current_index_matrix+sub_address)*this->data_width;
+	       data_t data = 0.0;
 	       sdmemoryStats.n_SRAM_weight_reads++;
 	       this->n_ones_sta_matrix++; 
 	       DataPackage* pck_to_send = new DataPackage(sizeof(data_t), data, WEIGHT, 0, UNICAST, dest);
-	       this->sendPackageToInputFifos(pck_to_send);
                dest++;
 	       sub_address++;
+	       doLoad(new_addr, pck_to_send);
 	   }
        }
 
@@ -405,10 +461,12 @@ void SparseSDMemory::cycle() {
            }
 	   destinations[0]=true;
 
-	   data_t psum = this->output_address[addr_offset];  //Reading the current psum
+	   uint64_t new_addr = addr_offset*this->data_width + this->output_dram_location;
+	   data_t psum = 0.0;  //Reading the current psum
 	   DataPackage* pck = new DataPackage(sizeof(data_t), psum, PSUM,0, MULTICAST, destinations, this->num_ms);
            this->sdmemoryStats.n_SRAM_psum_reads++; //To track information
-	   this->sendPackageToInputFifos(pck);
+	   //this->sendPackageToInputFifos(pck);
+	   doLoad(new_addr, pck);
 	   
        }
        for(int j=init_point_str; j<end_point_str; j++) {   //For each element in the current vector in the str matrix
@@ -433,24 +491,26 @@ void SparseSDMemory::cycle() {
 	 data_t data;
 	 if(STR_metadata[str_current_index*STR_DIST_VECTOR + j*STR_DIST_ELEM]) { 
 	     unsigned int src = str_counters_table[str_current_index*STR_DIST_VECTOR + j*STR_DIST_ELEM];
-	     data = STR_address[src];
+	     uint64_t new_addr = STR_dram_location + src*this->data_width;
+	     data = 0.0;
 	     sdmemoryStats.n_SRAM_input_reads++;
+	     DataPackage* pck = new DataPackage(sizeof(data_t), data,IACTIVATION,0, MULTICAST, destinations, this->num_ms);
+	     doLoad(new_addr, pck);
+
 	 }
 
 	 else {
              data=0.0; //If the STA matrix has a value then the STR matrix must be sent even if the value is 0
+	     DataPackage* pck = new DataPackage(sizeof(data_t), data,IACTIVATION,0, MULTICAST, destinations, this->num_ms); 
+	     this->sendPackageToInputFifos(pck); //Access to memory is not required as the data is 0
          }
 
-	 //Creating the package
-         DataPackage* pck = new DataPackage(sizeof(data_t), data,IACTIVATION,0, MULTICAST, destinations, this->num_ms);
-
-	 this->sendPackageToInputFifos(pck);
        } 
 
        str_current_index++;
     }
 
-
+    } //End if there is no pending memory requests
          
     
     //Receiving output data from write_connection
@@ -463,20 +523,24 @@ void SparseSDMemory::cycle() {
             data_t data = pck_received->get_data();
             this->sdmemoryStats.n_SRAM_psum_writes++; //To track information 
 	    unsigned int addr_offset = (sta_current_index_metadata+vn)*OUT_DIST_VN + vnat_table[vn]*OUT_DIST_VN_ITERATION; 
+	    uint64_t new_addr = this->output_dram_location + addr_offset*this->data_width;
+	    pck_received->set_address(new_addr);
+	    doStore(new_addr, pck_received);
 	    vnat_table[vn]++; 
-            this->output_address[addr_offset]=data; //ofmap or psum, it does not matter.
+            //this->output_address[addr_offset]=data; //ofmap or psum, it does not matter.
             current_output++;
 	    current_output_iteration++;
 	    if(current_output_iteration==output_size_iteration) {
                 current_output_iteration = 0;
 		sta_iter_completed=true;
 	    }
-            delete pck_received; //Deleting the current package
+            //delete pck_received; //Deleting the current package
             
         }
     }
 
     //Transitions
+    // if((load_queue_->getNumPendingEntries() == 0) && (write_queue_->getNumPendingEntries() < this->n_write_mshr)) {
     if(current_state==CONFIGURING) {
         current_state=DIST_STA_MATRIX;
     }
@@ -540,9 +604,9 @@ void SparseSDMemory::cycle() {
 	}
     }
 
-   
+    //} //End if there are pending requests
 
-
+   //}
 
     
 
@@ -550,7 +614,7 @@ void SparseSDMemory::cycle() {
 }
 
 bool SparseSDMemory::isExecutionFinished() {
-    return this->execution_finished;
+	return ((this->execution_finished) && (write_queue_->getNumPendingEntries() == 0));
 }
 
 /* The traffic generation algorithm generates a package that contains a destination for all the ms. We have to divide it into smaller groups of ms since they are divided into several ports */
@@ -713,4 +777,44 @@ void SparseSDMemory::printEnergy(std::ofstream& out, unsigned int indent) {
    out << ind(indent) << " WRITE=" << writes << std::endl;
         
 }
+
+
+bool SparseSDMemory::doLoad(uint64_t addr, DataPackage* data_package)
+    {
+        SimpleMem::Request* req = new SimpleMem::Request(SimpleMem::Request::Read, addr, this->data_width);
+
+        //output_->verbose(CALL_INFO, 4, 0, "Creating a load request (%" PRIu32 ") from address: %" PRIu64 "\n", uint32_t(req->id), addr);
+        std::cout << "Generating a load request from address " << addr << std::endl;
+
+        SST::SST_STONNE::LSEntry* tempEntry = new SST::SST_STONNE::LSEntry( req->id, data_package, 0 );
+        load_queue_->addEntry( tempEntry );
+
+        mem_interface_->sendRequest( req );
+
+        return 1;
+
+    }
+
+
+   bool SparseSDMemory::doStore(uint64_t addr, DataPackage* data_package)
+    {
+        SimpleMem::Request* req = new SimpleMem::Request(SimpleMem::Request::Write, addr, 4);
+
+        const auto newValue = data_package->get_data();
+        constexpr auto size = sizeof(uint32_t);
+        uint8_t buffer[size] = {};
+        std::memcpy(buffer, std::addressof(newValue), size);
+
+        std::vector< uint8_t > payload(4);
+        memcpy( std::addressof(payload[0]), std::addressof(newValue), size );
+        req->setPayload( payload );
+
+        SST::SST_STONNE::LSEntry* tempEntry = new SST::SST_STONNE::LSEntry( req->id, data_package, 1);
+        write_queue_->addEntry( tempEntry );
+	std::cout << "Trying to write to "  << addr << std::endl;
+
+        mem_interface_->sendRequest( req );
+
+        return 1;
+    }
 

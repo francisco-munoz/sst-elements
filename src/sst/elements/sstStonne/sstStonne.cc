@@ -71,7 +71,7 @@ sstStonne::sstStonne(SST::ComponentId_t id, SST::Params& params) : Component(id)
 
 
   bitmapMatrixAFileName = params.find< std::string >("bitmap_matrix_a_init", "");
-  bitmapMatrixBFileName = params.find< std::string >("bitmap_matrix_a_init", "");
+  bitmapMatrixBFileName = params.find< std::string >("bitmap_matrix_b_init", "");
 
   rowpointerMatrixAFileName = params.find< std::string >("rowpointer_matrix_a_init", "");
   colpointerMatrixAFileName = params.find< std::string >("colpointer_matrix_a_init", "");
@@ -130,7 +130,10 @@ void sstStonne::init( uint32_t phase )
             }
         }
 
-
+        std::cout << "INITIALIZING MEMORY WITH SIZE " << memInit.size() << std::endl;
+	for(int i=0; i<memInit.size(); i++) {
+		std::cout << "mem value: " << (uint8_t)memInit[i] << std::endl;
+	}
         SimpleMem::Request* initMemory = new SimpleMem::Request(SimpleMem::Request::Write, 0, memInit.size(), memInit);
         output_->verbose(CALL_INFO, 1, 0, "Sending initialization data to memory...\n");
         mem_interface_->sendInitData(initMemory);
@@ -250,7 +253,7 @@ void sstStonne::setup() {
 
 std::vector< uint32_t >* sstStonne::constructMemory(std::string fileName) { //In the future version this will be directly simulated memory
   std::vector< uint32_t >* tempVector = new std::vector< uint32_t >;
-
+    std::cout << "RUNNING CONSTRUCTMEMORY CODE" << std::endl;
     std::ifstream inputStream(fileName, std::ios::in);
     if( inputStream.is_open() ) {
 
@@ -340,8 +343,6 @@ void sstStonne::finish() {
     std::cout << "The execution of STONNE has finished" << std::endl;
     dumpMemoryToFile(memMatrixCFileName, matrixC, matrixC_size);
     delete stonne_instance;
-    delete[] matrixA;
-    delete[] matrixB;
     delete[] matrixC; 
     if(kernelOperation==bitmapSpMSpM) {
      delete[] bitmapMatrixA;
@@ -391,9 +392,10 @@ void sstStonne::handleEvent( SimpleMem::Request* ev ) {
         data_t memValue = 0.0;
 
         std::memcpy( std::addressof(memValue), std::addressof(ev->data[0]), sizeof(memValue) );
-        std::cout << "Response to read addr " << addr << " has arrived" << std::endl;
+        std::cout << "Response to read addr " << addr << " has arrived with data " << memValue << std::endl;
         //output_->verbose(CALL_INFO, 8, 0, "Response to a read, payload=%" PRIu64 ", for addr: %" PRIu64
           //               " to PE %" PRIu32 "\n", memValue, addr, ls_queue_->lookupEntry( ev->id ).second );
+
 
         load_queue_->setEntryData( ev->id, memValue);
         load_queue_->setEntryReady( ev->id, 1 );

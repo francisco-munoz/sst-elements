@@ -57,7 +57,7 @@ Stonne::Stonne(Config stonne_cfg, SST::SST_STONNE::LSQueue* load_queue_, SST::SS
     //switch(MemoryController). It is possible to create instances of other MemoryControllers
     switch(stonne_cfg.m_SDMemoryCfg.mem_controller_type) {
 	case SIGMA_SPARSE_GEMM:
-            this->mem = new SparseSDMemory(0, "SparseSDMemory", stonne_cfg, this->outputLTConnection);
+            this->mem = new SparseSDMemory(0, "SparseSDMemory", stonne_cfg, this->outputLTConnection, load_queue_, write_queue_, mem_interface_);
 	    break;
 	case MAERI_DENSE_WORKLOAD:
 	    this->mem = new  SDMemory(0, "SDMemory", stonne_cfg, this->outputLTConnection, load_queue_, write_queue_, mem_interface_);

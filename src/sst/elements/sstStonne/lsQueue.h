@@ -138,6 +138,7 @@ public:
     void setEntryData( SimpleMem::Request::id_t id, data_t data ) {
         auto entry = pending_.find(id);
 	if(entry != pending_.end()) {
+	    std::cout << "Data arrived: " << data << std::endl;
             entry->second->setData(data);
 	}
 

@@ -7,12 +7,12 @@ generate_result=1
 test_output_file="result_test.out"
 
 
-M = 3;
-N = 3;
-K = 20;
+M = 2;
+N = 2;
+K = 2048;
 
-sparsity_ratio_a=40;
-sparsity_ratio_b=10;
+sparsity_ratio_a=80;
+sparsity_ratio_b=80;
 
 file_name="bitmapSpMSpM_gemm_mem.ini"
 data_width=4;
@@ -48,10 +48,10 @@ with open(file_name, "w") as fd, open(in_file_bitmap_a, "w") as fbA, open(in_fil
         for k in range(K):
             sparse_prob=random.randint(0,100);
             if(sparse_prob > sparsity_ratio_a):  # value is generated
-                if(n_nonzeros==0):  # this is to insert comma.
-                    fbA.write(str(1)); #writing a 1 in bitmap
-                else: # we do not insert a comma 
-                    fbA.write(","+str(1));
+                if((m==(M-1)) and (k==(K-1))):
+                    fbA.write(str(1))
+                else:
+                    fbA.write(str(1)+","); #writing a 1 in bitmap
                 value = float(random.randint(rand_smallest, rand_largest));
                 ba = bytearray(struct.pack(">f", value))  # generating list of bytes
                 my_int = int.from_bytes(ba, "big")
@@ -61,25 +61,23 @@ with open(file_name, "w") as fd, open(in_file_bitmap_a, "w") as fbA, open(in_fil
                 if(generate_result):
                     matrixA.append(value);
             else:
-                if((m==0) and (k==0)): # this is to insert a comma
-                    fbA.write(str(0)); #writing a 1
+                if((m==(M-1)) and (k==(K-1))): # this is to insert a comma
+                    fbA.write(str(0));
                     # note no data element is inserted in this case
                 else:
                     # note no data element is inserted in this case
-                    fbA.write(","+str(0));
+                    fbA.write(str(0)+",");
                 if(generate_result):
                     matrixA.append(float(0.0));
     address_matrix_b=n_nonzeros*data_width;
     #Generating matrix B
     n_nonzeros=0;
-    for k in range(K):  # Row major
-        for n in range(N):
+    bitmapB=list(range(0,matrixB_size));
+    for n in range(0,N):  # Row major
+        for k in range(0,K):
             sparse_prob=random.randint(0,100);
             if(sparse_prob > sparsity_ratio_b):  # value is generated
-                if(n_nonzeros==0):  # this is to insert comma.
-                    fbB.write(str(1)); #writing a 1 in bitmap
-                else:
-                    fbB.write(","+str(1));
+                bitmapB[k*N+n]=1
                 value = float(random.randint(rand_smallest, rand_largest));
                 ba = bytearray(struct.pack(">f", value))  # generating list of bytes
                 my_int = int.from_bytes(ba, "big")
@@ -89,14 +87,15 @@ with open(file_name, "w") as fd, open(in_file_bitmap_a, "w") as fbA, open(in_fil
                 if(generate_result):
                     matrixB.append(value);
             else:
-                if((k==0) and (n==0)): # this is to insert a comma
-                    fbB.write(str(0)); #writing a 1
-                    # note no data element is inserted in this case
-                else:
-                    # note no data element is inserted in this case
-                    fbB.write(","+str(0));
+                # no data element is inserted in this case
+                bitmapB[k*N+n]=0; #writing a 0
                 if(generate_result):
                     matrixB.append(float(0.0));
+    # writing the bitmapB in the appropiate order
+    for i in range(0, matrixB_size):
+        fbB.write(str(bitmapB[i]));
+        if(i < (matrixB_size-1)):
+            fbB.write(",")
     
     fd.write(str(0)) # Adding a final 0 to the memory which will never be used. This is just to avoid having a last comma.
     address_matrix_c=address_matrix_b+(n_nonzeros*data_width);
@@ -112,13 +111,20 @@ print("File "+in_file_bitmap_a+" generated correctly");
 
 
 print("File "+in_file_bitmap_b+" generated correctly");
+#print("MatrixA: ")
+#for i in range(matrixA_size):
+#    print(matrixA[i])
+
+#print("MatrixB: ")
+#for i in range(matrixB_size):
+#    print(matrixB[i])
 
 if(generate_result):
     for i in range(0, M ):
         for j in range(0, N):
             matrixC[i*N+j]=float(0.0)
             for k in range(0,K):
-                matrixC[i*N+j]+= matrixA[i*K+k]*matrixB[k*N+j] # row-major order in both matrices. (i.e., KN matrix is transposed)
+                matrixC[i*N+j]+= matrixA[i*K+k]*matrixB[j*K+k] # row-major order in both matrices. (i.e., KN matrix is transposed)
     with open(test_output_file, "w") as f:
         for i in range(0,matrixC_size):
             value = float(matrixC[i])

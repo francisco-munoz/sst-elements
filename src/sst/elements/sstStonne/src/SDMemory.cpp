@@ -341,6 +341,7 @@ void SDMemory::cycle() {
       data_t data = pck->get_data();
       uint64_t addr = pck->get_address();
       addr = addr - this->output_dram_location; //To access to the array. If we remove the array feature this is no longer necessary
+      addr = addr / this->data_width;
       this->output_address[addr]=data;
       delete pck;
     }
@@ -699,7 +700,7 @@ void SDMemory::cycle() {
             this->sdmemoryStats.n_SRAM_psum_writes++; //To track information 
             //this->output_address[addr_offset]=data; //ofmap or psum, it does not matter.
 	    //Generating the request
-	    addr_offset = this->output_dram_location + addr_offset;
+	    addr_offset = this->output_dram_location + addr_offset*this->data_width;
 	    pck_received->set_address(addr_offset); //Setting the address 
             doStore(addr_offset, pck_received);
             //std::cout << "value written " << data << std::endl;
@@ -953,7 +954,7 @@ bool SDMemory::doLoad(uint64_t addr, DataPackage* data_package)
         uint8_t buffer[size] = {};
         std::memcpy(buffer, std::addressof(newValue), size);
 
-        std::vector< uint8_t > payload(8);
+        std::vector< uint8_t > payload(4);
         memcpy( std::addressof(payload[0]), std::addressof(newValue), size );
         req->setPayload( payload );
 
