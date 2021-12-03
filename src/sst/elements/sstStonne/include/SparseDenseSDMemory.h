@@ -14,6 +14,9 @@
 #include "MemoryController.h"
 #include "MultiplierNetwork.h"
 #include "ReduceNetwork.h"
+#include "lsQueue.h"
+#include <sst/core/interfaces/simpleMem.h>
+
 
 
 class SparseDenseSDMemory : public MemoryController {
@@ -70,6 +73,14 @@ private:
     //Metadata addresses
     metadata_address_t MK_col_id;
     metadata_address_t MK_row_pointer;
+
+    /* SST variables */
+    uint64_t weight_dram_location;
+    uint64_t input_dram_location;
+    uint64_t output_dram_location;
+
+    uint32_t data_width;
+    uint32_t n_write_mshr;
     
     //Tile parameters
     unsigned int T_N_min;       //Minimum value of T_N
@@ -124,16 +135,23 @@ private:
    std::vector<Connection*> write_port_connections; 
    cycles_t local_cycle;
    SDMemoryStats sdmemoryStats; //To track information
+
+   //SST Memory hierarchy component structures and variables
+   SST::SST_STONNE::LSQueue* load_queue_;
+   SST::SST_STONNE::LSQueue* write_queue_;
+   SimpleMem*  mem_interface_;
    
    //Aux functions
    void receive();
    void send();
+   bool doLoad(uint64_t addr, DataPackage* data_package);
+   bool doStore(uint64_t addr, DataPackage* data_package);
    void sendPackageToInputFifos(DataPackage* pck);
    std::vector<Connection*> getWritePortConnections()    const {return this->write_port_connections;}
     
     
 public:
-    SparseDenseSDMemory(id_t id, std::string name, Config stonne_cfg, Connection* write_connection);
+    SparseDenseSDMemory(id_t id, std::string name, Config stonne_cfg, Connection* write_connection, SST::SST_STONNE::LSQueue* load_queue_, SST::SST_STONNE::LSQueue* write_queue_, SimpleMem*  mem_interface_);
     ~SparseDenseSDMemory();
     void setLayer(DNNLayer* dnn_layer,  address_t KN_address, address_t MK_address, address_t output_address, Dataflow dataflow);
     void setTile(Tile* current_tile) {assert(false);}

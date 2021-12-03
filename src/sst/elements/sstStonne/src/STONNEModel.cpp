@@ -66,7 +66,7 @@ Stonne::Stonne(Config stonne_cfg, SST::SST_STONNE::LSQueue* load_queue_, SST::SS
 	    this->mem = new  OSMeshSDMemory(0, "OSMeshSDMemory", stonne_cfg, this->outputLTConnection);
 	    break;
 	case MAGMA_SPARSE_DENSE:
-            this->mem = new  SparseDenseSDMemory(0, "SparseDenseSDMemory", stonne_cfg, this->outputLTConnection);
+            this->mem = new  SparseDenseSDMemory(0, "SparseDenseSDMemory", stonne_cfg, this->outputLTConnection, load_queue_, write_queue_, mem_interface_);
             break;
 	default:
 	    assert(false);
