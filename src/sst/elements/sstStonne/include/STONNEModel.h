@@ -54,8 +54,6 @@ private:
     void connectMSNandASN();
     void connectASNandBus(); //Connect the adders to the Collection bus
     void connectBusandMemory(); //Connect the bus and the memory write ports.
-    void printStats();
-    void printEnergy();
     void printGlobalStats(std::ofstream& out, unsigned int indent);
    
     // DEBUG PARAMETERS
@@ -107,6 +105,8 @@ public:
     void loadFCTile(unsigned int T_S, unsigned int T_N, unsigned int T_K); //VNSize = T_S, NumVNs= T_N*T_K
     void run();
     void cycle();
+    void printStats();
+    void printEnergy();
     bool isExecutionFinished();
     
 };

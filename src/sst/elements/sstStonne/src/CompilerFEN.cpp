@@ -24,7 +24,6 @@ void CompilerFEN::configureSignals(Tile* current_tile, DNNLayer* dnn_layer, unsi
 void CompilerFEN::generate_fen_enabling_links(unsigned int num_ms) {
 //Ultimo nivel recorrido aparte hasta el numero de ms
 // Los siguientes niveles son recorridos mirando abajo y mirando en la configuracion del nivel inferior. Si tiene hijo 
-    std::cout << "Generating ART Enabling links signals" << std::endl;
     int nlevels = log10(num_ms) / log10(2); //All the levels without count the leaves (MSwitches)
     int ms_used = this->current_tile->get_Num_VNs()*this->current_tile->get_VN_Size();
     int num_adders=num_ms / 2; //ALl the adders
@@ -122,10 +121,6 @@ void CompilerFEN::generate_fen_enabling_links(unsigned int num_ms) {
 }  //end of the function
 
 void CompilerFEN::generate_fen_signals(unsigned int num_ms) {
-   std::cout << "Generating FEN signals" << std::endl;
-   std::cout << "Num Ms: " << num_ms << std::endl;
-   std::cout << "Num VNs: " << this->current_tile->get_Num_VNs() << std::endl;
-   std::cout << "VN Size: " << this->current_tile->get_VN_Size() << std::endl;
    int nlevels = log10(num_ms) / log10(2); //All the levels without count the leaves (MSwitches)
    //Vector initialization
    bool* vector_bits = new bool[num_ms];

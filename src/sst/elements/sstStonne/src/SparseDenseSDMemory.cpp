@@ -166,7 +166,6 @@ void SparseDenseSDMemory::cycle() {
       DataPackage* pck = load_queue_->getEntryPackage(req_id);
       load_queue_->removeEntry(req_id);
       this->sendPackageToInputFifos(pck); //Sending the package
-      std::cout << "Sending a package to input FIFOs" << std::endl;
 
     }
 
@@ -180,7 +179,6 @@ void SparseDenseSDMemory::cycle() {
       addr = addr - this->output_dram_location; //To access to the array. If we remove the array feature this is no longer necessary
       addr = addr / this->data_width;
       this->output_address[addr]=data;
-      std::cout << "Writing data " << data << " in subaddress " << addr << std::endl;
       delete pck;
     }
 
@@ -191,7 +189,6 @@ void SparseDenseSDMemory::cycle() {
     	this->K_nnz=MK_row_pointer[current_M+1]-MK_row_pointer[current_M];
     	this->STA_base = MK_row_pointer[current_M];			
     	this->iter_K = K_nnz/T_K + (K_nnz%T_K!=0);
-	std::cout << "Starting to compute output row " << current_M << "/" << M << std::endl;
 	
 	 Tile* tile1 = new Tile(1, 1, T_K, T_N, 1, 1, 1, 1, false);
 	 this->multiplier_network->resetSignals();
@@ -333,7 +330,7 @@ void SparseDenseSDMemory::cycle() {
                 vnat_table_iterm[vn]++;
             } 
             current_output++;
-	    if((current_output % 100) == 0) {
+	    if((current_output % 1000) == 0) {
                 std::cout << "Output completed " << current_output << "/" << M*N << ")" << std::endl;
             }
 
@@ -576,7 +573,6 @@ bool SparseDenseSDMemory::doLoad(uint64_t addr, DataPackage* data_package)
         SimpleMem::Request* req = new SimpleMem::Request(SimpleMem::Request::Read, addr, this->data_width);
 
         //output_->verbose(CALL_INFO, 4, 0, "Creating a load request (%" PRIu32 ") from address: %" PRIu64 "\n", uint32_t(req->id), addr);
-        std::cout << "Generating a load request from address " << addr << std::endl;
 
         SST::SST_STONNE::LSEntry* tempEntry = new SST::SST_STONNE::LSEntry( req->id, data_package, 0 );
         load_queue_->addEntry( tempEntry );

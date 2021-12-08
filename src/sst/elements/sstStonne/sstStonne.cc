@@ -95,7 +95,6 @@ sstStonne::sstStonne(SST::ComponentId_t id, SST::Params& params) : Component(id)
     //Inititating memory parameters
   write_queue_ = new LSQueue();
   load_queue_ = new LSQueue();
-  std::cout << "The constructor function finishes" << std::endl;
 
 
 
@@ -130,10 +129,11 @@ void sstStonne::init( uint32_t phase )
             }
         }
 
-        std::cout << "INITIALIZING MEMORY WITH SIZE " << memInit.size() << std::endl;
+	/*
 	for(int i=0; i<memInit.size(); i++) {
 		std::cout << "mem value: " << (uint8_t)memInit[i] << std::endl;
 	}
+	*/
         SimpleMem::Request* initMemory = new SimpleMem::Request(SimpleMem::Request::Write, 0, memInit.size(), memInit);
         output_->verbose(CALL_INFO, 1, 0, "Sending initialization data to memory...\n");
         mem_interface_->sendInitData(initMemory);
@@ -147,6 +147,11 @@ bool sstStonne::tic(Cycle_t) {
     stonne_instance->cycle();
     bool work_done = stonne_instance->isExecutionFinished();
     if(work_done) {
+	if(this->stonne_cfg.print_stats_enabled) { //If sats printing is enable
+            stonne_instance->printStats();
+            stonne_instance->printEnergy();
+    }
+
         primaryComponentOKToEndSim();
     }
     return work_done;
@@ -253,7 +258,6 @@ void sstStonne::setup() {
 
 std::vector< uint32_t >* sstStonne::constructMemory(std::string fileName) { //In the future version this will be directly simulated memory
   std::vector< uint32_t >* tempVector = new std::vector< uint32_t >;
-    std::cout << "RUNNING CONSTRUCTMEMORY CODE" << std::endl;
     std::ifstream inputStream(fileName, std::ios::in);
     if( inputStream.is_open() ) {
 
@@ -340,7 +344,6 @@ unsigned int sstStonne::constructCSRStructure(std::string fileName, unsigned int
 
 void sstStonne::finish() {
     //This code should have the logic to write the output memory into a certain file passed by parameter. TODO
-    std::cout << "The execution of STONNE has finished" << std::endl;
     dumpMemoryToFile(memMatrixCFileName, matrixC, matrixC_size);
     delete stonne_instance;
     delete[] matrixC; 
@@ -356,9 +359,7 @@ void sstStonne::finish() {
 }
 
 void sstStonne::dumpMemoryToFile(std::string fileName, float* array, unsigned int size) {
-  std::cout << "FUNCTION DUMP IS EXECUTED" << std::endl;
   if(fileName != "") {
-    std::cout << "THE CODE ENTERS HERE" << std::endl;
     std::ofstream outputStream (fileName, std::ios::out);
     if( outputStream.is_open()) {
       for(unsigned i=0; i<size; i++) {
@@ -381,10 +382,10 @@ void sstStonne::dumpMemoryToFile(std::string fileName, float* array, unsigned in
 void sstStonne::handleEvent( SimpleMem::Request* ev ) {
     output_->verbose(CALL_INFO, 4, 0, "Recv response from cache\n");
 
-    for( auto &it : ev->data ) {
+    /*for( auto &it : ev->data ) {
         std::cout << unsigned(it) << " ";
     }
-    std::cout << std::endl;
+    std::cout << std::endl; */
 
     if( ev->cmd == SimpleMem::Request::Command::ReadResp ) {
         // Read request needs some special handling
@@ -392,7 +393,7 @@ void sstStonne::handleEvent( SimpleMem::Request* ev ) {
         data_t memValue = 0.0;
 
         std::memcpy( std::addressof(memValue), std::addressof(ev->data[0]), sizeof(memValue) );
-        std::cout << "Response to read addr " << addr << " has arrived with data " << memValue << std::endl;
+        //std::cout << "Response to read addr " << addr << " has arrived with data " << memValue << std::endl;
         //output_->verbose(CALL_INFO, 8, 0, "Response to a read, payload=%" PRIu64 ", for addr: %" PRIu64
           //               " to PE %" PRIu32 "\n", memValue, addr, ls_queue_->lookupEntry( ev->id ).second );
 

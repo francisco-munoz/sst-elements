@@ -329,7 +329,6 @@ void SDMemory::cycle() {
       DataPackage* pck = load_queue_->getEntryPackage(req_id);
       load_queue_->removeEntry(req_id);
       this->sendPackageToInputFifos(pck); //Sending the package
-      std::cout << "Sending a package to input FIFOs" << std::endl;
 
     }
 
@@ -735,7 +734,7 @@ void SDMemory::cycle() {
             //std::cout << "CURRENT_OUTPUT_PIXEL: " << current_output_pixel << std::endl;
             if(current_output_pixel == output_pixels_to_compute) {
                 this->execution_finished = true;
-		std::cout << "The execution has finished" << std::endl;
+		//std::cout << "The execution has finished" << std::endl;
             }
             this->VNAT[vn]->update(); //Calculate next output address for that vn
             //Updating address
@@ -933,7 +932,7 @@ bool SDMemory::doLoad(uint64_t addr, DataPackage* data_package)
         SimpleMem::Request* req = new SimpleMem::Request(SimpleMem::Request::Read, addr, this->data_width);
 
         //output_->verbose(CALL_INFO, 4, 0, "Creating a load request (%" PRIu32 ") from address: %" PRIu64 "\n", uint32_t(req->id), addr);
-	std::cout << "Generating a load request from address " << addr << std::endl;
+	//std::cout << "Generating a load request from address " << addr << std::endl;
 
 	SST::SST_STONNE::LSEntry* tempEntry = new SST::SST_STONNE::LSEntry( req->id, data_package, 0 );
         load_queue_->addEntry( tempEntry );

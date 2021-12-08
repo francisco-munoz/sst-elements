@@ -73,7 +73,7 @@ if(generate_result):
             for k in range(0,K): 
                 for ox in range(0,OX):
                     for oy in range(0,OY):
-                        print(n*output_size_n + ox*size_oy + oy*K*G + g*K + k)
+                        #print(n*output_size_n + ox*size_oy + oy*K*G + g*K + k)
                         matrixC[int(n*output_size_n + ox*size_oy + oy*K*G + g*K + k)]=float(0.0);
                         for c in range(0, C):
                             for r in range(0, R):
