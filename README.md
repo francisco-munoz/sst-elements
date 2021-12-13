@@ -1,4 +1,5 @@
 ![SST](http://sst-simulator.org/img/sst-logo-small.png)
+![SST](stone_small.jpg)
 
 # Structural Simulation Toolkit (SST)
 
