@@ -41,3 +41,19 @@ STONNE has been integrated as a component called sstStonne in SST. sstStonne con
 ## How to install sstStonne
 
 Please install sst-elements-with-stonne following the installation description presented in [sst-simulator.org](http://sst-simulator.org). 
+
+## How to run sstStonne
+
+sstStonne must be instanstiated in the SST Configuration file, along with the memory hierarchy components and subcomponents that will be used to model the memory hierarchy. Please refer to our examples for further information:
+
+- sst configuration file to run a convolution operation: tests/sst_stonne_conv.py
+- sst configuration file to run a dense GEMM operation: tests/sst_stonne_gemm.py
+- sst configuration file to run a sparse-sparse GEMM operation where the matrices are encoded using a bitmat format: tests/sst_stonne_bitmapSpMSpM.py
+- sst configuration file to run a sparse-dense GEMM operation where the sparse matrix is encoded using a CSR format: tests/sst_stonne_csrSpMM.py
+
+Also, refer to our scripts to generate the memory initialization files and calculate the memory address locations: 
+- Script for convolution operation: tests/gen_conv.py
+- Script for dense GEMM operation: tests/gen_gemm.py
+- Script for sparse-sparse GEMM operation where the matrices are encoded using a bitmat format: tests/gen_bitmapSpMSpM.py
+
+Please remember to update the SST configuration file with the proper memory address locations and the proper memory intialization file for each kernel to be launched. 
