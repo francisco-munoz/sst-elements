@@ -400,7 +400,7 @@ void SDMemory::cycle() {
                                     data_t data = 0.0;
                            
                                     //Creating the package with the weight and the destination vector
-                                    DataPackage* pck_to_send = new DataPackage(sizeof(data_t), data, WEIGHT, 0, MULTICAST, vector_to_send, this->num_ms);
+                                    DataPackage* pck_to_send = new DataPackage(sizeof(data_t), data, WEIGHT, 0, MULTICAST, vector_to_send, this->num_ms,0,0);
                                     //index_K*this->current_tile->get_T_G() because even though index_K iterations have been calculated previously, there are G groups mapped, so really real index_K*T_G
                                     pck_to_send->setIterationK((index_G)*this->dnn_layer->get_K() + index_K*this->current_tile->get_T_G()); //To avoid sending it to the architecture if the output psums of the previous k channels have not been calculated yet.
                                     //this->sendPackageToInputFifos(pck_to_send);
@@ -434,7 +434,7 @@ void SDMemory::cycle() {
 			            unsigned int receiver = g*current_tile->get_T_K()*window_size  + k*window_size + 
 			    	               c*current_tile->get_T_R()*current_tile->get_T_S() + r*current_tile->get_T_S() + s + folding_shift; //+1 because of the ms we leave free for the folding
 			            //Creating the package with the data in memory and the destination
-                                    DataPackage* pck_to_send = new DataPackage(sizeof(data_t), data, WEIGHT, 0, UNICAST, receiver);
+                                    DataPackage* pck_to_send = new DataPackage(sizeof(data_t), data, WEIGHT, 0, UNICAST, receiver,0,0);
                                     pck_to_send->setIterationK((index_G)*this->dnn_layer->get_K() + index_K*this->current_tile->get_T_G()); //To avoid sending it to the architecture if the output psums of the previous k channels have not been calculated yet.
 
                                     //this->sendPackageToInputFifos(pck_to_send);
@@ -606,7 +606,7 @@ void SDMemory::cycle() {
 				uint64_t new_address = this->input_dram_location + data_width*((index_N+i)*this->input_size+((index_X*this->dnn_layer->get_strides()+ x) + index_R)*this->dnn_layer->get_Y()*this->dnn_layer->get_C()*this->dnn_layer->get_G()+((index_Y*this->dnn_layer->get_strides() + y) + index_S)*this->dnn_layer->get_C()*this->dnn_layer->get_G() + (index_G+g)*dnn_layer->get_C() + (index_C+c));
                                 data_t data = 0.0;
                                 //Creating multicast package. Even though the package was unicast, multicast format is used anyway with just one element true in the destination vector
-                                DataPackage* pck = new DataPackage(sizeof(data_t), data,IACTIVATION,0, MULTICAST, destination_vector, this->num_ms);
+                                DataPackage* pck = new DataPackage(sizeof(data_t), data,IACTIVATION,0, MULTICAST, destination_vector, this->num_ms,0,0);
                                 pck->setIterationK((index_G)*this->dnn_layer->get_K() + index_K*this->current_tile->get_T_G()); //To avoid sending it to the architecture if the output psums of the previous k channels have not been calculated yet.
 
                                 //this->sendPackageToInputFifos(pck);
@@ -723,7 +723,7 @@ void SDMemory::cycle() {
                     destination_vector[i]=false;
                 }
                 destination_vector[vn*this->current_tile->get_VN_Size()]=true;
-                DataPackage* pck = new DataPackage(sizeof(data_t), data, PSUM,0, MULTICAST, destination_vector, this->num_ms);
+                DataPackage* pck = new DataPackage(sizeof(data_t), data, PSUM,0, MULTICAST, destination_vector, this->num_ms,0,0);
                 this->sdmemoryStats.n_SRAM_psum_reads++; //To track information
                 this->sendPackageToInputFifos(pck); //Sending the package to fifos
             }
@@ -764,7 +764,7 @@ void SDMemory::sendPackageToInputFifos(DataPackage* pck) {
         //Send to all the ports with the flag broadcast enabled
         for(int i=0; i<this->n_read_ports; i++) {
             //Creating a replica of the package to be sent to each port
-            DataPackage* pck_new = new DataPackage(pck->get_size_package(), pck->get_data(), pck->get_data_type(), i, BROADCAST); //Size, data, data_type, source (port in this case), BROADCAST
+            DataPackage* pck_new = new DataPackage(pck->get_size_package(), pck->get_data(), pck->get_data_type(), i, BROADCAST,pck->getRow(), pck->getCol()); //Size, data, data_type, source (port in this case), BROADCAST
             //Sending the replica to the suitable fifo that correspond with the port
             if(pck->get_data_type() == PSUM) { //Actually a PSUM cannot be broadcast. But we put this for compatibility
                 psum_fifos[i]->push(pck_new);
@@ -785,7 +785,7 @@ void SDMemory::sendPackageToInputFifos(DataPackage* pck) {
         unsigned int input_port = dest / this->ms_size_per_input_port;
         unsigned int local_dest = dest % this->ms_size_per_input_port;
         //Creating the package 
-        DataPackage* pck_new = new DataPackage(pck->get_size_package(), pck->get_data(), pck->get_data_type(), input_port, UNICAST, local_dest); //size, data, type, source (port), UNICAST, dest_local
+        DataPackage* pck_new = new DataPackage(pck->get_size_package(), pck->get_data(), pck->get_data_type(), input_port, UNICAST, local_dest, 0,0); //size, data, type, source (port), UNICAST, dest_local
         //Sending to the fifo corresponding with port input_port
         if(pck->get_data_type() == PSUM) { //Actually a PSUM cannot be broadcast. But we put this for compatibility
             psum_fifos[input_port]->push(pck_new);
@@ -813,7 +813,7 @@ void SDMemory::sendPackageToInputFifos(DataPackage* pck) {
             }
 
             if(thereis_receiver) { //If this port have at least one ms to true then we send the data to this port i
-                DataPackage* pck_new = new DataPackage(pck->get_size_package(), pck->get_data(), pck->get_data_type(), i, MULTICAST, local_dest, this->ms_size_per_input_port); 
+                DataPackage* pck_new = new DataPackage(pck->get_size_package(), pck->get_data(), pck->get_data_type(), i, MULTICAST, local_dest, this->ms_size_per_input_port,0,0); 
                 if(pck->get_data_type() == PSUM) {
                     psum_fifos[i]->push(pck_new);
                 }

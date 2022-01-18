@@ -76,6 +76,9 @@ sstStonne::sstStonne(SST::ComponentId_t id, SST::Params& params) : Component(id)
   rowpointerMatrixAFileName = params.find< std::string >("rowpointer_matrix_a_init", "");
   colpointerMatrixAFileName = params.find< std::string >("colpointer_matrix_a_init", "");
 
+  rowpointerMatrixBFileName = params.find< std::string >("rowpointer_matrix_b_init", "");
+  colpointerMatrixBFileName = params.find< std::string >("colpointer_matrix_b_init", "");
+
   registerAsPrimaryComponent();
   primaryComponentDoNotEndSim();
   time_converter_ = registerClock(clock_rate, new Clock::Handler<sstStonne>(this,&sstStonne::tic));
@@ -224,7 +227,45 @@ void sstStonne::setup() {
       matrixC=new float[matrixC_size];
       // Data is not mandatory
 
+    } //End csrSpMM operation
+
+      else if(kernelOperation==outerProductGEMM) {
+      if(rowpointerMatrixAFileName=="") {
+        output_->fatal(CALL_INFO, -1, "rowpointer_matrix_a_init parameter is not introduced\n");
+      }
+      if(colpointerMatrixAFileName=="") {
+        output_->fatal(CALL_INFO, -1, "colpointer_matrix_a_init parameter is not introduced\n");
+      }
+
+      if(rowpointerMatrixBFileName=="") {
+        output_->fatal(CALL_INFO, -1, "rowpointer_matrix_b_init parameter is not introduced\n");
+      }
+      if(colpointerMatrixBFileName=="") {
+        output_->fatal(CALL_INFO, -1, "colpointer_matrix_b_init parameter is not introduced\n");
+      }
+
+      matrixA_size=GEMM_M*GEMM_K;
+      matrixB_size=GEMM_N*GEMM_K;
+      matrixC_size=GEMM_M*GEMM_N;
+
+      rowpointerMatrixA=new unsigned int[matrixA_size]; //Change to the minimum using vector class
+      colpointerMatrixA=new unsigned int[matrixA_size];
+
+      rowpointerMatrixB = new unsigned int[matrixB_size];
+      colpointerMatrixB = new unsigned int[matrixB_size];
+
+      unsigned int nValuesRowPointerA=constructCSRStructure(rowpointerMatrixAFileName,rowpointerMatrixA);
+      unsigned int nValuesColPointerA=constructCSRStructure(colpointerMatrixAFileName, colpointerMatrixA);
+
+      unsigned int nValuesRowPointerB=constructCSRStructure(rowpointerMatrixBFileName, rowpointerMatrixB);
+      unsigned int nValuesColPointerB=constructCSRStructure(colpointerMatrixBFileName, colpointerMatrixB);
+      matrixA=NULL; //TODO fix this
+      matrixB=NULL;
+      matrixC=new float[matrixC_size];
+      // Data is not mandatory
+
     }
+
 
     else {
       output_->fatal(CALL_INFO, -1, "Error: Operation unknown\n");
@@ -248,6 +289,9 @@ void sstStonne::setup() {
 	  break;
       case csrSpMM: 
 	  stonne_instance->loadSparseDense(layer_name, GEMM_N, GEMM_K, GEMM_M, matrixA, matrixB, colpointerMatrixA, rowpointerMatrixA, matrixC, GEMM_T_N, GEMM_T_K);
+	  break;
+      case outerProductGEMM:
+	  stonne_instance->loadSparseOuterProduct(layer_name, GEMM_N, GEMM_K, GEMM_M, matrixA, matrixB, colpointerMatrixA, rowpointerMatrixA, colpointerMatrixB, rowpointerMatrixB, NULL);
 	  break;
       default:
 	  output_->fatal(CALL_INFO, -1, "Error: Operation unknown\n");

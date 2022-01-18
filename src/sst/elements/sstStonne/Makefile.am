@@ -47,6 +47,11 @@ libsstStonne_la_SOURCES = \
 	src/testbench.cpp \
 	src/Tile.cpp \
 	src/utility.cpp \
+	src/SparseFlex_MSwitch.cpp \
+        src/SparseFlex_MSNetwork.cpp \
+        src/SparseFlex_ASwitch.cpp \
+        src/SparseFlex_ASNetwork.cpp \
+        src/OuterLoopSpGEMMSDMemory.cpp \
 	include/AccumulationBuffer.h \
 	include/Accumulator.h \
 	include/ASNetwork.h \
@@ -93,6 +98,11 @@ libsstStonne_la_SOURCES = \
 	include/types.h \
 	include/Unit.h \
 	include/utility.h \
+	include/SparseFlex_MSwitch.h \
+	include/SparseFlex_MSNetwork.h \
+	include/SparseFlex_ASwitch.h \
+	include/SparseFlex_ASNetwork.h \
+	include/OuterLoopSpGEMMSDMemory.h \
 	external/cpptoml.h
 deprecated_libsstStonne_sources =
 

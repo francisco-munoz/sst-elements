@@ -22,6 +22,9 @@
 #include "TemporalRN.h"
 #include "OSMeshSDMemory.h"
 #include "OSMeshMN.h"
+#include "SparseFlex_MSNetwork.h"
+#include "SparseFlex_ASNetwork.h"
+#include "OuterLoopSpGEMMSDMemory.h"
 #include "lsQueue.h"
 #include <sst/core/interfaces/simpleMem.h>
 
@@ -36,7 +39,8 @@ private:
     ReduceNetwork* asnet; //ART Network
     LookupTable* lt; //Lookuptable
     MemoryController* mem; //MemoryController abstraction (e.g., SDMemory from MAERI)
-    Bus* collectionBus; //CollectionBus
+    Bus* collectionBusRN; //CollectionBus
+    Bus* collectionBusMN;
     Connection* outputASConnection; //The last connection of the AS and input to the lookuptable
     Connection* outputLTConnection; //Output of the lookup table connection and write port to the SDMemory
     Connection** addersBusConnections; //Array of output connections between the adders and the bus
@@ -53,6 +57,7 @@ private:
     void connectMSNandDSN(); //Function to connect the multiplieers of the MSN to the last level switches in the DSN.
     void connectMSNandASN();
     void connectASNandBus(); //Connect the adders to the Collection bus
+    void connectMSNandBus();
     void connectBusandMemory(); //Connect the bus and the memory write ports.
     void printGlobalStats(std::ofstream& out, unsigned int indent);
    
@@ -97,6 +102,8 @@ public:
 
     //Load sparse-dense GEMM onto STONNE
     void loadSparseDense(std::string layer_name, unsigned int N, unsigned int K, unsigned int M, address_t MK_matrix, address_t KN_matrix, metadata_address_t MK_metadata_id, metadata_address_t MK_metadata_pointer, address_t output_matrix, unsigned int T_N, unsigned int T_K);
+
+    void loadSparseOuterProduct(std::string layer_name, unsigned int N, unsigned int K, unsigned int M, address_t MK_matrix, address_t KN_matrix, metadata_address_t MK_metadata_id, metadata_address_t MK_metadata_pointer, metadata_address_t KN_metadata_id, metadata_address_t KN_metadata_pointer, address_t output_matrix);
 
    //Load a Dense GEMM tile to run it using the loadDenseGEMM function
    void loadGEMMTile(unsigned int T_N, unsigned int T_K, unsigned int T_M);

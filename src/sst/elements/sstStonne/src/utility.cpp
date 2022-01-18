@@ -47,6 +47,8 @@ std::string get_string_layer_t(Layer_t kernelOperation) {
 
 	case csrSpMM: 
 	    return "csrSpMM";
+	case outerProductGEMM:
+	    return "outerProductGEMM";
         default:
             assert(false);
             break;
@@ -68,6 +70,10 @@ Layer_t get_type_layer_t(std::string kernelOperation) {
 	else if(kernelOperation=="csrSpMM") {
             return csrSpMM;
 	}
+
+	else if(kernelOperation=="outerProductGEMM") {
+            return outerProductGEMM;
+        }
 
         else {
             std::cout << kernelOperation << " Not found" << std::endl;
@@ -140,6 +146,9 @@ std::string get_string_reduce_network_type(ReduceNetwork_t reduce_network_type) 
 	case TEMPORALRN:
 	    return "TEMPORALRN";
 	    break;
+	case SPARSEFLEX_MERGER:
+	    return "SPARSEFLEX_MERGER";
+	    break;
         default:
             assert(false);
             break;
@@ -157,6 +166,10 @@ ReduceNetwork_t get_type_reduce_network_type(std::string reduce_network_type) {
 	else if(reduce_network_type=="TEMPORALRN") {
             return TEMPORALRN;
 	}
+
+	else if(reduce_network_type=="SPARSEFLEX_MERGER") {
+	    return SPARSEFLEX_MERGER;
+	}
         else {
             std::cout << reduce_network_type << " Not found" << std::endl;
             assert(false);
@@ -172,6 +185,8 @@ std::string get_string_multiplier_network_type(MultiplierNetwork_t multiplier_ne
         case OS_MESH:
             return "OS_MESH";
             break;
+	case SPARSEFLEX_LINEAR:
+	    return "SPARSEFLEX_LINEAR";
         default:
             assert(false);
             break;
@@ -185,6 +200,10 @@ MultiplierNetwork_t get_type_multiplier_network_type(std::string multiplier_netw
         else if(multiplier_network_type=="OS_MESH") {
             return OS_MESH;
         }
+
+	else if(multiplier_network_type=="SPARSEFLEX_LINEAR") {
+            return SPARSEFLEX_LINEAR;
+	}
 
         else {
             std::cout << multiplier_network_type << " Not found" << std::endl;
@@ -211,6 +230,10 @@ std::string get_string_memory_controller_type(MemoryController_t memory_controll
 	    return "MAGMA_SPARSE_DENSE";
 	    break;
 
+	case OUTER_PRODUCT_GEMM:
+	    return "OUTER_PRODUCT_GEMM";
+
+
         default:
             assert(false);
             break;
@@ -233,6 +256,10 @@ MemoryController_t get_type_memory_controller_type(std::string memory_controller
 	else if(memory_controller_type=="MAGMA_SPARSE_DENSE") {
             return MAGMA_SPARSE_DENSE;
         }
+
+	else if(memory_controller_type=="OUTER_PRODUCT_GEMM") {
+            return OUTER_PRODUCT_GEMM;
+	}
 
         else {
             std::cout << memory_controller_type << " Not found" << std::endl;

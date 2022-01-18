@@ -62,6 +62,8 @@ public:
 	{"bitmap_matrix_b_init", "MK bitmap used for bitmapSpMSpM operation", ""},
 	{"rowpointer_matrix_a_init","MK row pointer for csrSpMM operation",""},
 	{"colpointer_matrix_a_init","MK col pointer for csrSpMM operation",""},
+	{"rowpointer_matrix_b_init","KN row pointer for csrSpMM operation",""},
+        {"colpointer_matrix_b_init","KN col pointer for csrSpMM operation",""},
 
     )
 
@@ -160,6 +162,9 @@ private:
 
     std::string rowpointerMatrixAFileName;
     std::string colpointerMatrixAFileName;
+   
+    std::string rowpointerMatrixBFileName;
+    std::string colpointerMatrixBFileName;
 
 
     /**************************************************************************/
@@ -179,6 +184,9 @@ private:
 
     unsigned int* rowpointerMatrixA; //This is the row pointer of MK matrix in csrSpMM operation
     unsigned int* colpointerMatrixA; //This is the col pointer of MK matrix in csrSpMM operation
+
+    unsigned int* rowpointerMatrixB;  //This is the pointer of KN matrix in outerProduct operation
+    unsigned int* colpointerMatrixB;  //This is the id pointer of KN matrix in outerProduct operation
     
     /**************************************************************************/
     /* Auxiliary variables */

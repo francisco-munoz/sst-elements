@@ -30,6 +30,9 @@ Stonne::Stonne(Config stonne_cfg, SST::SST_STONNE::LSQueue* load_queue_, SST::SS
 	case OS_MESH:
 	    this->msnet = new OSMeshMN(2, "OSMesh", stonne_cfg);
 	    break;
+	 case SPARSEFLEX_LINEAR:
+            this->msnet = new  SparseFlex_MSNetwork(2, "MSNetwork", stonne_cfg);
+            break;
 	default:
 	    assert(false);
     }
@@ -47,11 +50,15 @@ Stonne::Stonne(Config stonne_cfg, SST::SST_STONNE::LSQueue* load_queue_, SST::SS
     case TEMPORALRN:
 	this->asnet = new TemporalRN(3, "TemporalRN", stonne_cfg, outputASConnection);
 	break;
+    case SPARSEFLEX_MERGER:
+	this->asnet = new SparseFlex_ASNetwork(3, "TemporalRN", stonne_cfg, outputASConnection);
+	break;
     default:
 	assert(false);
     }
 
-    this->collectionBus = new Bus(4, "CollectionBus", stonne_cfg); 
+    this->collectionBusRN = new Bus(4, "CollectionBusRN", stonne_cfg);
+    this->collectionBusMN = new Bus(10, "CollectionBusMN", stonne_cfg);
     this->lt = new LookupTable(5, "LookUpTable", stonne_cfg, outputASConnection, outputLTConnection);
 
     //switch(MemoryController). It is possible to create instances of other MemoryControllers
@@ -67,6 +74,8 @@ Stonne::Stonne(Config stonne_cfg, SST::SST_STONNE::LSQueue* load_queue_, SST::SS
 	    break;
 	case MAGMA_SPARSE_DENSE:
             this->mem = new  SparseDenseSDMemory(0, "SparseDenseSDMemory", stonne_cfg, this->outputLTConnection, load_queue_, write_queue_, mem_interface_);
+	case OUTER_PRODUCT_GEMM:
+            this->mem = new OuterLoopSpGEMMSDMemory(0, "OSMeshSDMemory", stonne_cfg, this->outputLTConnection);
             break;
 	default:
 	    assert(false);
@@ -83,6 +92,7 @@ Stonne::Stonne(Config stonne_cfg, SST::SST_STONNE::LSQueue* load_queue_, SST::SS
     this->connectMSNandASN();
 
     this->connectASNandBus();
+    this->connectMSNandBus();
     this->connectBusandMemory();
   
     //DEBUG PARAMETERS
@@ -105,7 +115,8 @@ Stonne::~Stonne() {
     delete this->outputLTConnection;
     delete this->lt;
     delete this->mem;
-    delete this->collectionBus;
+    delete this->collectionBusMN;
+    delete this->collectionBusRN;
     if(layer_loaded) {
         delete this->dnn_layer;
     }
@@ -142,16 +153,27 @@ void Stonne::connectMSNandASN() {
 }
 
 void Stonne::connectASNandBus() {
-        std::vector<std::vector<Connection*>> connectionsBus = this->collectionBus->getInputConnections(); //Getting the CollectionBus Connections
+        std::vector<std::vector<Connection*>> connectionsBus = this->collectionBusRN->getInputConnections(); //Getting the CollectionBus Connections
         this->asnet->setMemoryConnections(connectionsBus); //Send the connections to the ReduceNetwork to be connected according to its algorithm
    
    
     
 }
 
+void Stonne::connectMSNandBus() {
+        std::vector<std::vector<Connection*>> connectionsBus = this->collectionBusMN->getInputConnections(); //Getting the CollectionBus Connections
+        this->msnet->setMemoryConnections(connectionsBus); //Send the connections to the ReduceNetwork to be connected according to its algorithm
+
+}
+
 void Stonne::connectBusandMemory() {
-    std::vector<Connection*> write_port_connections = this->collectionBus->getOutputConnections();
-    this->mem->setWriteConnections(write_port_connections);
+    std::vector<Connection*> write_port_connections_rn = this->collectionBusRN->getOutputConnections();
+    std::vector<Connection*> write_port_connections_mn = this->collectionBusMN->getOutputConnections();
+    for(int i=0; i<write_port_connections_mn.size(); i++) {
+        write_port_connections_rn.push_back(write_port_connections_mn[i]); //We will pass all the connections to the memory in the same structure
+    }
+    this->mem->setWriteConnections(write_port_connections_rn);
+
        
 }
 
@@ -219,6 +241,22 @@ void Stonne::loadSparseDense(std::string layer_name, unsigned int N, unsigned in
     /////To define in the new class
     this->mem->setDenseSpatialData(T_N, T_K);
     std::cout << "Loading tile data" << std::endl;
+}
+
+void Stonne::loadSparseOuterProduct(std::string layer_name, unsigned int N, unsigned int K, unsigned int M, address_t MK_matrix, address_t KN_matrix, metadata_address_t MK_metadata_id, metadata_address_t MK_metadata_pointer, metadata_address_t KN_metadata_id, metadata_address_t KN_metadata_pointer, address_t output_matrix) {
+    //Setting GEMM (from SIGMA) parameters onto CNN parameters:
+    //K in CNN=N here
+    //C in CNN =K here
+    //N in CNN = M here
+    //input_matrix=MK
+    //filter_matrix = KN
+    loadDNNLayer(SPARSE_DENSE, layer_name, 1, 1, K, N, 1, M, 1, 1, 1, MK_matrix, KN_matrix, output_matrix, SPARSE_DENSE_DATAFLOW);
+    std::cout << "Loading a Sparse multiplied by dense GEMM into STONNE" << std::endl;
+    /////To define in the new class
+    this->mem->setSparseMatrixMetadata(MK_metadata_id, MK_metadata_pointer, KN_metadata_id, KN_metadata_pointer);
+    std::cout << "Loading metadata" << std::endl;
+
+
 }
 
 
@@ -318,7 +356,8 @@ bool Stonne::isExecutionFinished() {
 
 void Stonne::cycle() {
         this->mem->cycle();
-        this->collectionBus->cycle(); 
+        this->collectionBusRN->cycle(); 
+	this->collectionBusMN->cycle();
         this->asnet->cycle();
         this->lt->cycle();
         this->msnet->cycle();
@@ -380,7 +419,7 @@ void Stonne::printStats() {
         out << "," << std::endl;
         this->mem->printStats(out, indent);
         out << "," << std::endl;
-        this->collectionBus->printStats(out, indent);
+        this->collectionBusRN->printStats(out, indent);
         out << std::endl;
         
      
@@ -415,7 +454,7 @@ void Stonne::printEnergy() {
     out << "[GlobalBuffer]" << std::endl;
     this->mem->printEnergy(out, indent);
     out << "[CollectionBus]" << std::endl;
-    this->collectionBus->printEnergy(out, indent);
+    this->collectionBusRN->printEnergy(out, indent);
     out << std::endl;
 
     out.close();
@@ -484,7 +523,7 @@ void Stonne::testDSNetwork(unsigned int num_ms) {
     for(int i=0; i<6; i++)
         dests[i]=true;
 
-    DataPackage* data_to_send = new DataPackage(32, 1, IACTIVATION, 0, MULTICAST, dests, num_ms);
+    DataPackage* data_to_send = new DataPackage(32, 1, IACTIVATION, 0, MULTICAST, dests, num_ms,0,0);
     std::vector<DataPackage*> vector_to_send;
     vector_to_send.push_back(data_to_send);
     //this->inputDSConnection->send(vector_to_send);

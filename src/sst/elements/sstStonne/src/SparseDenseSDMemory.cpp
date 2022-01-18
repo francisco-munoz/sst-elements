@@ -226,13 +226,13 @@ void SparseDenseSDMemory::cycle() {
 	       	     data = 0.0; 
 	       	     sdmemoryStats.n_SRAM_weight_reads++;
 	       	     this->n_ones_sta_matrix++;
-		     DataPackage* pck_to_send = new DataPackage(sizeof(data_t), data, WEIGHT, 0, MULTICAST, destinations, this->num_ms);
+		     DataPackage* pck_to_send = new DataPackage(sizeof(data_t), data, WEIGHT, 0, MULTICAST, destinations, this->num_ms,0,0);
 		     doLoad(new_addr, pck_to_send);
 	       }
 	       else
 	       {
 	             data = 0.0;
-		     DataPackage* pck_to_send = new DataPackage(sizeof(data_t), data, WEIGHT, 0, MULTICAST, destinations, this->num_ms);
+		     DataPackage* pck_to_send = new DataPackage(sizeof(data_t), data, WEIGHT, 0, MULTICAST, destinations, this->num_ms,0,0);
                      this->sendPackageToInputFifos(pck_to_send);
 
 	       }
@@ -264,21 +264,21 @@ void SparseDenseSDMemory::cycle() {
 			 uint64_t new_addr = this->weight_dram_location + (MK_col_id[STA_base+index_K]*N+index_N)*this->data_width;
 	       	         data = 0.0; //Row of the dense matrix is indexed by the col id of sparse matrix
 			 sdmemoryStats.n_SRAM_input_reads++;
-			 DataPackage* pck_to_send = new DataPackage(sizeof(data_t), data, IACTIVATION, 0, UNICAST, dest);
+			 DataPackage* pck_to_send = new DataPackage(sizeof(data_t), data, IACTIVATION, 0, UNICAST, dest,0,0);
 			 doLoad(new_addr, pck_to_send);
 
 
 		     }
 		     else {
                          data = 0.0;
-			 DataPackage* pck_to_send = new DataPackage(sizeof(data_t), data, IACTIVATION, 0, UNICAST, dest);
+			 DataPackage* pck_to_send = new DataPackage(sizeof(data_t), data, IACTIVATION, 0, UNICAST, dest,0,0);
 	                 this->sendPackageToInputFifos(pck_to_send);
 		     }
 	       }
 	       else
 	       {
 	             data = 0.0;
-		     DataPackage* pck_to_send = new DataPackage(sizeof(data_t), data, IACTIVATION, 0, UNICAST, dest);
+		     DataPackage* pck_to_send = new DataPackage(sizeof(data_t), data, IACTIVATION, 0, UNICAST, dest,0,0);
                      this->sendPackageToInputFifos(pck_to_send);
 	       }
 	       
@@ -414,7 +414,7 @@ void SparseDenseSDMemory::sendPackageToInputFifos(DataPackage* pck) {
         //Send to all the ports with the flag broadcast enabled
         for(int i=0; i<this->n_read_ports; i++) {
             //Creating a replica of the package to be sent to each port
-            DataPackage* pck_new = new DataPackage(pck->get_size_package(), pck->get_data(), pck->get_data_type(), i, BROADCAST); //Size, data, data_type, source (port in this case), BROADCAST
+            DataPackage* pck_new = new DataPackage(pck->get_size_package(), pck->get_data(), pck->get_data_type(), i, BROADCAST, pck->getRow(), pck->getCol()); //Size, data, data_type, source (port in this case), BROADCAST
             //Sending the replica to the suitable fifo that correspond with the port
             if(pck->get_data_type() == PSUM) { //Actually a PSUM cannot be broadcast. But we put this for compatibility
                 psum_fifos[i]->push(pck_new);
@@ -435,7 +435,7 @@ void SparseDenseSDMemory::sendPackageToInputFifos(DataPackage* pck) {
         unsigned int input_port = dest / this->ms_size_per_input_port;
         unsigned int local_dest = dest % this->ms_size_per_input_port;
         //Creating the package 
-        DataPackage* pck_new = new DataPackage(pck->get_size_package(), pck->get_data(), pck->get_data_type(), input_port, UNICAST, local_dest); //size, data, type, source (port), UNICAST, dest_local
+        DataPackage* pck_new = new DataPackage(pck->get_size_package(), pck->get_data(), pck->get_data_type(), input_port, UNICAST, local_dest, pck->getRow(), pck->getCol()); //size, data, type, source (port), UNICAST, dest_local
         //Sending to the fifo corresponding with port input_port
         if(pck->get_data_type() == PSUM) { //Actually a PSUM cannot be broadcast. But we put this for compatibility
             psum_fifos[input_port]->push(pck_new);
@@ -463,7 +463,7 @@ void SparseDenseSDMemory::sendPackageToInputFifos(DataPackage* pck) {
             }
 
             if(thereis_receiver) { //If this port have at least one ms to true then we send the data to this port i
-                DataPackage* pck_new = new DataPackage(pck->get_size_package(), pck->get_data(), pck->get_data_type(), i, MULTICAST, local_dest, this->ms_size_per_input_port); 
+                DataPackage* pck_new = new DataPackage(pck->get_size_package(), pck->get_data(), pck->get_data_type(), i, MULTICAST, local_dest, this->ms_size_per_input_port, pck->getRow(), pck->getCol()); 
                 if(pck->get_data_type() == PSUM) {
                     psum_fifos[i]->push(pck_new);
                 }
