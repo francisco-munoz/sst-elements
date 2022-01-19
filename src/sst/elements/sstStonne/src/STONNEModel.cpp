@@ -75,7 +75,7 @@ Stonne::Stonne(Config stonne_cfg, SST::SST_STONNE::LSQueue* load_queue_, SST::SS
 	case MAGMA_SPARSE_DENSE:
             this->mem = new  SparseDenseSDMemory(0, "SparseDenseSDMemory", stonne_cfg, this->outputLTConnection, load_queue_, write_queue_, mem_interface_);
 	case OUTER_PRODUCT_GEMM:
-            this->mem = new OuterLoopSpGEMMSDMemory(0, "OSMeshSDMemory", stonne_cfg, this->outputLTConnection);
+            this->mem = new OuterLoopSpGEMMSDMemory(0, "OSMeshSDMemory", stonne_cfg, this->outputLTConnection,  load_queue_, write_queue_, mem_interface_);
             break;
 	default:
 	    assert(false);
@@ -92,7 +92,9 @@ Stonne::Stonne(Config stonne_cfg, SST::SST_STONNE::LSQueue* load_queue_, SST::SS
     this->connectMSNandASN();
 
     this->connectASNandBus();
-    this->connectMSNandBus();
+    if(stonne_cfg.m_MSNetworkCfg.multiplier_network_type == SPARSEFLEX_LINEAR) {
+        this->connectMSNandBus();
+    }
     this->connectBusandMemory();
   
     //DEBUG PARAMETERS

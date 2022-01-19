@@ -285,7 +285,7 @@ void sstStonne::setup() {
           stonne_instance->loadGEMMTile(GEMM_T_N, GEMM_T_K, GEMM_T_M);
 	  break;
       case bitmapSpMSpM:
-          stonne_instance->loadGEMM(layer_name, GEMM_N, GEMM_K, GEMM_M, matrixA, matrixB, bitmapMatrixA, bitmapMatrixB, matrixC, bitmapMatrixC, MK_STR_KN_STA );
+          stonne_instance->loadGEMM(layer_name, GEMM_N, GEMM_K, GEMM_M, matrixA, matrixB, bitmapMatrixA, bitmapMatrixB, matrixC, bitmapMatrixC, MK_STA_KN_STR );
 	  break;
       case csrSpMM: 
 	  stonne_instance->loadSparseDense(layer_name, GEMM_N, GEMM_K, GEMM_M, matrixA, matrixB, colpointerMatrixA, rowpointerMatrixA, matrixC, GEMM_T_N, GEMM_T_K);

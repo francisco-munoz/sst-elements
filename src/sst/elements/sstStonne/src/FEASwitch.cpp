@@ -340,7 +340,7 @@ DataPackage* FEASwitch::perform_operation_2_operands(DataPackage* pck_left, Data
             assert(false); // This case must not occur in this type of configuration adder
     }
     //Creating the result package with the output
-    DataPackage* result_pck = new DataPackage (sizeof(data_t), result, PSUM, this->level, pck_left->get_vn(), this->operation_mode);  //TODO the size of the package corresponds with the data size
+    DataPackage* result_pck = new DataPackage (sizeof(data_t), result, PSUM, this->level, pck_left->get_vn(), this->operation_mode, pck_left->getRow(), pck_left->getRow());  //TODO the size of the package corresponds with the data size
     //Adding to the creation list to be deleted afterward
 //    this->psums_created.push_back(result_pck);
     return result_pck;
@@ -377,7 +377,7 @@ DataPackage* FEASwitch::perform_operation_3_operands(DataPackage* pck_left, Data
     }
 
     //Wrapping over a package
-    DataPackage* result_pck = new DataPackage (sizeof(data_t), result, PSUM, this->level, pck_left->get_vn(), this->operation_mode);  //TODO the size of the package corresponds with the data size
+    DataPackage* result_pck = new DataPackage (sizeof(data_t), result, PSUM, this->level, pck_left->get_vn(), this->operation_mode, pck_left->getRow(), pck_left->getCol());  //TODO the size of the package corresponds with the data size
     //std::cout << "FEASwitch " << level << ":" << num_in_level << " Has computed a value" << std::endl;
     //Adding to the creation list to be deleted afterward
     //this->psums_created.push_back(result_pck);

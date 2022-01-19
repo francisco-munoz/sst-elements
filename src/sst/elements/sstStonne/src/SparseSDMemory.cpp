@@ -105,6 +105,7 @@ void SparseSDMemory::setLayer(DNNLayer* dnn_layer, address_t MK_address, address
 
     if(dataflow==MK_STA_KN_STR) {
 	std::cout << "Running MK_STA_KN_STR Dataflow" << std::endl;
+	std::cout << "Second message for test" << std::endl;
         this->STA_address = MK_address;
 	this->dim_sta = M;
 	this->STR_address = KN_address;
@@ -129,6 +130,7 @@ void SparseSDMemory::setLayer(DNNLayer* dnn_layer, address_t MK_address, address
 
     else if(dataflow==MK_STR_KN_STA) {
 	std::cout << "Running MK_STR_KN_STA Dataflow" << std::endl;
+	std::cout << "Second message for test" << std::endl;
         this->STA_address = KN_address;
 	this->dim_sta = N;
 	this->STR_address = MK_address;

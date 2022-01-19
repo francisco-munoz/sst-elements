@@ -5,14 +5,24 @@
 #include "utility.h"
 #include <math.h>
 
-OuterLoopSpGEMMSDMemory::OuterLoopSpGEMMSDMemory(id_t id, std::string name, Config stonne_cfg, Connection* write_connection) : MemoryController(id, name) {
+OuterLoopSpGEMMSDMemory::OuterLoopSpGEMMSDMemory(id_t id, std::string name, Config stonne_cfg, Connection* write_connection, SST::SST_STONNE::LSQueue* load_queue_, SST::SST_STONNE::LSQueue* write_queue_, SimpleMem*  mem_interface_) : MemoryController(id, name) {
     this->write_connection = write_connection;
+    this->load_queue_ = load_queue_;
+    this->write_queue_ = write_queue_;
+    this->mem_interface_ = mem_interface_;
+
     //Collecting parameters from the configuration file
     this->num_ms = stonne_cfg.m_MSNetworkCfg.ms_size;  //Used to send data
     this->n_read_ports=stonne_cfg.m_SDMemoryCfg.n_read_ports;
     this->n_write_ports=stonne_cfg.m_SDMemoryCfg.n_write_ports;
     this->write_buffer_capacity=stonne_cfg.m_SDMemoryCfg.write_buffer_capacity;
     this->port_width=stonne_cfg.m_SDMemoryCfg.port_width;
+
+    this->weight_dram_location=stonne_cfg.m_SDMemoryCfg.weight_address;
+    this->input_dram_location=stonne_cfg.m_SDMemoryCfg.input_address;
+    this->output_dram_location=stonne_cfg.m_SDMemoryCfg.output_address;
+    this->data_width=stonne_cfg.m_SDMemoryCfg.data_width;
+    this->n_write_mshr=stonne_cfg.m_SDMemoryCfg.n_write_mshr;
     //End collecting parameters from the configuration file
     //Initializing parameters
     this->ms_size_per_input_port = this->num_ms / this->n_read_ports;
@@ -151,6 +161,29 @@ void OuterLoopSpGEMMSDMemory::cycle() {
     //std::vector<DataPackage*> psum_to_send; // psum temporal storage
     this->local_cycle+=1;
     this->sdmemoryStats.total_cycles++; //To track information
+    while(load_queue_->getNumCompletedEntries() > 0) {
+      SimpleMem::Request::id_t req_id = load_queue_->getNextCompletedEntry();
+      DataPackage* pck = load_queue_->getEntryPackage(req_id);
+      load_queue_->removeEntry(req_id);
+      this->sendPackageToInputFifos(pck); //Sending the package
+
+    }
+
+    //Processing write memory requests
+    while(write_queue_->getNumCompletedEntries() > 0) {
+      SimpleMem::Request::id_t req_id = write_queue_->getNextCompletedEntry();
+      DataPackage* pck = write_queue_->getEntryPackage(req_id);
+      write_queue_->removeEntry(req_id);
+      data_t data = pck->get_data();
+      uint64_t addr = pck->get_address();
+      addr = addr - this->output_dram_location; //To access to the array. If we remove the array feature this is no longer necessary
+      addr = addr / this->data_width;
+      this->output_address[addr]=data;
+      delete pck;
+    }
+
+    if((load_queue_->getNumPendingEntries() == 0) && (write_queue_->getNumPendingEntries() < this->n_write_mshr)) {
+
     if(current_state==CONFIGURING)
     {	//Initialize these for the first time
 	 this->n_str_data_received = 0;
@@ -180,6 +213,7 @@ void OuterLoopSpGEMMSDMemory::cycle() {
 		   multipliers_used++;
 		   //Sending package
 		   vnat_table[i]=col; //To find out the row of mstrix KN. 
+		   uint64_t new_addr = input_dram_location + current_MK_row_id*this->data_width;
 		   data_t data = MK_address[current_MK_row_id];
 		   DataPackage* pck_to_send = new DataPackage(sizeof(data_t), data, WEIGHT, 0, UNICAST, i, row, col);
 		   //std::cout << "[Cycle " << this->local_cycle << "] Sending data with value " << data << std::endl;
@@ -293,7 +327,7 @@ void OuterLoopSpGEMMSDMemory::cycle() {
     }
       
             
-    
+    } //End if there is no pending requests    
     //Receiving output data from write_connection
     this->receive();
     if(!write_fifo->isEmpty()) {
@@ -460,7 +494,7 @@ void OuterLoopSpGEMMSDMemory::cycle() {
 }
 
 bool OuterLoopSpGEMMSDMemory::isExecutionFinished() {
-    return this->execution_finished;
+	return ((this->execution_finished) && (write_queue_->getNumPendingEntries() == 0));
 }
 
 /* The traffic generation algorithm generates a package that contains a destination for all the ms. We have to divide it into smaller groups of ms since they are divided into several ports */
@@ -624,4 +658,41 @@ void OuterLoopSpGEMMSDMemory::printEnergy(std::ofstream& out, unsigned int inden
    out << ind(indent) << " WRITE=" << writes << std::endl;
         
 }
+
+bool OuterLoopSpGEMMSDMemory::doLoad(uint64_t addr, DataPackage* data_package)
+    {
+        SimpleMem::Request* req = new SimpleMem::Request(SimpleMem::Request::Read, addr, this->data_width);
+
+        //output_->verbose(CALL_INFO, 4, 0, "Creating a load request (%" PRIu32 ") from address: %" PRIu64 "\n", uint32_t(req->id), addr);
+
+        SST::SST_STONNE::LSEntry* tempEntry = new SST::SST_STONNE::LSEntry( req->id, data_package, 0 );
+        load_queue_->addEntry( tempEntry );
+
+        mem_interface_->sendRequest( req );
+
+        return 1;
+
+    }
+
+
+   bool OuterLoopSpGEMMSDMemory::doStore(uint64_t addr, DataPackage* data_package)
+    {
+        SimpleMem::Request* req = new SimpleMem::Request(SimpleMem::Request::Write, addr, 4);
+
+        const auto newValue = data_package->get_data();
+        constexpr auto size = sizeof(uint32_t);
+        uint8_t buffer[size] = {};
+        std::memcpy(buffer, std::addressof(newValue), size);
+
+        std::vector< uint8_t > payload(4);
+        memcpy( std::addressof(payload[0]), std::addressof(newValue), size );
+        req->setPayload( payload );
+
+        SST::SST_STONNE::LSEntry* tempEntry = new SST::SST_STONNE::LSEntry( req->id, data_package, 1);
+        write_queue_->addEntry( tempEntry );
+
+        mem_interface_->sendRequest( req );
+
+        return 1;
+    }
 

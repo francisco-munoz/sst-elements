@@ -14,6 +14,8 @@
 #include "MemoryController.h"
 #include "MultiplierNetwork.h"
 #include "ReduceNetwork.h"
+#include "lsQueue.h"
+#include <sst/core/interfaces/simpleMem.h>
 
 
 class OuterLoopSpGEMMSDMemory : public MemoryController {
@@ -67,6 +69,11 @@ private:
     metadata_address_t MK_col_pointer; //Actually this is col pointer, but the functionality is the same.
     metadata_address_t KN_col_id;
     metadata_address_t KN_row_pointer; 
+
+    //SST Memory hierarchy component structures and variables
+    SST::SST_STONNE::LSQueue* load_queue_;
+    SST::SST_STONNE::LSQueue* write_queue_;
+    SimpleMem*  mem_interface_;
     
     
     //Current pointers
@@ -76,6 +83,14 @@ private:
     unsigned int current_KN;
     unsigned int current_KN_row_pointer;
     unsigned int current_KN_col_id;
+
+    /* SST variables */
+    uint64_t weight_dram_location;
+    uint64_t input_dram_location;
+    uint64_t output_dram_location;
+
+    uint32_t data_width;
+    uint32_t n_write_mshr;
    
     //Aux parameters
     unsigned int MK_number_nnz; 
@@ -133,6 +148,8 @@ private:
    //Aux functions
    void receive();
    void send();
+   bool doLoad(uint64_t addr, DataPackage* data_package);
+   bool doStore(uint64_t addr, DataPackage* data_package);
    void sendPackageToInputFifos(DataPackage* pck);
    std::vector<Connection*> getWritePortConnections()    const {return this->write_port_connections;}
 
@@ -140,7 +157,7 @@ private:
     
     
 public:
-    OuterLoopSpGEMMSDMemory(id_t id, std::string name, Config stonne_cfg, Connection* write_connection);
+    OuterLoopSpGEMMSDMemory(id_t id, std::string name, Config stonne_cfg, Connection* write_connection, SST::SST_STONNE::LSQueue* load_queue_, SST::SST_STONNE::LSQueue* write_queue_, SimpleMem*  mem_interface_);
     ~OuterLoopSpGEMMSDMemory();
     void setLayer(DNNLayer* dnn_layer,  address_t KN_address, address_t MK_address, address_t output_address, Dataflow dataflow);
     void setTile(Tile* current_tile) {assert(false);}
