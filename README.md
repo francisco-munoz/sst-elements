@@ -57,3 +57,18 @@ Also, refer to our scripts to generate the memory initialization files and calcu
 - Script for sparse-sparse GEMM operation where the matrices are encoded using a bitmat format: tests/gen_bitmapSpMSpM.py
 
 Please remember to update the SST configuration file with the proper memory address locations and the proper memory intialization file for each kernel to be launched. 
+
+# Citations
+Please if you use sstStonne component cite us: 
+
+```
+@INPROCEEDINGS{STONNE21,
+  author =       {Francisco Mu{\~n}oz-Matr{\'i}nez and Jos{\'e} L. Abell{\'a}n and Manuel E. Acacio and Tushar Krishna},
+  title =        {STONNE: Enabling Cycle-Level Microarchitectural Simulation for DNN Inference Accelerators},
+  booktitle =    {2021 IEEE International Symposium on Workload Characterization (IISWC)}, 
+  year =         {2021},
+  volume =       {},
+  number =       {},
+  pages =        {},
+}
+```
