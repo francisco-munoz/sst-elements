@@ -109,6 +109,9 @@ std::string get_string_adder_configuration(adderconfig_t config) {
         return "FOLD";
         break;
 
+	case SORT_TREE:
+	return "SORT_TREE";
+
         default:
             assert(false);
     }

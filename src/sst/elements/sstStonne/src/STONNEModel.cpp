@@ -118,7 +118,7 @@ Stonne::~Stonne() {
     delete this->lt;
     delete this->mem;
     delete this->collectionBusMN;
-    delete this->collectionBusRN;
+    delete this->collectionBusRN; 
     if(layer_loaded) {
         delete this->dnn_layer;
     }

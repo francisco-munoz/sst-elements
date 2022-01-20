@@ -84,6 +84,7 @@ OuterLoopSpGEMMSDMemory::OuterLoopSpGEMMSDMemory(id_t id, std::string name, Conf
     }
     this->n_values_stored=0;
     this->swap_memory_enabled=false;
+    this->current_sorting_iteration=0;
 
 }
 
@@ -182,7 +183,7 @@ void OuterLoopSpGEMMSDMemory::cycle() {
       delete pck;
     }
 
-    if((load_queue_->getNumPendingEntries() == 0) && (write_queue_->getNumPendingEntries() < this->n_write_mshr)) {
+    if((load_queue_->getNumPendingEntries() == 0) ){ //&& (write_queue_->getNumPendingEntries() < this->n_write_mshr)) {
 
     if(current_state==CONFIGURING)
     {	//Initialize these for the first time
@@ -214,10 +215,10 @@ void OuterLoopSpGEMMSDMemory::cycle() {
 		   //Sending package
 		   vnat_table[i]=col; //To find out the row of mstrix KN. 
 		   uint64_t new_addr = input_dram_location + current_MK_row_id*this->data_width;
-		   data_t data = MK_address[current_MK_row_id];
+		   data_t data = 0.0;
 		   DataPackage* pck_to_send = new DataPackage(sizeof(data_t), data, WEIGHT, 0, UNICAST, i, row, col);
+		   doLoad(new_addr, pck_to_send);
 		   //std::cout << "[Cycle " << this->local_cycle << "] Sending data with value " << data << std::endl;
-                   this->sendPackageToInputFifos(pck_to_send);
 		   //Update variables
 		   current_MK_row_id++;
 		   if(current_MK_row_id >= MK_col_pointer[current_MK_col_pointer+1]) {
@@ -248,10 +249,11 @@ void OuterLoopSpGEMMSDMemory::cycle() {
 	        found = true;
 		this->n_str_data_sent++;
                 //Send STR value to this multiplier
-		data_t data = KN_address[KN_row_pointer[row]+this->current_KN];
+		uint64_t new_addr = this->weight_dram_location + (KN_row_pointer[row]+this->current_KN)*this->data_width;
+		data_t data = 0.0;
                 DataPackage* pck_to_send = new DataPackage(sizeof(data_t), data, IACTIVATION, 0, UNICAST, i, row, KN_col_id[KN_row_pointer[row]+this->current_KN]);
                 //std::cout << "[Cycle " << this->local_cycle << "] Sending STREAMING data with value " << data << std::endl;
-                this->sendPackageToInputFifos(pck_to_send);
+		doLoad(new_addr, pck_to_send);
 
                 
 	    }
@@ -296,7 +298,7 @@ void OuterLoopSpGEMMSDMemory::cycle() {
                 (*pointer_current_memory)[i].pop();
                 int destination = j;
                 DataPackage* pck_to_send = new DataPackage(sizeof(data_t), pck_stored->get_data(), PSUM, this->current_sorting_iteration, UNICAST, destination, pck_stored->getRow(), pck_stored->getCol());
-          //      std::cout << "[Cycle " << this->local_cycle << "] Sending data ROW=" << pck_to_send->getRow() << " COL=" << pck_to_send->getCol()  << " Data=" << pck_to_send->get_data() << " Destination: " << destination << " Current_iter: " << this->current_sorting_iteration << std::endl;
+            //    std::cout << "[Cycle " << this->local_cycle << "] Sending data ROW=" << pck_to_send->getRow() << " COL=" << pck_to_send->getCol()  << " Data=" << pck_to_send->get_data() << " Destination: " << destination << " Current_iter: " << this->current_sorting_iteration << std::endl;
                 delete pck_stored;
                 this->sendPackageToInputFifos(pck_to_send);
             }
@@ -348,16 +350,18 @@ void OuterLoopSpGEMMSDMemory::cycle() {
               //Adding the element
 	      (*pointer_next_memory)[group].push(pck_received);
           }
-	  else {
-	      this->output_address[this->n_values_stored]=pck_received->get_data();
+	  else { //Sending the result to DRAM as it is completed
+	      unsigned int new_addr = this->output_dram_location + this->n_values_stored*this->data_width;
+	      //this->output_address[this->n_values_stored]=pck_received->get_data();
+	      pck_received->set_address(new_addr);
+	      doStore(new_addr, pck_received);
 	      n_values_stored++;
-	      delete pck_received;
+	      //delete pck_received;
 	  }
 	  this->n_str_data_received++;
       }
 
       else {
-          //std::cout << "Received partial sum. " << "Data=" << pck_received->get_data() << " ROW=" << pck_received->getRow() << ". Col=" << pck_received->getCol() << std::endl;
 	  this->n_str_data_received++;
 	  int ms_source = pck_received->get_source();
 	  if(ms_group[ms_source] == -1) { //There is a new ms receivig data so another partial sum group has to be created
@@ -467,6 +471,7 @@ void OuterLoopSpGEMMSDMemory::cycle() {
 	    this->sort_up_iteration_finished = false;
 	}
     }
+
 
 
     //else if(current_state==WAITING_FOR_NEXT_STA_ITER) {

@@ -6,7 +6,7 @@
 
 DSNetworkTop::DSNetworkTop(id_t id, std::string name, Config stonne_cfg) : DistributionNetwork(id,name) {
     this->n_input_ports = stonne_cfg.m_SDMemoryCfg.n_read_ports;
-    if(stonne_cfg.m_MSNetworkCfg.multiplier_network_type==LINEAR) {
+    if((stonne_cfg.m_MSNetworkCfg.multiplier_network_type==LINEAR) || (stonne_cfg.m_MSNetworkCfg.multiplier_network_type==SPARSEFLEX_LINEAR) ) {
         this->ms_size_per_port = stonne_cfg.m_MSNetworkCfg.ms_size / n_input_ports;
     }
     else if(stonne_cfg.m_MSNetworkCfg.multiplier_network_type==OS_MESH) {

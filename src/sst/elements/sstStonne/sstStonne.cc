@@ -152,9 +152,10 @@ bool sstStonne::tic(Cycle_t) {
     if(work_done) {
 	if(this->stonne_cfg.print_stats_enabled) { //If sats printing is enable
             stonne_instance->printStats();
+	    std::cout << "Stats printed correctly" << std::endl;
             stonne_instance->printEnergy();
     }
-
+        std::cout << "The execution has finished in sstStonne" << std::endl;
         primaryComponentOKToEndSim();
     }
     return work_done;
@@ -248,11 +249,11 @@ void sstStonne::setup() {
       matrixB_size=GEMM_N*GEMM_K;
       matrixC_size=GEMM_M*GEMM_N;
 
-      rowpointerMatrixA=new unsigned int[matrixA_size]; //Change to the minimum using vector class
-      colpointerMatrixA=new unsigned int[matrixA_size];
+      rowpointerMatrixA=new unsigned int[matrixA_size+1]; //Change to the minimum using vector class
+      colpointerMatrixA=new unsigned int[matrixA_size+1];
 
-      rowpointerMatrixB = new unsigned int[matrixB_size];
-      colpointerMatrixB = new unsigned int[matrixB_size];
+      rowpointerMatrixB = new unsigned int[matrixB_size+1];
+      colpointerMatrixB = new unsigned int[matrixB_size+1];
 
       unsigned int nValuesRowPointerA=constructCSRStructure(rowpointerMatrixAFileName,rowpointerMatrixA);
       unsigned int nValuesColPointerA=constructCSRStructure(colpointerMatrixAFileName, colpointerMatrixA);
@@ -291,7 +292,7 @@ void sstStonne::setup() {
 	  stonne_instance->loadSparseDense(layer_name, GEMM_N, GEMM_K, GEMM_M, matrixA, matrixB, colpointerMatrixA, rowpointerMatrixA, matrixC, GEMM_T_N, GEMM_T_K);
 	  break;
       case outerProductGEMM:
-	  stonne_instance->loadSparseOuterProduct(layer_name, GEMM_N, GEMM_K, GEMM_M, matrixA, matrixB, colpointerMatrixA, rowpointerMatrixA, colpointerMatrixB, rowpointerMatrixB, NULL);
+	  stonne_instance->loadSparseOuterProduct(layer_name, GEMM_N, GEMM_K, GEMM_M, matrixA, matrixB, colpointerMatrixA, rowpointerMatrixA, colpointerMatrixB, rowpointerMatrixB, matrixC);
 	  break;
       default:
 	  output_->fatal(CALL_INFO, -1, "Error: Operation unknown\n");
@@ -389,8 +390,9 @@ unsigned int sstStonne::constructCSRStructure(std::string fileName, unsigned int
 void sstStonne::finish() {
     //This code should have the logic to write the output memory into a certain file passed by parameter. TODO
     dumpMemoryToFile(memMatrixCFileName, matrixC, matrixC_size);
-    delete stonne_instance;
-    delete[] matrixC; 
+    //delete stonne_instance;
+    //delete[] matrixC; 
+    
     if(kernelOperation==bitmapSpMSpM) {
      delete[] bitmapMatrixA;
       delete[] bitmapMatrixB;
@@ -399,6 +401,12 @@ void sstStonne::finish() {
     else if(kernelOperation==csrSpMM) {
       delete[] rowpointerMatrixA;
       delete[] colpointerMatrixA;
+    }
+    else if(kernelOperation==outerProductGEMM) {
+        delete[] rowpointerMatrixA;
+	delete[] colpointerMatrixA;
+	delete[] rowpointerMatrixB;
+	delete[] colpointerMatrixB;
     }
 }
 
