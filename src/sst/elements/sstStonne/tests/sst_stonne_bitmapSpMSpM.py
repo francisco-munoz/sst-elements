@@ -14,15 +14,15 @@ comp_stonne = sst.Component("stonne1", "sstStonne.MAERI")
 comp_stonne.addParams({
     "hardware_configuration" : "sigma_128mses_128_bw.cfg",
     "kernelOperation" : "bitmapSpMSpM",
-    "GEMM_K" : 2048,
-    "GEMM_N" : 2,
-    "GEMM_M" : 2,
-    "bitmap_matrix_a_init" : "bitmapSpMSpM_file_bitmapA_2_2_2048.in",
-    "bitmap_matrix_b_init" : "bitmapSpMSpM_file_bitmapB_2_2_2048.in",
+    "GEMM_K" : 512,
+    "GEMM_N" : 64,
+    "GEMM_M" : 64,
+    "bitmap_matrix_a_init" : "bitmapSpMSpM_file_bitmapA_64_64_512.in",
+    "bitmap_matrix_b_init" : "bitmapSpMSpM_file_bitmapB_64_64_512.in",
     "mem_init" : "bitmapSpMSpM_gemm_mem.ini",
     "matrix_a_dram_address" : 0,
-    "matrix_b_dram_address" : 3300,
-    "matrix_c_dram_address" : 6404,
+    "matrix_b_dram_address" : 65212,
+    "matrix_c_dram_address" : 129268,
     "mem_matrix_c_file_name" : "result.out"
 
 })

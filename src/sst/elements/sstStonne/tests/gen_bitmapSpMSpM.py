@@ -7,12 +7,12 @@ generate_result=1
 test_output_file="result_test.out"
 
 
-M = 2;
-N = 2;
-K = 2048;
+M = 64;
+N = 64;
+K = 512;
 
-sparsity_ratio_a=80;
-sparsity_ratio_b=80;
+sparsity_ratio_a=50;
+sparsity_ratio_b=50;
 
 file_name="bitmapSpMSpM_gemm_mem.ini"
 data_width=4;
