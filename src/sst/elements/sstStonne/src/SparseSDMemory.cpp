@@ -221,7 +221,7 @@ void SparseSDMemory::cycle() {
       delete pck;
     }
 
-    if((load_queue_->getNumPendingEntries() == 0) && (write_queue_->getNumPendingEntries() < this->n_write_mshr)) {
+    if((load_queue_->getNumPendingEntries() == 0)) { //&& (write_queue_->getNumPendingEntries() < this->n_write_mshr)) {
     
     if(current_state==CONFIGURING) {   //If the architecture has not been configured
         int i=sta_current_index_metadata;  //Rows
@@ -520,12 +520,12 @@ void SparseSDMemory::cycle() {
     }
 
     //Transitions
-    // if((load_queue_->getNumPendingEntries() == 0) && (write_queue_->getNumPendingEntries() < this->n_write_mshr)) {
+//    if((load_queue_->getNumPendingEntries() == 0)) { //&& (write_queue_->getNumPendingEntries() < this->n_write_mshr)) {
     if(current_state==CONFIGURING) {
         current_state=DIST_STA_MATRIX;
     }
 
-    else if(current_state==DIST_STA_MATRIX) {
+    else if(current_state==DIST_STA_MATRIX ) {
         current_state=DIST_STR_MATRIX;
     }
 

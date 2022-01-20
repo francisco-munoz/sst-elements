@@ -3,16 +3,18 @@
 import random;
 import struct;
 
+MIN_VALUES=3 # Do not touch 
+
 generate_result=1
 test_output_file="result_test.out"
 
 
-M = 2;
-N = 2;
-K = 2048;
+M = 64;
+N = 64;
+K = 512;
 
-sparsity_ratio_a=80;
-sparsity_ratio_b=80;
+sparsity_ratio_a=40;
+sparsity_ratio_b=40;
 
 file_name="bitmapSpMSpM_gemm_mem.ini"
 data_width=4;
@@ -45,9 +47,11 @@ with open(file_name, "w") as fd, open(in_file_bitmap_a, "w") as fbA, open(in_fil
     #generating matrixA
     n_nonzeros=0
     for m in range(M):  # Row major
+        initial_values=0
         for k in range(K):
             sparse_prob=random.randint(0,100);
-            if(sparse_prob > sparsity_ratio_a):  # value is generated
+            if((sparse_prob > sparsity_ratio_a) or (initial_values < MIN_VALUES )):  # value is generated
+                initial_values+=1
                 if((m==(M-1)) and (k==(K-1))):
                     fbA.write(str(1))
                 else:
@@ -69,14 +73,17 @@ with open(file_name, "w") as fd, open(in_file_bitmap_a, "w") as fbA, open(in_fil
                     fbA.write(str(0)+",");
                 if(generate_result):
                     matrixA.append(float(0.0));
+        print("Values generated: "+str(initial_values))
     address_matrix_b=n_nonzeros*data_width;
     #Generating matrix B
     n_nonzeros=0;
     bitmapB=list(range(0,matrixB_size));
     for n in range(0,N):  # Row major
+        initial_values=0
         for k in range(0,K):
             sparse_prob=random.randint(0,100);
-            if(sparse_prob > sparsity_ratio_b):  # value is generated
+            if((sparse_prob > sparsity_ratio_b) or (initial_values < MIN_VALUES)):  # value is generated
+                initial_values+=1
                 bitmapB[k*N+n]=1
                 value = float(random.randint(rand_smallest, rand_largest));
                 ba = bytearray(struct.pack(">f", value))  # generating list of bytes

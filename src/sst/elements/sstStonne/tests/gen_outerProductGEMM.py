@@ -3,16 +3,18 @@
 import random;
 import struct;
 
+MIN_VALUES=3 # do not touch 
+
 generate_result=1
 test_output_file="result_test.out"
 
 
-M = 8;
-N = 2;
-K = 4;
+M = 64;
+N = 64;
+K = 512;
 
-sparsity_ratio_a=0;
-sparsity_ratio_b=0;
+sparsity_ratio_a=30;
+sparsity_ratio_b=30;
 
 file_name="outerproduct/outerproduct_gemm_mem.ini"
 data_width=4;
@@ -48,14 +50,16 @@ with open(file_name, "w") as fd, open(rowpointer_a, "w") as rpA, open(colpointer
     #generating matrixA
     n_nonzeros=0
     for k in range(K):  # col major
+        initial_values=0
         rpA.write(str(n_nonzeros)+","); # writing the index of A
         for m in range(M):
             sparse_prob=random.randint(0,100);
-            if(sparse_prob > sparsity_ratio_a):  # value is generated
+            if((sparse_prob > sparsity_ratio_a) or (initial_values < MIN_VALUES)):  # value is generated
                 if((m==(M-1)) and (k==(K-1))):
                     cpA.write(str(m))
                 else:
                     cpA.write(str(m)+","); #writing the row index
+                initial_values+=1;
                 value = float(random.randint(rand_smallest, rand_largest));
                 ba = bytearray(struct.pack(">f", value))  # generating list of bytes
                 my_int = int.from_bytes(ba, "big")
@@ -72,15 +76,17 @@ with open(file_name, "w") as fd, open(rowpointer_a, "w") as rpA, open(colpointer
     #Generating matrix B
     n_nonzeros=0;
     for k in range(0,K):  # Row major
+        initial_values=0;
         rpB.write(str(n_nonzeros)+","); # writing the index of A
         for n in range(0,N):
             sparse_prob=random.randint(0,100);
-            if(sparse_prob > sparsity_ratio_b):  # value is generated
+            if((sparse_prob > sparsity_ratio_b) or (initial_values < MIN_VALUES)):  # value is generated
                 if((k==(K-1)) and (n==(N-1))):
                     cpB.write(str(n))
                 else:
                     cpB.write(str(n)+","); #writing the row index
 
+                initial_values+=1;
                 value = float(random.randint(rand_smallest, rand_largest));
                 ba = bytearray(struct.pack(">f", value))  # generating list of bytes
                 my_int = int.from_bytes(ba, "big")
