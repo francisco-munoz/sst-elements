@@ -519,7 +519,7 @@ void SparseSDMemory::cycle() {
 
     //Transitions
     // if((load_queue_->getNumPendingEntries() == 0) && (write_queue_->getNumPendingEntries() < this->n_write_mshr)) {
-    if(current_state==CONFIGURING) {
+    if((current_state==CONFIGURING) && ((load_queue_->getNumPendingEntries() == 0))) {
         current_state=DIST_STA_MATRIX;
     }
 
