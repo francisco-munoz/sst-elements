@@ -5,22 +5,22 @@ import struct;
 
 MIN_VALUES=3 # Do not touch 
 
-generate_result=1
+generate_result=0
 test_output_file="result_test.out"
 
 
-M = 64;
-N = 64;
-K = 512;
+M = GEMM_M_PARAMETER;
+N = GEMM_N_PARAMETER;
+K = GEMM_K_PARAMETER;
 
-sparsity_ratio_a=0;
-sparsity_ratio_b=0;
+sparsity_ratio_a=SPARSITY_RATIO_A_PARAMETER;
+sparsity_ratio_b=SPARSITY_RATIO_B_PARAMETER;
 
 file_name="bitmapSpMSpM_gemm_mem.ini"
 data_width=4;
 
-in_file_bitmap_a="bitmapSpMSpM_file_bitmapA_"+str(M)+"_"+str(N)+"_"+str(K)+".in";
-in_file_bitmap_b="bitmapSpMSpM_file_bitmapB_"+str(M)+"_"+str(N)+"_"+str(K)+".in";
+in_file_bitmap_a="bitmapSpMSpM_file_bitmapA.in";
+in_file_bitmap_b="bitmapSpMSpM_file_bitmapB.in";
 
 address_matrix_a=0;
 address_matrix_b=0; # to be updated in the code
@@ -29,10 +29,13 @@ address_matrix_c=0; # to be updated in the code
 rand_smallest=1;
 rand_largest=10;
 
+matrixA_size=int(M*K);
+matrixB_size=int(N*K);
+matrixC_size=int(M*N);
 if(generate_result):
-    matrixA_size=int(M*K);
-    matrixB_size=int(N*K);
-    matrixC_size=int(M*N);
+    #matrixA_size=int(M*K);
+    #matrixB_size=int(N*K);
+    #matrixC_size=int(M*N);
 
     matrixA=[]
     matrixB=[]

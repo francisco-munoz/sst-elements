@@ -13,8 +13,8 @@ M = 64;
 N = 64;
 K = 512;
 
-sparsity_ratio_a=30;
-sparsity_ratio_b=30;
+sparsity_ratio_a=95;
+sparsity_ratio_b=95;
 
 file_name="outerproduct/outerproduct_gemm_mem.ini"
 data_width=4;

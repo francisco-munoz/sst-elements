@@ -3,24 +3,27 @@
 import random;
 import struct;
 
-MIN_VALUES=3 # Do not touch 
+MIN_VALUES=3 # do not touch 
 
-generate_result=1
+generate_result=0
 test_output_file="result_test.out"
 
 
-M = 64;
-N = 64;
-K = 512;
+M = GEMM_M_PARAMETER;
+N = GEMM_N_PARAMETER;
+K = GEMM_K_PARAMETER;
 
-sparsity_ratio_a=0;
-sparsity_ratio_b=0;
+sparsity_ratio_a=SPARSITY_RATIO_A_PARAMETER;
+sparsity_ratio_b=SPARSITY_RATIO_B_PARAMETER;
 
-file_name="bitmapSpMSpM_gemm_mem.ini"
+file_name="outerproduct_gemm_mem.ini"
 data_width=4;
 
-in_file_bitmap_a="bitmapSpMSpM_file_bitmapA_"+str(M)+"_"+str(N)+"_"+str(K)+".in";
-in_file_bitmap_b="bitmapSpMSpM_file_bitmapB_"+str(M)+"_"+str(N)+"_"+str(K)+".in";
+rowpointer_a="outerproduct_gemm_rowpointerA.in";
+colpointer_a="outerproduct_gemm_colpointerA.in";
+
+rowpointer_b="outerproduct_gemm_rowpointerB.in";
+colpointer_b="outerproduct_gemm_colpointerB.in";
 
 address_matrix_a=0;
 address_matrix_b=0; # to be updated in the code
@@ -43,19 +46,20 @@ random.seed(a=0, version=2)
 
 
 # Generating matrix A
-with open(file_name, "w") as fd, open(in_file_bitmap_a, "w") as fbA, open(in_file_bitmap_b, "w") as fbB:
+with open(file_name, "w") as fd, open(rowpointer_a, "w") as rpA, open(colpointer_a, "w") as cpA, open(rowpointer_b, "w") as rpB, open(colpointer_b, "w") as cpB:
     #generating matrixA
     n_nonzeros=0
-    for m in range(M):  # Row major
+    for k in range(K):  # col major
         initial_values=0
-        for k in range(K):
+        rpA.write(str(n_nonzeros)+","); # writing the index of A
+        for m in range(M):
             sparse_prob=random.randint(0,100);
-            if((sparse_prob > sparsity_ratio_a) or (initial_values < MIN_VALUES )):  # value is generated
-                initial_values+=1
+            if((sparse_prob > sparsity_ratio_a) or (initial_values < MIN_VALUES)):  # value is generated
                 if((m==(M-1)) and (k==(K-1))):
-                    fbA.write(str(1))
+                    cpA.write(str(m))
                 else:
-                    fbA.write(str(1)+","); #writing a 1 in bitmap
+                    cpA.write(str(m)+","); #writing the row index
+                initial_values+=1;
                 value = float(random.randint(rand_smallest, rand_largest));
                 ba = bytearray(struct.pack(">f", value))  # generating list of bytes
                 my_int = int.from_bytes(ba, "big")
@@ -65,26 +69,24 @@ with open(file_name, "w") as fd, open(in_file_bitmap_a, "w") as fbA, open(in_fil
                 if(generate_result):
                     matrixA.append(value);
             else:
-                if((m==(M-1)) and (k==(K-1))): # this is to insert a comma
-                    fbA.write(str(0));
-                    # note no data element is inserted in this case
-                else:
-                    # note no data element is inserted in this case
-                    fbA.write(str(0)+",");
                 if(generate_result):
                     matrixA.append(float(0.0));
-        print("Values generated: "+str(initial_values))
+    rpA.write(str(n_nonzeros));
     address_matrix_b=n_nonzeros*data_width;
     #Generating matrix B
     n_nonzeros=0;
-    bitmapB=list(range(0,matrixB_size));
-    for n in range(0,N):  # Row major
-        initial_values=0
-        for k in range(0,K):
+    for k in range(0,K):  # Row major
+        initial_values=0;
+        rpB.write(str(n_nonzeros)+","); # writing the index of A
+        for n in range(0,N):
             sparse_prob=random.randint(0,100);
             if((sparse_prob > sparsity_ratio_b) or (initial_values < MIN_VALUES)):  # value is generated
-                initial_values+=1
-                bitmapB[k*N+n]=1
+                if((k==(K-1)) and (n==(N-1))):
+                    cpB.write(str(n))
+                else:
+                    cpB.write(str(n)+","); #writing the row index
+
+                initial_values+=1;
                 value = float(random.randint(rand_smallest, rand_largest));
                 ba = bytearray(struct.pack(">f", value))  # generating list of bytes
                 my_int = int.from_bytes(ba, "big")
@@ -95,15 +97,9 @@ with open(file_name, "w") as fd, open(in_file_bitmap_a, "w") as fbA, open(in_fil
                     matrixB.append(value);
             else:
                 # no data element is inserted in this case
-                bitmapB[k*N+n]=0; #writing a 0
                 if(generate_result):
                     matrixB.append(float(0.0));
-    # writing the bitmapB in the appropiate order
-    for i in range(0, matrixB_size):
-        fbB.write(str(bitmapB[i]));
-        if(i < (matrixB_size-1)):
-            fbB.write(",")
-    
+    rpB.write(str(n_nonzeros)) 
     fd.write(str(0)) # Adding a final 0 to the memory which will never be used. This is just to avoid having a last comma.
     address_matrix_c=address_matrix_b+(n_nonzeros*data_width);
 
@@ -114,10 +110,13 @@ print("Offset matrix B: "+str(address_matrix_b));
 print("Offset matrix C: "+str(address_matrix_c));
 
 print("File "+file_name+" generated correctly");
-print("File "+in_file_bitmap_a+" generated correctly");
+print("File "+rowpointer_a+" generated correctly");
+print("File "+colpointer_a+" generated correctly");
+
+print("File "+rowpointer_b+" generated correctly");
+print("File "+colpointer_b+" generated correctly");
 
 
-print("File "+in_file_bitmap_b+" generated correctly");
 #print("MatrixA: ")
 #for i in range(matrixA_size):
 #    print(matrixA[i])
