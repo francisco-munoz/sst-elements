@@ -105,7 +105,6 @@ void SparseSDMemory::setLayer(DNNLayer* dnn_layer, address_t MK_address, address
 
     if(dataflow==MK_STA_KN_STR) {
 	std::cout << "Running MK_STA_KN_STR Dataflow" << std::endl;
-	std::cout << "Second message for test" << std::endl;
         this->STA_address = MK_address;
 	this->dim_sta = M;
 	this->STR_address = KN_address;
@@ -225,6 +224,7 @@ void SparseSDMemory::cycle() {
     
     if(current_state==CONFIGURING) {   //If the architecture has not been configured
         int i=sta_current_index_metadata;  //Rows
+	//std::cout << "CONFIGURING THE ACCELERATOR" << std::endl;
 	int j=0;  //Columns
 	int n_ms = 0; //Number of multipliers assigned
 	int n_current_cluster = 0;
@@ -406,7 +406,7 @@ void SparseSDMemory::cycle() {
        //Distribution of the stationary matrix
        unsigned int dest = 0; //MS destination
        unsigned int sub_address = 0;
-    
+       //std::cout << "Distributing stationary matrix" << std::endl; 
        for(int i=0; i<this->configurationVNs.size(); i++) {
 	   int j=0;
 	   if(this->configurationVNs[i].getFolding()) {
@@ -444,11 +444,13 @@ void SparseSDMemory::cycle() {
 	   uint64_t new_addr = addr_offset*this->data_width + this->output_dram_location;
 	   data_t psum = 0.0;  //Reading the current psum
 	   DataPackage* pck = new DataPackage(sizeof(data_t), psum, PSUM,0, MULTICAST, destinations, this->num_ms,0,0);
+	   //std::cout << "Distributing streaming matrix" << std::endl;
            this->sdmemoryStats.n_SRAM_psum_reads++; //To track information
 	   //this->sendPackageToInputFifos(pck);
 	   doLoad(new_addr, pck);
 	   
        }
+      // std::cout << "Distributing streaming matrix" << std::endl;
        for(int j=init_point_str; j<end_point_str; j++) {   //For each element in the current vector in the str matrix
          //Creating the bit vector for this value
 	 bool* destinations = new bool[this->num_ms];
@@ -518,23 +520,25 @@ void SparseSDMemory::cycle() {
             
         }
     }
-
+ //   std::cout << "Current state: " << current_state << std::endl;
     //Transitions
 //    if((load_queue_->getNumPendingEntries() == 0)) { //&& (write_queue_->getNumPendingEntries() < this->n_write_mshr)) {
-    if(current_state==CONFIGURING) {
+    if((current_state==CONFIGURING) && ((load_queue_->getNumPendingEntries() == 0))) {
         current_state=DIST_STA_MATRIX;
+	//std::cout << "Transitioning to DIS_STA_MATRIX" << std::endl;
     }
 
     else if(current_state==DIST_STA_MATRIX ) {
         current_state=DIST_STR_MATRIX;
+	//std::cout << "Transitioning to DIST_STR_MATRIX" << std::endl;
     }
-
     else if(current_state==DIST_STR_MATRIX  && str_current_index==dim_str) {
-	current_state = WAITING_FOR_NEXT_STA_ITER;
-    }
 
+	current_state = WAITING_FOR_NEXT_STA_ITER;
+//	std::cout << "Transitioning to WAITING_FOR_NEXT_STA_ITER" << std::endl;
+    }
     else if(current_state==WAITING_FOR_NEXT_STA_ITER && sta_iter_completed) {
-    
+  //      std::cout << "WAITING AT WAITING_FOR_NEXT_STA_ITER" << std::endl; 
 	this->str_current_index = 0;
 	this->sta_iter_completed=false;
         if(this->configurationVNs.size()==1) {//If there is only one VN, then maybe foliding has been needed
@@ -579,7 +583,7 @@ void SparseSDMemory::cycle() {
 	    current_state = ALL_DATA_SENT;
 	}
 
-	else { 
+	else  { 
             current_state=CONFIGURING;
 	}
     }

@@ -13,7 +13,6 @@ DSNetwork::DSNetwork(id_t id, std::string name, Config stonne_cfg, unsigned int 
     this->ms_size = ms_size;
     this->port_width=stonne_cfg.m_DSwitchCfg.port_width;
     //End collecting parameters from the configuration file 
-    std::cout << "num ms: " << ms_size << std::endl;
     assert(ispowerof2(ms_size)); //Ensure the number of multipliers is power of 2.
    
     this->inputConnection = inputConnection;
