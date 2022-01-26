@@ -419,8 +419,16 @@ void OuterLoopSpGEMMSDMemory::cycle() {
 	}
     }
 
+    //Getting some stats
+    if((current_state==CONFIGURING) || (current_state==DIST_STA_MATRIX) || (current_state==DIST_STR_MATRIX) || (current_state==WAITING_FOR_NEXT_STA_ITER)) {
+        this->sdmemoryStats.n_cycles_multiplying++;
+    }
+    else {
+        this->sdmemoryStats.n_cycles_merging++;
+    }
+
     //Transitions
-    if(current_state==CONFIGURING) {
+    if((current_state==CONFIGURING) && ((load_queue_->getNumPendingEntries() == 0))) {
         current_state=DIST_STA_MATRIX;
     }
 
@@ -449,7 +457,7 @@ void OuterLoopSpGEMMSDMemory::cycle() {
                   current_state=CONFIGURING;
 	      }
 	} 
-	;
+	
     }
 
     else if(current_state == CONFIGURING_SORTING_PSUMS_DOWN) {

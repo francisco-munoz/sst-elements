@@ -149,6 +149,8 @@ public:
     counter_t n_SRAM_psum_reads;                                 //Number of SRAM psum reads
     counter_t n_SRAM_psum_writes;                                //Number of SRAM psum writes
     counter_t sta_sparsity;                                      //Exent of sparsity sta matrix. Only for sparse controllers
+    counter_t n_cycles_multiplying;                              //Number of cycles spent during the multiplying phase
+    counter_t n_cycles_merging;                                  // Number of cycles spent during the merging phase
     counter_t str_sparsity;                                      //Exent of sparsity str matrix. Only for sparse controllers
     counter_t n_sta_vectors_at_once_avg;                             //Number of sta vectors that fits on average at every reconfiguration.
     counter_t n_sta_vectors_at_once_max;                         // Maximum number of vectors mapped at once
