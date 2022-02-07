@@ -52,6 +52,7 @@ libsstStonne_la_SOURCES = \
         src/SparseFlex_ASwitch.cpp \
         src/SparseFlex_ASNetwork.cpp \
         src/OuterLoopSpGEMMSDMemory.cpp \
+	src/GustavsonsSpGEMMSDMemory.cpp \
 	include/AccumulationBuffer.h \
 	include/Accumulator.h \
 	include/ASNetwork.h \
@@ -103,6 +104,7 @@ libsstStonne_la_SOURCES = \
 	include/SparseFlex_ASwitch.h \
 	include/SparseFlex_ASNetwork.h \
 	include/OuterLoopSpGEMMSDMemory.h \
+	include/GustavsonsSpGEMMSDMemory.h \ 
 	external/cpptoml.h
 deprecated_libsstStonne_sources =
 

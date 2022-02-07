@@ -1,11 +1,11 @@
 
-#include "OuterLoopSpGEMMSDMemory.h"
+#include "GustavsonsSpGEMMSDMemory.h"
 #include <assert.h>
 #include <iostream>
 #include "utility.h"
 #include <math.h>
 
-OuterLoopSpGEMMSDMemory::OuterLoopSpGEMMSDMemory(id_t id, std::string name, Config stonne_cfg, Connection* write_connection, SST::SST_STONNE::LSQueue* load_queue_, SST::SST_STONNE::LSQueue* write_queue_, SimpleMem*  mem_interface_) : MemoryController(id, name) {
+GustavsonsSpGEMMSDMemory::GustavsonsSpGEMMSDMemory(id_t id, std::string name, Config stonne_cfg, Connection* write_connection, SST::SST_STONNE::LSQueue* load_queue_, SST::SST_STONNE::LSQueue* write_queue_, SimpleMem*  mem_interface_) : MemoryController(id, name) {
     this->write_connection = write_connection;
     this->load_queue_ = load_queue_;
     this->write_queue_ = write_queue_;
@@ -23,6 +23,7 @@ OuterLoopSpGEMMSDMemory::OuterLoopSpGEMMSDMemory(id_t id, std::string name, Conf
     this->output_dram_location=stonne_cfg.m_SDMemoryCfg.output_address;
     this->data_width=stonne_cfg.m_SDMemoryCfg.data_width;
     this->n_write_mshr=stonne_cfg.m_SDMemoryCfg.n_write_mshr;
+
     //End collecting parameters from the configuration file
     //Initializing parameters
     this->ms_size_per_input_port = this->num_ms / this->n_read_ports;
@@ -58,8 +59,8 @@ OuterLoopSpGEMMSDMemory::OuterLoopSpGEMMSDMemory(id_t id, std::string name, Conf
     this->STA_complete=false;
     //Outer product pointers
     this->current_MK=0;
-    this->current_MK_col_pointer=0;
-    this->current_MK_row_id=0;
+    this->current_MK_row_pointer=0;
+    this->current_MK_col_id=0;
     this->current_KN=0;
     this->current_KN_row_pointer=0;
     this->current_KN_col_id=0;
@@ -88,9 +89,8 @@ OuterLoopSpGEMMSDMemory::OuterLoopSpGEMMSDMemory(id_t id, std::string name, Conf
 
 }
 
-OuterLoopSpGEMMSDMemory::~OuterLoopSpGEMMSDMemory() {
+GustavsonsSpGEMMSDMemory::~GustavsonsSpGEMMSDMemory() {
     delete write_fifo;
-    delete[] intermediate_memory;
     //Deleting the input ports
     for(int i=0; i<(this->n_read_ports); i++) {
         delete input_fifos[i];
@@ -100,18 +100,18 @@ OuterLoopSpGEMMSDMemory::~OuterLoopSpGEMMSDMemory() {
 
 }
 
-void OuterLoopSpGEMMSDMemory::setWriteConnections(std::vector<Connection*> write_port_connections) {
+void GustavsonsSpGEMMSDMemory::setWriteConnections(std::vector<Connection*> write_port_connections) {
     this->write_port_connections=write_port_connections; //Copying all the poiners 
     //assert(this->write_port_connections.size()==this->n_write_ports); 
 }
 
-void OuterLoopSpGEMMSDMemory::setReadConnections(std::vector<Connection*> read_connections) {
+void GustavsonsSpGEMMSDMemory::setReadConnections(std::vector<Connection*> read_connections) {
     assert(read_connections.size() == (n_read_ports)); //Checking that the number of input ports is valid.
     std::cout << "Number of read connections: " << read_connections.size() << std::endl;
     this->read_connections = read_connections; //Copying all the pointers
 }
 
-void OuterLoopSpGEMMSDMemory::setLayer(DNNLayer* dnn_layer, address_t MK_address, address_t KN_address, address_t output_address, Dataflow dataflow) {
+void GustavsonsSpGEMMSDMemory::setLayer(DNNLayer* dnn_layer, address_t MK_address, address_t KN_address, address_t output_address, Dataflow dataflow) {
     this->dnn_layer = dnn_layer;
     assert(this->dnn_layer->get_layer_type()==SPARSE_DENSE);  // This controller only supports GEMM with one sparse and one dense
     //this->dataflow = dataflow; 
@@ -125,8 +125,6 @@ void OuterLoopSpGEMMSDMemory::setLayer(DNNLayer* dnn_layer, address_t MK_address
     this->M = this->dnn_layer->get_N();
     this->K = this->dnn_layer->get_C();   //Be careful. K in GEMMs (SIGMA taxonomy) is not the same as K in CNN taxonomy (number of filters)
     this->N = this->dnn_layer->get_K();  //In this case both parameters match each other.
-    this->intermediate_memory = new std::vector<std::queue<DataPackage*>> [this->M]; //Number of rows
-    //this->swap_memory = new std::vector<std::queue<DataPackage*>>;
     sdmemoryStats.dataflow=dataflow; 
     
     this->MK_address = MK_address;
@@ -140,19 +138,19 @@ void OuterLoopSpGEMMSDMemory::setLayer(DNNLayer* dnn_layer, address_t MK_address
 }
 
 //Load CSR
-void OuterLoopSpGEMMSDMemory::setSparseMatrixMetadata(metadata_address_t MK_metadata_id, metadata_address_t MK_metadata_pointer, metadata_address_t KN_metadata_id, metadata_address_t KN_metadata_pointer) {
-    this->MK_row_id = MK_metadata_id;
-    this->MK_col_pointer = MK_metadata_pointer;
+void GustavsonsSpGEMMSDMemory::setSparseMatrixMetadata(metadata_address_t MK_metadata_id, metadata_address_t MK_metadata_pointer, metadata_address_t KN_metadata_id, metadata_address_t KN_metadata_pointer) {
+    this->MK_col_id = MK_metadata_id;
+    this->MK_row_pointer = MK_metadata_pointer;
     this->KN_col_id = KN_metadata_id;
     this->KN_row_pointer = KN_metadata_pointer;
     //Calculating number of nonzeros
-    this->MK_number_nnz = MK_col_pointer[K];
+    this->MK_number_nnz = MK_row_pointer[K];
     this->metadata_loaded = true;
 
 }
 
 
-void OuterLoopSpGEMMSDMemory::cycle() {
+void GustavsonsSpGEMMSDMemory::cycle() {
    // std::cout<<"Hello, its me";
     //Here MK(sparse) matrix is stationary and KN(dense) matrix is streaming
     //Sending input data over read_connection
@@ -185,8 +183,8 @@ void OuterLoopSpGEMMSDMemory::cycle() {
 
     if((load_queue_->getNumPendingEntries() == 0) ){ //&& (write_queue_->getNumPendingEntries() < this->n_write_mshr)) {
 
-    if(current_state==CONFIGURING)
-    {	//Initialize these for the first time
+    if(current_state==CONFIGURING) {
+    	//Initialize these for the first time
 	 this->n_str_data_received = 0;
 	 this->n_str_data_sent = 0;
 	 this->current_KN = 0;
@@ -195,11 +193,17 @@ void OuterLoopSpGEMMSDMemory::cycle() {
 	 this->tile = tile1;
 	 this->multiplier_network->resetSignals();
 	 //this->reduce_network->resetSignals();
-	this->multiplier_network->configureSignals(tile1, this->dnn_layer, this->num_ms, 1,PSUM_GENERATION ); //TODO double check
+	this->multiplier_network->configureSignals(tile1, this->dnn_layer, this->num_ms, 1, PSUM_GENERATION_AND_MERGE); //TODO double check
+	this->reduce_network->resetSignals();
+        this->reduce_network->configureSignalsSortTree(SORT_TREE);
 	//Cleaning the table to keep the index of each vector
 	for(int i=0; i<this->num_ms; i++) {
             ms_group[i]=-1;
         }
+
+	pointer_current_memory = &swap_memory;
+        pointer_next_memory = &intermediate_memory; //where the first iteration will be stored
+	
 
 	//this->reduce_network->configureSignals(tile1, this->dnn_layer, this->num_ms, this->iter_K);
     }
@@ -207,29 +211,33 @@ void OuterLoopSpGEMMSDMemory::cycle() {
        //Distribution of the stationary matrix
        //Sending unitcast message with each value in MK matrix
                multipliers_used = 0;
+	       this->sorting_iterations = ((MK_row_pointer[current_MK_row_pointer+1]-MK_row_pointer[current_MK_row_pointer]) / this->num_ms) + (((MK_row_pointer[current_MK_row_pointer+1]-MK_row_pointer[current_MK_row_pointer]) % this->num_ms) != 0);
                for(int i=0; i<this->num_ms; i++) {
 	           //Accessing to the next value
-                   int col = current_MK_col_pointer;
-		   int row = MK_row_id[current_MK_row_id];
+                   int row = current_MK_row_pointer;
+		   int col = MK_col_id[current_MK_col_id];
 		   multipliers_used++;
 		   //Sending package
-		   vnat_table[i]=col; //To find out the row of mstrix KN. 
-		   uint64_t new_addr = input_dram_location + current_MK_row_id*this->data_width;
+		   vnat_table[i]=col; //To find out the col of mstrix KN. 
+		   uint64_t new_addr = input_dram_location + current_MK_col_id*this->data_width;
 		   data_t data = 0.0;
-		   DataPackage* pck_to_send = new DataPackage(sizeof(data_t), data, WEIGHT, i, UNICAST, i, row, col);
-		   doLoad(new_addr, pck_to_send);
+
+		   DataPackage* pck_to_send = new DataPackage(sizeof(data_t), data, WEIGHT, this->current_sorting_iteration, UNICAST, i, row, col);
 		   //std::cout << "[Cycle " << this->local_cycle << "] Sending data with value " << data << std::endl;
+                   //this->sendPackageToInputFifos(pck_to_send);
+		   doLoad(new_addr, pck_to_send);
 		   //Update variables
-		   current_MK_row_id++;
-		   if(current_MK_row_id >= MK_col_pointer[current_MK_col_pointer+1]) {
-                       current_MK_col_pointer+=1; 
+		   current_MK_col_id++;
+		   if(current_MK_col_id >= MK_row_pointer[current_MK_row_pointer+1]) {
+                       current_MK_row_pointer+=1; 
+		       if(current_MK_row_pointer == M) {
+                       //this->execution_finished=true; //The execution finishes here
+                           this->last_sta_iteration_completed = true;
+                       }
+
+		       break; //The granularity of the iteration is one row
 		   } 
 
-		   if(current_MK_col_pointer == K) {
-		       //this->execution_finished=true; //The execution finishes here
-		       this->last_sta_iteration_completed = true;
-                       break;
-		   }
 
 	       } 
 	       this->STA_complete=true;
@@ -242,7 +250,7 @@ void OuterLoopSpGEMMSDMemory::cycle() {
     else if(current_state == DIST_STR_MATRIX) {//Dense matrix
 	bool found = false;
         for(int i=0; i < multipliers_used; i++) {
-	    int row = vnat_table[i];
+	    int row = vnat_table[i]; //Corresponds with the col of the value sta in the multiplier
 	    int length_row = KN_row_pointer[row+1] - KN_row_pointer[row];
 	   // std::cout << "Comparing " << this->current_KN << " < " << length_row << std::endl;
             if(this->current_KN < length_row) {
@@ -251,8 +259,9 @@ void OuterLoopSpGEMMSDMemory::cycle() {
                 //Send STR value to this multiplier
 		uint64_t new_addr = this->weight_dram_location + (KN_row_pointer[row]+this->current_KN)*this->data_width;
 		data_t data = 0.0;
-                DataPackage* pck_to_send = new DataPackage(sizeof(data_t), data, IACTIVATION, i, UNICAST, i, row, KN_col_id[KN_row_pointer[row]+this->current_KN]);
+                DataPackage* pck_to_send = new DataPackage(sizeof(data_t), data, IACTIVATION, this->current_sorting_iteration, UNICAST, i, row, KN_col_id[KN_row_pointer[row]+this->current_KN]);
                 //std::cout << "[Cycle " << this->local_cycle << "] Sending STREAMING data with value " << data << std::endl;
+                //this->sendPackageToInputFifos(pck_to_send);
 		doLoad(new_addr, pck_to_send);
 
                 
@@ -263,6 +272,7 @@ void OuterLoopSpGEMMSDMemory::cycle() {
 
 	if(!found) {
            STR_complete = true;
+	   this->current_sorting_iteration+=1;
 	}
     }
 
@@ -273,15 +283,18 @@ void OuterLoopSpGEMMSDMemory::cycle() {
 	this->multiplier_network->configureSignals(this->tile, this->dnn_layer, this->num_ms, 1, FORWARDER );
 	this->n_str_data_received=0;
 	if(!swap_memory_enabled) {
-	    pointer_current_memory = &intermediate_memory[this->sort_row_id];
+	    pointer_current_memory = &intermediate_memory;
 	    pointer_next_memory = &swap_memory;
 	}
 
 	else {
             pointer_current_memory=&swap_memory;
-	    pointer_next_memory=&intermediate_memory[this->sort_row_id];
+	    pointer_next_memory=&intermediate_memory;
 	}
 	this->sorting_iterations = pointer_current_memory->size() / this->num_ms + ((pointer_current_memory->size() % this->num_ms) != 0);
+	if(this->current_sorting_iteration == this->sorting_iterations) { //Only when the number of iterations accomplished
+	    this->current_sorting_iteration = 0;
+	}
 
 
     }
@@ -298,7 +311,7 @@ void OuterLoopSpGEMMSDMemory::cycle() {
                 (*pointer_current_memory)[i].pop();
                 int destination = j;
                 DataPackage* pck_to_send = new DataPackage(sizeof(data_t), pck_stored->get_data(), PSUM, this->current_sorting_iteration, UNICAST, destination, pck_stored->getRow(), pck_stored->getCol());
-            //    std::cout << "[Cycle " << this->local_cycle << "] Sending data ROW=" << pck_to_send->getRow() << " COL=" << pck_to_send->getCol()  << " Data=" << pck_to_send->get_data() << " Destination: " << destination << " Current_iter: " << this->current_sorting_iteration << std::endl;
+          //      std::cout << "[Cycle " << this->local_cycle << "] Sending data ROW=" << pck_to_send->getRow() << " COL=" << pck_to_send->getCol()  << " Data=" << pck_to_send->get_data() << " Destination: " << destination << " Current_iter: " << this->current_sorting_iteration << std::endl;
                 delete pck_stored;
                 this->sendPackageToInputFifos(pck_to_send);
             }
@@ -312,12 +325,7 @@ void OuterLoopSpGEMMSDMemory::cycle() {
             this->current_sorting_iteration++;
 	    if(this->current_sorting_iteration == this->sorting_iterations) {
 		if(this->sorting_iterations == 1){
-                    this->sort_row_id++;
 		    this->swap_memory_enabled = false;
-	            if(this->sort_row_id == this->M) {
-                        this->sort_down_last_iteration_finished = true;
-		        std::cout << "ALL THE ELEMENTS HAVE BEEN STREAMED DOWN" << std::endl;
-                    } 
 		}
 	    }
 
@@ -329,19 +337,20 @@ void OuterLoopSpGEMMSDMemory::cycle() {
     }
       
             
-    } //End if there is no pending requests    
+    } //End if there is no pending requests 
     //Receiving output data from write_connection
     this->receive();
     if(!write_fifo->isEmpty()) {
       for(int i=0; i<write_fifo->size(); i++) { 
       DataPackage* pck_received = write_fifo->pop();
 
-      if((current_state == RECEIVING_SORT_TREE_UP) || (current_state == SENDING_SORT_TREE_DOWN)) {
+      if((current_state == DIST_STR_MATRIX) || (current_state == WAITING_FOR_NEXT_STA_ITER) || (current_state==SENDING_SORT_TREE_DOWN) || (current_state==RECEIVING_SORT_TREE_UP)) {
 	  this->sort_up_received_first_value = true;
 	//  this->output_address[pck_received->getRow()*this->N+n_str_data_received] = pck_received->get_data();
 	  if(this->sorting_iterations > 1) {
               //If there are more than 1 iterations, we have to keep the data in the intermediate memory 
 	      int group = pck_received->get_source();
+	      //std::cout << "Group: " << group << std::endl;
 	      if(pointer_next_memory->size() == group) { //We have to create the space if a new group of psums are coming
 		  std::queue<DataPackage*> new_group;
                   pointer_next_memory->push_back(new_group);
@@ -349,11 +358,12 @@ void OuterLoopSpGEMMSDMemory::cycle() {
 
               //Adding the element
 	      (*pointer_next_memory)[group].push(pck_received);
+	      //std::cout << "Writing element into the intermediate memory" << std::endl;
           }
-	  else { //Sending the result to DRAM as it is completed
-	      unsigned int new_addr = this->output_dram_location + this->n_values_stored*this->data_width;
+	  else {
+	      //std::cout << "Writing element into the array with position " << n_values_stored << std::endl;
+	      uint64_t new_addr = this->output_dram_location + this->n_values_stored*this->data_width;
 	      //this->output_address[this->n_values_stored]=pck_received->get_data();
-	      pck_received->set_address(new_addr);
 	      doStore(new_addr, pck_received);
 	      n_values_stored++;
 	      //delete pck_received;
@@ -361,40 +371,28 @@ void OuterLoopSpGEMMSDMemory::cycle() {
 	  this->n_str_data_received++;
       }
 
-      else {
-	  this->n_str_data_received++;
-	  int ms_source = pck_received->get_source();
-	  if(ms_group[ms_source] == -1) { //There is a new ms receivig data so another partial sum group has to be created
-	      //Creating a new group
-	      std::queue<DataPackage*> new_group;
-	      ms_group[ms_source]=intermediate_memory[pck_received->getRow()].size(); //Saving the index to access next receives
-	      intermediate_memory[pck_received->getRow()].push_back(new_group); //Pushing a new group
-          }
-          intermediate_memory[pck_received->getRow()][ms_group[ms_source]].push(pck_received);
-          //Calculate position and store element
-          if(this->current_state == WAITING_FOR_NEXT_STA_ITER) {
-              if(this->n_str_data_received == n_str_data_sent) { //If we receive all the partial sums, then we go to the next state
-                  this->STR_complete = true;
-	          if(last_sta_iteration_completed) {
-                      this->multiplication_phase_finished = true;
-	          }
-
-	      }
-          }
-
-      }
+      
       }
 
     } //End write_fifo
 
     else { //If nothing is received
-        if((current_state == RECEIVING_SORT_TREE_UP) && this->sort_up_received_first_value) {
-              if(sort_down_last_iteration_finished) { //If the last iteration has been streamed down before
+        if(((current_state == RECEIVING_SORT_TREE_UP) || (current_state == WAITING_FOR_NEXT_STA_ITER)) && this->sort_up_received_first_value) {
+	      //std::cout << "Closing this iteration" << std::endl;
+	      this->sort_up_received_first_value=false;
+              if(this->last_sta_iteration_completed && (this->sorting_iterations == 1)) { //If the last iteration has been streamed down before
                   this->execution_finished = true;
                   std::cout << "The execution has finished" << std::endl;
+		  this->sort_up_iteration_finished = true;
               }
 
-              else {
+              else {  //Switch to send more data to be merged or go to configuring 
+
+		  if(this->current_state == WAITING_FOR_NEXT_STA_ITER) {
+                      this->STR_complete = true;
+		      //std::cout << "Completing the iteration" << std::endl;
+	          }
+		  else {
                   this->sort_up_iteration_finished = true;
 		  if(this->current_sorting_iteration == this->sorting_iterations) {
 		      this->current_sorting_iteration = 0;
@@ -415,16 +413,9 @@ void OuterLoopSpGEMMSDMemory::cycle() {
                   //    this->swap_memory_enabled = false;
 		  //}
               }
+	      }
 
 	}
-    }
-
-    //Getting some stats
-    if((current_state==CONFIGURING) || (current_state==DIST_STA_MATRIX) || (current_state==DIST_STR_MATRIX) || (current_state==WAITING_FOR_NEXT_STA_ITER)) {
-        this->sdmemoryStats.n_cycles_multiplying++;
-    }
-    else {
-        this->sdmemoryStats.n_cycles_merging++;
     }
 
     //Transitions
@@ -448,14 +439,30 @@ void OuterLoopSpGEMMSDMemory::cycle() {
 
     else if(current_state == WAITING_FOR_NEXT_STA_ITER) {
         if(STR_complete) {
+	      //std::cout << "Running from WAITING FOR NEXT STA ITER" << std::endl;
 	      STR_complete = false;
-	      if(multiplication_phase_finished) {
-                  current_state = CONFIGURING_SORTING_PSUMS_DOWN;
+	      //std::cout << "current_sorting_iteration: " << this->current_sorting_iteration << std::endl;
+	      //std::cout << "Sorting iterations: " << this->sorting_iterations << std::endl;;
+	      if(this->current_sorting_iteration < this->sorting_iterations) {
+                  current_state = CONFIGURING;
+		  
+	      }
+              
+	      else if(this->current_sorting_iteration == this->sorting_iterations) {
+		  std::cout << "Simulated Iteration completed" << std::endl;
+                  if(this->sorting_iterations == 1) {
+                      this->current_state = CONFIGURING;
+		      this->current_sorting_iteration = 0;
+		      //std::cout << "GOING TO CONFIGURING" << std::endl;
+		  }
+
+		  else {
+                      this->current_state = CONFIGURING_SORTING_PSUMS_DOWN;
+		      this->current_sorting_iteration = 0;
+		     // std::cout << "GOING TO CONFIGURING_SORT_TREE_DOWN" << std::endl;
+		  }
 	      }
 
-	      else {
-                  current_state=CONFIGURING;
-	      }
 	} 
 	
     }
@@ -475,11 +482,19 @@ void OuterLoopSpGEMMSDMemory::cycle() {
 
     else if(current_state == RECEIVING_SORT_TREE_UP) {
         if(this->sort_up_iteration_finished) {
-            this->current_state = CONFIGURING_SORTING_PSUMS_DOWN;
+	    //std::cout << "Sort_up_iteration has finished" << std::endl;
+	    if(this->sorting_iterations > 1) { //If there are more iterations, we still have to merge the next group of psums
+                this->current_state = CONFIGURING_SORTING_PSUMS_DOWN;
+	//	std::cout << "Getting back to CONFIGURING_PSUM_DOWN" << std::endl;
+		//this->sort_up_received_first_value=false;
+	    }
+
+	    else { //Otherwise we go to the next row
+                this->current_state = CONFIGURING;
+	    }
 	    this->sort_up_iteration_finished = false;
 	}
     }
-
 
 
     //else if(current_state==WAITING_FOR_NEXT_STA_ITER) {
@@ -506,12 +521,12 @@ void OuterLoopSpGEMMSDMemory::cycle() {
     this->send();
 }
 
-bool OuterLoopSpGEMMSDMemory::isExecutionFinished() {
-	return ((this->execution_finished) && (write_queue_->getNumPendingEntries() == 0));
+bool GustavsonsSpGEMMSDMemory::isExecutionFinished() {
+    return ((this->execution_finished) && (write_queue_->getNumPendingEntries() == 0));
 }
 
 /* The traffic generation algorithm generates a package that contains a destination for all the ms. We have to divide it into smaller groups of ms since they are divided into several ports */
-void OuterLoopSpGEMMSDMemory::sendPackageToInputFifos(DataPackage* pck) {
+void GustavsonsSpGEMMSDMemory::sendPackageToInputFifos(DataPackage* pck) {
     // BROADCAST PACKAGE
     if(pck->isBroadcast()) {
         //Send to all the ports with the flag broadcast enabled
@@ -587,7 +602,7 @@ void OuterLoopSpGEMMSDMemory::sendPackageToInputFifos(DataPackage* pck) {
     delete pck; // We have created replicas of the package for the ports needed so we can delete this
 } 
 
-void OuterLoopSpGEMMSDMemory::send() {
+void GustavsonsSpGEMMSDMemory::send() {
     //Iterating over each port and if there is data in its fifo we send it. We give priority to the psums
 
     for(int i=0; i<(this->n_read_ports); i++) {
@@ -632,7 +647,7 @@ void OuterLoopSpGEMMSDMemory::send() {
 }
 
 //TODO Remove this connection
-void OuterLoopSpGEMMSDMemory::receive() { //TODO control if there is no space in queue
+void GustavsonsSpGEMMSDMemory::receive() { //TODO control if there is no space in queue
     if(this->write_connection->existPendingData()) {
         std::vector<DataPackage*> data_received = write_connection->receive();
         for(int i=0; i<data_received.size(); i++) {
@@ -649,13 +664,13 @@ void OuterLoopSpGEMMSDMemory::receive() { //TODO control if there is no space in
     }
 }
 
-void OuterLoopSpGEMMSDMemory::printStats(std::ofstream& out, unsigned int indent) {
+void GustavsonsSpGEMMSDMemory::printStats(std::ofstream& out, unsigned int indent) {
     out << ind(indent) << "\"SDMemoryStats\" : {" << std::endl; //TODO put ID
     this->sdmemoryStats.print(out, indent+IND_SIZE);
     out << ind(indent) << "}"; //Take care. Do not print endl here. This is parent responsability
 }
 
-void OuterLoopSpGEMMSDMemory::printEnergy(std::ofstream& out, unsigned int indent) {
+void GustavsonsSpGEMMSDMemory::printEnergy(std::ofstream& out, unsigned int indent) {
     /*
         This component prints:
             - The number of SRAM reads
@@ -672,7 +687,7 @@ void OuterLoopSpGEMMSDMemory::printEnergy(std::ofstream& out, unsigned int inden
         
 }
 
-bool OuterLoopSpGEMMSDMemory::doLoad(uint64_t addr, DataPackage* data_package)
+bool GustavsonsSpGEMMSDMemory::doLoad(uint64_t addr, DataPackage* data_package)
     {
         SimpleMem::Request* req = new SimpleMem::Request(SimpleMem::Request::Read, addr, this->data_width);
 
@@ -688,7 +703,7 @@ bool OuterLoopSpGEMMSDMemory::doLoad(uint64_t addr, DataPackage* data_package)
     }
 
 
-   bool OuterLoopSpGEMMSDMemory::doStore(uint64_t addr, DataPackage* data_package)
+   bool GustavsonsSpGEMMSDMemory::doStore(uint64_t addr, DataPackage* data_package)
     {
         SimpleMem::Request* req = new SimpleMem::Request(SimpleMem::Request::Write, addr, 4);
 
@@ -708,4 +723,3 @@ bool OuterLoopSpGEMMSDMemory::doLoad(uint64_t addr, DataPackage* data_package)
 
         return 1;
     }
-

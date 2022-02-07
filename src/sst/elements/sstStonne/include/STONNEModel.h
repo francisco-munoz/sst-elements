@@ -25,6 +25,7 @@
 #include "SparseFlex_MSNetwork.h"
 #include "SparseFlex_ASNetwork.h"
 #include "OuterLoopSpGEMMSDMemory.h"
+#include "GustavsonsSpGEMMSDMemory.h"
 #include "lsQueue.h"
 #include <sst/core/interfaces/simpleMem.h>
 

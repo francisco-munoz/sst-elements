@@ -230,7 +230,7 @@ void sstStonne::setup() {
 
     } //End csrSpMM operation
 
-      else if(kernelOperation==outerProductGEMM) {
+      else if((kernelOperation==outerProductGEMM) || (kernelOperation==gustavsonsGEMM)) {
       if(rowpointerMatrixAFileName=="") {
         output_->fatal(CALL_INFO, -1, "rowpointer_matrix_a_init parameter is not introduced\n");
       }
@@ -292,6 +292,10 @@ void sstStonne::setup() {
 	  stonne_instance->loadSparseDense(layer_name, GEMM_N, GEMM_K, GEMM_M, matrixA, matrixB, colpointerMatrixA, rowpointerMatrixA, matrixC, GEMM_T_N, GEMM_T_K);
 	  break;
       case outerProductGEMM:
+	  stonne_instance->loadSparseOuterProduct(layer_name, GEMM_N, GEMM_K, GEMM_M, matrixA, matrixB, colpointerMatrixA, rowpointerMatrixA, colpointerMatrixB, rowpointerMatrixB, matrixC);
+	  break;
+
+      case gustavsonsGEMM:
 	  stonne_instance->loadSparseOuterProduct(layer_name, GEMM_N, GEMM_K, GEMM_M, matrixA, matrixB, colpointerMatrixA, rowpointerMatrixA, colpointerMatrixB, rowpointerMatrixB, matrixC);
 	  break;
       default:
@@ -402,7 +406,7 @@ void sstStonne::finish() {
       delete[] rowpointerMatrixA;
       delete[] colpointerMatrixA;
     }
-    else if(kernelOperation==outerProductGEMM) {
+    else if((kernelOperation==outerProductGEMM) || (kernelOperation==gustavsonsGEMM)) {
         delete[] rowpointerMatrixA;
 	delete[] colpointerMatrixA;
 	delete[] rowpointerMatrixB;

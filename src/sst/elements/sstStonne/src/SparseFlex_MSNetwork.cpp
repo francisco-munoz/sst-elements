@@ -150,10 +150,10 @@ void SparseFlex_MSNetwork::nWindowsConfig(unsigned int n_windows) {
     }
 }
 
-void SparseFlex_MSNetwork::configurePartialGenerationMode() {
+void SparseFlex_MSNetwork::configurePartialGenerationMode(bool mergePartialSum) {
     for(int i=0; i<this->ms_size; i++) {
         SparseFlex_MSwitch* ms = this->mswitchtable[i];
-        ms->setPartialSumGenerationMode(true);
+        ms->setPartialSumGenerationMode(mergePartialSum);
     }
 }
 
@@ -168,8 +168,12 @@ void SparseFlex_MSNetwork::configureForwarderMode() {
 
 void SparseFlex_MSNetwork::configureSignals(Tile* current_tile, DNNLayer* dnn_layer, unsigned int ms_size, unsigned int n_folding, multiplierconfig_t multiplierconfig) {
     if(multiplierconfig == PSUM_GENERATION) {
-        this->configurePartialGenerationMode();
+        this->configurePartialGenerationMode(false); //The results will go to the memory directly as they do not need to merge
     } 
+
+    else if(multiplierconfig == PSUM_GENERATION_AND_MERGE) {
+        this->configurePartialGenerationMode(true); //The results will go through the tree to be merged
+    }
 
     else if(multiplierconfig == FORWARDER) {
         this->configureForwarderMode();
@@ -319,8 +323,7 @@ void SparseFlex_MSNetwork::printEnergy(std::ofstream& out, unsigned int indent) 
     
 }
 
-/*
-MSNetworkStats SparseFlex_MSNetwork::getStats() {
+/*MSNetworkStats SparseFlex_MSNetwork::getStats() {
     MSNetworkStats msnetworkStats;
     //Collecting MSwitches stats
     for(std::map<int, SparseFlex_MSwitch*>::iterator it=mswitchtable.begin(); it != mswitchtable.end(); ++it) {

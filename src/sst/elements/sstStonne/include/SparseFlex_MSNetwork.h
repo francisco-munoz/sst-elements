@@ -38,7 +38,7 @@ private:
     void setPhysicalConnection(); //Create the forwarding links in this SparseFlex_MSNetwork
     void nWindowsConfig(unsigned int n_windows);
     void nFoldingConfig(std::map<unsigned int, unsigned int> n_folding_configuration); //Set number of folds for each MS
-    void configurePartialGenerationMode();
+    void configurePartialGenerationMode(bool mergePartialSum);
     void configureForwarderMode();
     std::map<int, SparseFlex_MSwitch*> getMSwitches();
     std::map<int, Connection*> getForwardingConnections(); //Return the connections

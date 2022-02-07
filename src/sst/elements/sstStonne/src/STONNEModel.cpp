@@ -77,6 +77,9 @@ Stonne::Stonne(Config stonne_cfg, SST::SST_STONNE::LSQueue* load_queue_, SST::SS
 	case OUTER_PRODUCT_GEMM:
             this->mem = new OuterLoopSpGEMMSDMemory(0, "OSMeshSDMemory", stonne_cfg, this->outputLTConnection,  load_queue_, write_queue_, mem_interface_);
             break;
+	case GUSTAVSONS_GEMM:
+	    this->mem  = new GustavsonsSpGEMMSDMemory(0, "OSMeshSDMemory", stonne_cfg, this->outputLTConnection,  load_queue_, write_queue_, mem_interface_);
+	    break;
 	default:
 	    assert(false);
     }

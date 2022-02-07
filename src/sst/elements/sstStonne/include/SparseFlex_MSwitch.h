@@ -54,6 +54,7 @@ private:
     bool forward_psum;  //Indicates if the behaviour of this MS is to forward a psum. This is useful to implement folding 
     bool direct_forward_psum; //Always forward the psum. It is different than the variable forward_psum as the last one has some control regarding the number of iterations. 
     bool memory_connection_enabled;
+    bool compute_merge_enabled;
    
     cycles_t local_cycle;
     MSwitchStats mswitchStats; //Object to track the behaviour of the MSwitch
@@ -78,7 +79,7 @@ public:
     void setNFolding(unsigned int n_folding); //The number of partial sums used to accumulate a whole sum
     void setForwardPsum(bool forward_psum); // Disable multipliplier function and enable the psum forwarding with the control managed by the multiplier
     void setDirectForwardPsum(bool direct_forward_psum); //Disable multiplier function and enable the psum forwarding. In this case, the psum is always forwarded (SIGMA).
-    void setPartialSumGenerationMode(bool mode);
+    void setPartialSumGenerationMode(bool merge_psums);
     Fifo* getActivationFifo() {return this->activation_fifo;}
     Fifo* getWeightFifo() {return this->weight_fifo;}
     Fifo* getPsumFifo() {return this->psum_fifo;}

@@ -49,6 +49,8 @@ std::string get_string_layer_t(Layer_t kernelOperation) {
 	    return "csrSpMM";
 	case outerProductGEMM:
 	    return "outerProductGEMM";
+	case gustavsonsGEMM:
+	    return "gustavsonsGEMM";
         default:
             assert(false);
             break;
@@ -74,6 +76,10 @@ Layer_t get_type_layer_t(std::string kernelOperation) {
 	else if(kernelOperation=="outerProductGEMM") {
             return outerProductGEMM;
         }
+	
+	else if(kernelOperation=="gustavsonsGEMM") {
+            return gustavsonsGEMM; 
+	}
 
         else {
             std::cout << kernelOperation << " Not found" << std::endl;
@@ -235,6 +241,8 @@ std::string get_string_memory_controller_type(MemoryController_t memory_controll
 
 	case OUTER_PRODUCT_GEMM:
 	    return "OUTER_PRODUCT_GEMM";
+	case GUSTAVSONS_GEMM:
+	    return "GUSTAVSONS_GEMM";
 
 
         default:
@@ -262,6 +270,10 @@ MemoryController_t get_type_memory_controller_type(std::string memory_controller
 
 	else if(memory_controller_type=="OUTER_PRODUCT_GEMM") {
             return OUTER_PRODUCT_GEMM;
+	}
+
+	else if(memory_controller_type=="GUSTAVSONS_GEMM") {
+            return GUSTAVSONS_GEMM;
 	}
 
         else {

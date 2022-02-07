@@ -35,6 +35,7 @@ Unit(id, name){
     this->forward_psum = false;  //Indicates whether it has to forward the psum with the iterations controlled by the memory
     this->direct_forward_psum = false; //Indicates whether it has to forward the psum, ALWAYS.
     this->memory_connection_enabled = false; //Indicates whether to send the result to the memory
+    this->compute_merge_enabled=false;
     this->local_cycle=0;
     this->n_windows = 0;
     this->n_folding = 0;
@@ -69,6 +70,7 @@ void SparseFlex_MSwitch::resetSignals() {
     this->n_windows = 0;
     this->n_folding = 0;
     this->memory_connection_enabled = false;
+    this->compute_merge_enabled=0;
 
     this->VN=-1; //Not configured 
         while(!weight_fifo->isEmpty()) {
@@ -187,8 +189,9 @@ void SparseFlex_MSwitch::setVirtualNeuron(unsigned int VN) {
 
 }
 
-void SparseFlex_MSwitch::setPartialSumGenerationMode(bool mode) {
-   this->memory_connection_enabled=mode; 
+void SparseFlex_MSwitch::setPartialSumGenerationMode(bool merge_psums) {
+   this->compute_merge_enabled = merge_psums; 
+   this->memory_connection_enabled=!merge_psums; 
 }
 
 
@@ -293,7 +296,7 @@ DataPackage* SparseFlex_MSwitch::perform_operation_2_operands(DataPackage* pck_l
 
     
     //Creating the result package with the output
-    DataPackage* result_pck = new DataPackage (sizeof(data_t), result, PSUM, this->num, this->VN, MULTIPLIER,pck_right->getRow(),pck_left->getCol());  //TODO the size of the package corresponds with the data size
+    DataPackage* result_pck = new DataPackage (sizeof(data_t), result, PSUM, pck_right->get_source(), this->VN, MULTIPLIER,pck_right->getRow(),pck_left->getCol());  //TODO the size of the package corresponds with the data size
     //Adding to the creation list to be deleted afterward
     //this->psums_created.push_back(result_pck);
     this->mswitchStats.n_multiplications++; // Track a multiplication
@@ -313,7 +316,8 @@ void SparseFlex_MSwitch::cycle() { //Computing a cycle
     //      this->receive(inputForwardingConnection); //Trying to receive from neighbour an input data
    // }
 
-    if(this->memory_connection_enabled) {
+
+    if((this->memory_connection_enabled) || (this->compute_merge_enabled)) {
         this->receive(inputConnection);
         if(!activation_fifo->isEmpty() && !weight_fifo->isEmpty()) {
             DataPackage* activation = activation_fifo->pop(); //Get the activation and remove from fifo
