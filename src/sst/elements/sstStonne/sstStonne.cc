@@ -394,6 +394,7 @@ unsigned int sstStonne::constructCSRStructure(std::string fileName, unsigned int
 void sstStonne::finish() {
     //This code should have the logic to write the output memory into a certain file passed by parameter. TODO
     dumpMemoryToFile(memMatrixCFileName, matrixC, matrixC_size);
+    std::cout << "The file is dumped" << std::endl;
     //delete stonne_instance;
     //delete[] matrixC; 
     
@@ -412,6 +413,8 @@ void sstStonne::finish() {
 	delete[] rowpointerMatrixB;
 	delete[] colpointerMatrixB;
     }
+
+    std::cout << "The finish function ends" << std::endl;
 }
 
 void sstStonne::dumpMemoryToFile(std::string fileName, float* array, unsigned int size) {

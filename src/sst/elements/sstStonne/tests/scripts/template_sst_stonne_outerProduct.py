@@ -57,7 +57,7 @@ df_memory.addParams({
 
 backend = df_memory.setSubComponent("backend", "memHierarchy.simpleMem")
 backend.addParams({
-    "access_time" : "4 ns",
+    "access_time" : "400 ns",
     "mem_size" : str(max_addr_gb) + "GiB"
     #"mem_size" : str(1048576) + "B", # 1 MB
 })

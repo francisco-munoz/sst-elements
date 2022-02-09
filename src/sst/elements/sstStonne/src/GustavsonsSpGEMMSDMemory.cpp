@@ -82,10 +82,14 @@ GustavsonsSpGEMMSDMemory::GustavsonsSpGEMMSDMemory(id_t id, std::string name, Co
     for(int i=0; i<this->num_ms; i++) {
         vnat_table.push_back(-1); //Initializing table with rows of sta data 
 	ms_group.push_back(-1);
+	std::queue<DataPackage*> FIFO;
+	buffer_sync.push_back(FIFO);
     }
     this->n_values_stored=0;
     this->swap_memory_enabled=false;
     this->current_sorting_iteration=0;
+    this->n_str_req_recv=0;
+    this->n_str_req_sent=0;
 
 }
 
@@ -96,6 +100,7 @@ GustavsonsSpGEMMSDMemory::~GustavsonsSpGEMMSDMemory() {
         delete input_fifos[i];
         delete psum_fifos[i];
     }
+    //delete[] data_package_array_sync;
     
 
 }
@@ -125,6 +130,9 @@ void GustavsonsSpGEMMSDMemory::setLayer(DNNLayer* dnn_layer, address_t MK_addres
     this->M = this->dnn_layer->get_N();
     this->K = this->dnn_layer->get_C();   //Be careful. K in GEMMs (SIGMA taxonomy) is not the same as K in CNN taxonomy (number of filters)
     this->N = this->dnn_layer->get_K();  //In this case both parameters match each other.
+    std::cout << "Value of M: " << this->M << std::endl;
+    std::cout << "Value of K: " << this->K << std::endl;
+    std::cout << "Value of N: " << this->N << std::endl;
     sdmemoryStats.dataflow=dataflow; 
     
     this->MK_address = MK_address;
@@ -164,9 +172,16 @@ void GustavsonsSpGEMMSDMemory::cycle() {
       SimpleMem::Request::id_t req_id = load_queue_->getNextCompletedEntry();
       DataPackage* pck = load_queue_->getEntryPackage(req_id);
       load_queue_->removeEntry(req_id);
-      this->sendPackageToInputFifos(pck); //Sending the package
+      //this->sendPackageToInputFifos(pck); //Sending the package
+      if((current_state==DIST_STR_MATRIX) || (current_state==WAITING_FOR_NEXT_STA_ITER)) {
+          buffer_sync[pck->get_unicast_dest()].push(pck); //To hidde the memory latency and send later all the elements at the same time
+      } 
+      else {
+          this->sendPackageToInputFifos(pck); //This is for STA data
+      }
+    
 
-    }
+   }
 
     //Processing write memory requests
     while(write_queue_->getNumCompletedEntries() > 0) {
@@ -221,9 +236,10 @@ void GustavsonsSpGEMMSDMemory::cycle() {
 		   vnat_table[i]=col; //To find out the col of mstrix KN. 
 		   uint64_t new_addr = input_dram_location + current_MK_col_id*this->data_width;
 		   data_t data = 0.0;
+		   n_str_req_sent++;
 
 		   DataPackage* pck_to_send = new DataPackage(sizeof(data_t), data, WEIGHT, this->current_sorting_iteration, UNICAST, i, row, col);
-		   //std::cout << "[Cycle " << this->local_cycle << "] Sending data with value " << data << std::endl;
+	//	   std::cout << "[Cycle " << this->local_cycle << "] Sending data with value " << data << std::endl;
                    //this->sendPackageToInputFifos(pck_to_send);
 		   doLoad(new_addr, pck_to_send);
 		   //Update variables
@@ -249,6 +265,7 @@ void GustavsonsSpGEMMSDMemory::cycle() {
 
     else if(current_state == DIST_STR_MATRIX) {//Dense matrix
 	bool found = false;
+	n_str_req_sent=0;
         for(int i=0; i < multipliers_used; i++) {
 	    int row = vnat_table[i]; //Corresponds with the col of the value sta in the multiplier
 	    int length_row = KN_row_pointer[row+1] - KN_row_pointer[row];
@@ -260,9 +277,10 @@ void GustavsonsSpGEMMSDMemory::cycle() {
 		uint64_t new_addr = this->weight_dram_location + (KN_row_pointer[row]+this->current_KN)*this->data_width;
 		data_t data = 0.0;
                 DataPackage* pck_to_send = new DataPackage(sizeof(data_t), data, IACTIVATION, this->current_sorting_iteration, UNICAST, i, row, KN_col_id[KN_row_pointer[row]+this->current_KN]);
-                //std::cout << "[Cycle " << this->local_cycle << "] Sending STREAMING data with value " << data << std::endl;
+            //    std::cout << "[Cycle " << this->local_cycle << "] Sending STREAMING data with value " << data << std::endl;
                 //this->sendPackageToInputFifos(pck_to_send);
 		doLoad(new_addr, pck_to_send);
+		n_str_req_sent++;
 
                 
 	    }
@@ -276,7 +294,19 @@ void GustavsonsSpGEMMSDMemory::cycle() {
 	}
     }
 
+    else if(current_state == WAITING_FOR_NEXT_STA_ITER) {
+	for(int i=0; i<multipliers_used; i++) {
+            if(buffer_sync[i].size() > 0) {
+                DataPackage* pck_to_send = buffer_sync[i].front();
+		buffer_sync[i].pop();
+		this->sendPackageToInputFifos(pck_to_send);
+
+	    }
+        }
+    }
+
     else if(current_state == CONFIGURING_SORTING_PSUMS_DOWN) {
+//	std::cout << "CONFIGURING_SORTING_PSUMS_DOWN" << std::endl;
 	this->reduce_network->resetSignals();
 	this->reduce_network->configureSignalsSortTree(SORT_TREE);
 	this->multiplier_network->resetSignals();
@@ -341,6 +371,7 @@ void GustavsonsSpGEMMSDMemory::cycle() {
     //Receiving output data from write_connection
     this->receive();
     if(!write_fifo->isEmpty()) {
+      waiting_idle_cycles=0;
       for(int i=0; i<write_fifo->size(); i++) { 
       DataPackage* pck_received = write_fifo->pop();
 
@@ -362,8 +393,10 @@ void GustavsonsSpGEMMSDMemory::cycle() {
           }
 	  else {
 	      //std::cout << "Writing element into the array with position " << n_values_stored << std::endl;
-	      uint64_t new_addr = this->output_dram_location + this->n_values_stored*this->data_width;
+	      unsigned int  new_addr = this->output_dram_location + this->n_values_stored*this->data_width;
+	      //std::cout << "Writing element in address " << new_addr << std::endl;
 	      //this->output_address[this->n_values_stored]=pck_received->get_data();
+	      pck_received->set_address(new_addr);
 	      doStore(new_addr, pck_received);
 	      n_values_stored++;
 	      //delete pck_received;
@@ -377,7 +410,8 @@ void GustavsonsSpGEMMSDMemory::cycle() {
     } //End write_fifo
 
     else { //If nothing is received
-        if(((current_state == RECEIVING_SORT_TREE_UP) || (current_state == WAITING_FOR_NEXT_STA_ITER)) && this->sort_up_received_first_value) {
+	waiting_idle_cycles++;
+        if(((current_state == RECEIVING_SORT_TREE_UP) || (current_state == WAITING_FOR_NEXT_STA_ITER)) && this->sort_up_received_first_value && (load_queue_->getNumPendingEntries() == 0) && (waiting_idle_cycles < 800)) {
 	      //std::cout << "Closing this iteration" << std::endl;
 	      this->sort_up_received_first_value=false;
               if(this->last_sta_iteration_completed && (this->sorting_iterations == 1)) { //If the last iteration has been streamed down before
@@ -418,26 +452,30 @@ void GustavsonsSpGEMMSDMemory::cycle() {
 	}
     }
 
+     
     //Transitions
     if((current_state==CONFIGURING) && ((load_queue_->getNumPendingEntries() == 0))) {
         current_state=DIST_STA_MATRIX;
+	//std::cout << "Controller transiting from CONFIGURING to DIST_STA_MATRIX" << std::endl;
     }
 
-    else if(current_state==DIST_STA_MATRIX) {
+    else if((current_state==DIST_STA_MATRIX)) {
         if(STA_complete) {
+	    //std::cout << "Controller transiting from DIST_STA_MATRIX to DIST_STR_MATRIX" << std::endl;
             current_state=DIST_STR_MATRIX;
 	    STA_complete = false;
 	}
     }
 
-    else if(current_state==DIST_STR_MATRIX) {
+    else if((current_state==DIST_STR_MATRIX)) {
         if(STR_complete) {
+	    //std::cout << "Controller transiting from DIST_STR_MATRIX to WAITING_FOR_NEXT_STA_ITER" << std::endl;
             this->current_state = WAITING_FOR_NEXT_STA_ITER;
 	    this->STR_complete = false;
 	}
     }
 
-    else if(current_state == WAITING_FOR_NEXT_STA_ITER) {
+    else if((current_state == WAITING_FOR_NEXT_STA_ITER) && ((load_queue_->getNumPendingEntries() == 0))) {
         if(STR_complete) {
 	      //std::cout << "Running from WAITING FOR NEXT STA ITER" << std::endl;
 	      STR_complete = false;
@@ -445,20 +483,27 @@ void GustavsonsSpGEMMSDMemory::cycle() {
 	      //std::cout << "Sorting iterations: " << this->sorting_iterations << std::endl;;
 	      if(this->current_sorting_iteration < this->sorting_iterations) {
                   current_state = CONFIGURING;
+		  //std::cout << "Controller transiting from WAITING_NEXT_STA_ITER to CONFIGURING" << std::endl;
 		  
 	      }
               
 	      else if(this->current_sorting_iteration == this->sorting_iterations) {
-		  std::cout << "Simulated Iteration completed" << std::endl;
+		  //std::cout << "Simulated Iteration completed" << std::endl;
                   if(this->sorting_iterations == 1) {
                       this->current_state = CONFIGURING;
+		      //std::cout << "Controller transiting from WAITING_NEXT_STA_ITER to CONFIGURING" << std::endl;
+		      std::cout << "A new row has been completed" << std::endl;
+
 		      this->current_sorting_iteration = 0;
 		      //std::cout << "GOING TO CONFIGURING" << std::endl;
 		  }
 
 		  else {
+		      
                       this->current_state = CONFIGURING_SORTING_PSUMS_DOWN;
 		      this->current_sorting_iteration = 0;
+		      //std::cout << "Controller transiting from WAITING_NEXT_STA_ITER to CONFIGURING_SORTING_PSUMS_DOWN" << std::endl;
+
 		     // std::cout << "GOING TO CONFIGURING_SORT_TREE_DOWN" << std::endl;
 		  }
 	      }
@@ -469,6 +514,8 @@ void GustavsonsSpGEMMSDMemory::cycle() {
 
     else if(current_state == CONFIGURING_SORTING_PSUMS_DOWN) {
         this->current_state = SENDING_SORT_TREE_DOWN;
+	//std::cout << "Controller transiting from CONFIGURING_SORTING_PSUMS_DOWN to SENDING_SORT_TREE_DOWN" << std::endl;
+
     }
 
     else if(current_state ==  SENDING_SORT_TREE_DOWN) {
@@ -476,6 +523,8 @@ void GustavsonsSpGEMMSDMemory::cycle() {
             this->sort_down_iteration_finished = false;
             this->current_state = RECEIVING_SORT_TREE_UP;
 	    this->sort_up_received_first_value = false;
+	   // std::cout << "Controller transiting from SENDING_SORT_TREE_DOWN to RECEIVING_SORT_TREE_UP" << std::endl;
+
 	}
     }
 
@@ -485,16 +534,22 @@ void GustavsonsSpGEMMSDMemory::cycle() {
 	    //std::cout << "Sort_up_iteration has finished" << std::endl;
 	    if(this->sorting_iterations > 1) { //If there are more iterations, we still have to merge the next group of psums
                 this->current_state = CONFIGURING_SORTING_PSUMS_DOWN;
+		//std::cout << "Controller transiting from RECEIVING_SORT_TREE_UP to CONFIGURING_SORTING_PSUMS_DOWN" << std::endl;
+
 	//	std::cout << "Getting back to CONFIGURING_PSUM_DOWN" << std::endl;
 		//this->sort_up_received_first_value=false;
 	    }
 
 	    else { //Otherwise we go to the next row
                 this->current_state = CONFIGURING;
+		std::cout << "A new row has been completed" << std::endl;
+		//std::cout << "Controller transiting from RECEIVING_SORT_TREE_UP to CONFIGURING" << std::endl;
+
 	    }
 	    this->sort_up_iteration_finished = false;
 	}
     }
+
 
 
     //else if(current_state==WAITING_FOR_NEXT_STA_ITER) {
@@ -503,7 +558,7 @@ void GustavsonsSpGEMMSDMemory::cycle() {
 
     else if(current_state==ALL_DATA_SENT) {
     
-
+        
 //	if(current_M>=this->M) {
 	    //Calculating sparsity values  and some final stats
 	    unsigned int sta_size = this->M*this->K;
@@ -515,6 +570,7 @@ void GustavsonsSpGEMMSDMemory::cycle() {
 	    current_state = ALL_DATA_SENT;
 
     }
+
 
    
 

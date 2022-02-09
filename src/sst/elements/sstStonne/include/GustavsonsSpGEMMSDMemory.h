@@ -82,10 +82,11 @@ private:
 
     uint32_t data_width;
     uint32_t n_write_mshr;
-
-
-
-    
+    uint32_t waiting_idle_cycles;
+  
+    std::vector<std::queue<DataPackage*>> buffer_sync;
+    unsigned int n_str_req_recv;
+    unsigned int n_str_req_sent;
     
     //Current pointers
     unsigned int current_MK;
