@@ -242,6 +242,7 @@ void GustavsonsSpGEMMSDMemory::cycle() {
 	//	   std::cout << "[Cycle " << this->local_cycle << "] Sending data with value " << data << std::endl;
                    //this->sendPackageToInputFifos(pck_to_send);
 		   doLoad(new_addr, pck_to_send);
+		   this->sdmemoryStats.n_SRAM_weight_reads++;
 		   //Update variables
 		   current_MK_col_id++;
 		   if(current_MK_col_id >= MK_row_pointer[current_MK_row_pointer+1]) {
@@ -280,6 +281,7 @@ void GustavsonsSpGEMMSDMemory::cycle() {
             //    std::cout << "[Cycle " << this->local_cycle << "] Sending STREAMING data with value " << data << std::endl;
                 //this->sendPackageToInputFifos(pck_to_send);
 		doLoad(new_addr, pck_to_send);
+		this->sdmemoryStats.n_SRAM_input_reads++;
 		n_str_req_sent++;
 
                 
@@ -339,6 +341,7 @@ void GustavsonsSpGEMMSDMemory::cycle() {
                 found = true;
                 DataPackage* pck_stored = (*pointer_current_memory)[i].front();
                 (*pointer_current_memory)[i].pop();
+		this->sdmemoryStats.n_SRAM_psum_reads++;
                 int destination = j;
                 DataPackage* pck_to_send = new DataPackage(sizeof(data_t), pck_stored->get_data(), PSUM, this->current_sorting_iteration, UNICAST, destination, pck_stored->getRow(), pck_stored->getCol());
           //      std::cout << "[Cycle " << this->local_cycle << "] Sending data ROW=" << pck_to_send->getRow() << " COL=" << pck_to_send->getCol()  << " Data=" << pck_to_send->get_data() << " Destination: " << destination << " Current_iter: " << this->current_sorting_iteration << std::endl;
@@ -389,6 +392,7 @@ void GustavsonsSpGEMMSDMemory::cycle() {
 
               //Adding the element
 	      (*pointer_next_memory)[group].push(pck_received);
+	      this->sdmemoryStats.n_SRAM_psum_writes++;
 	      //std::cout << "Writing element into the intermediate memory" << std::endl;
           }
 	  else {
@@ -398,6 +402,7 @@ void GustavsonsSpGEMMSDMemory::cycle() {
 	      //this->output_address[this->n_values_stored]=pck_received->get_data();
 	      pck_received->set_address(new_addr);
 	      doStore(new_addr, pck_received);
+	      this->sdmemoryStats.n_DRAM_psum_writes++;
 	      n_values_stored++;
 	      //delete pck_received;
 	  }

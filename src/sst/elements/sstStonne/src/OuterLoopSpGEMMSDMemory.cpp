@@ -218,6 +218,7 @@ void OuterLoopSpGEMMSDMemory::cycle() {
 		   data_t data = 0.0;
 		   DataPackage* pck_to_send = new DataPackage(sizeof(data_t), data, WEIGHT, i, UNICAST, i, row, col);
 		   doLoad(new_addr, pck_to_send);
+		   this->sdmemoryStats.n_SRAM_weight_reads++;
 		   //std::cout << "[Cycle " << this->local_cycle << "] Sending data with value " << data << std::endl;
 		   //Update variables
 		   current_MK_row_id++;
@@ -254,6 +255,7 @@ void OuterLoopSpGEMMSDMemory::cycle() {
                 DataPackage* pck_to_send = new DataPackage(sizeof(data_t), data, IACTIVATION, i, UNICAST, i, row, KN_col_id[KN_row_pointer[row]+this->current_KN]);
                 //std::cout << "[Cycle " << this->local_cycle << "] Sending STREAMING data with value " << data << std::endl;
 		doLoad(new_addr, pck_to_send);
+		this->sdmemoryStats.n_SRAM_input_reads++;
 
                 
 	    }
@@ -298,6 +300,7 @@ void OuterLoopSpGEMMSDMemory::cycle() {
                 (*pointer_current_memory)[i].pop();
                 int destination = j;
                 DataPackage* pck_to_send = new DataPackage(sizeof(data_t), pck_stored->get_data(), PSUM, this->current_sorting_iteration, UNICAST, destination, pck_stored->getRow(), pck_stored->getCol());
+		this->sdmemoryStats.n_SRAM_psum_reads++;
             //    std::cout << "[Cycle " << this->local_cycle << "] Sending data ROW=" << pck_to_send->getRow() << " COL=" << pck_to_send->getCol()  << " Data=" << pck_to_send->get_data() << " Destination: " << destination << " Current_iter: " << this->current_sorting_iteration << std::endl;
                 delete pck_stored;
                 this->sendPackageToInputFifos(pck_to_send);
@@ -349,12 +352,14 @@ void OuterLoopSpGEMMSDMemory::cycle() {
 
               //Adding the element
 	      (*pointer_next_memory)[group].push(pck_received);
+	      this->sdmemoryStats.n_SRAM_psum_writes++;
           }
 	  else { //Sending the result to DRAM as it is completed
 	      unsigned int new_addr = this->output_dram_location + this->n_values_stored*this->data_width;
 	      //this->output_address[this->n_values_stored]=pck_received->get_data();
 	      pck_received->set_address(new_addr);
 	      doStore(new_addr, pck_received);
+	      this->sdmemoryStats.n_DRAM_psum_writes++;
 	      n_values_stored++;
 	      //delete pck_received;
 	  }
@@ -371,6 +376,7 @@ void OuterLoopSpGEMMSDMemory::cycle() {
 	      intermediate_memory[pck_received->getRow()].push_back(new_group); //Pushing a new group
           }
           intermediate_memory[pck_received->getRow()][ms_group[ms_source]].push(pck_received);
+	  sdmemoryStats.n_SRAM_psum_writes++;
           //Calculate position and store element
           if(this->current_state == WAITING_FOR_NEXT_STA_ITER) {
               if(this->n_str_data_received == n_str_data_sent) { //If we receive all the partial sums, then we go to the next state

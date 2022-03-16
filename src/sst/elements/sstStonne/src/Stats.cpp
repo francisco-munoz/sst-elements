@@ -210,6 +210,7 @@ void SDMemoryStats::reset() {
     this->n_SRAM_input_reads=0;
     this->n_SRAM_psum_reads=0;
     this->n_SRAM_psum_writes=0;
+    this->n_DRAM_psum_writes=0;
     this->sta_sparsity=0;
     this->str_sparsity=0;
     this->dataflow=CNN_DATAFLOW;
@@ -228,6 +229,7 @@ void SDMemoryStats::print(std::ofstream& out, unsigned int indent) {
     out << ind(indent) << "\"N_SRAM_input_reads\" : " << this->n_SRAM_input_reads << "," << std::endl;
     out << ind(indent) << "\"N_SRAM_psum_reads\" : " << this->n_SRAM_psum_reads << "," << std::endl;
     out << ind(indent) << "\"N_SRAM_psum_writes\" : " << this->n_SRAM_psum_writes << ","  << std::endl;  
+    out << ind(indent) << "\"N_DRAM_psum_writes\" : " << this->n_DRAM_psum_writes << ","  << std::endl;
     out << ind(indent) << "\"Dataflow\" : " << "\"" << get_string_dataflow_type(this->dataflow) << "\"" << ","  << std::endl;
     out << ind(indent) << "\"STA_sparsity\" : " << this->sta_sparsity << ","  << std::endl;
     out << ind(indent) << "\"STR_sparsity\" : " << this->str_sparsity << ","  << std::endl;

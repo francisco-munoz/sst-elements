@@ -148,6 +148,7 @@ public:
     counter_t n_SRAM_input_reads;                                //Number of SRAM input reads
     counter_t n_SRAM_psum_reads;                                 //Number of SRAM psum reads
     counter_t n_SRAM_psum_writes;                                //Number of SRAM psum writes
+    counter_t n_DRAM_psum_writes;                                //Number of final DRAM psum writes
     counter_t sta_sparsity;                                      //Exent of sparsity sta matrix. Only for sparse controllers
     counter_t n_cycles_multiplying;                              //Number of cycles spent during the multiplying phase
     counter_t n_cycles_merging;                                  // Number of cycles spent during the merging phase
