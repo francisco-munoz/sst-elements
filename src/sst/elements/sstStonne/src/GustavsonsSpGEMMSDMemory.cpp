@@ -218,6 +218,7 @@ void GustavsonsSpGEMMSDMemory::cycle() {
 
 	pointer_current_memory = &swap_memory;
         pointer_next_memory = &intermediate_memory; //where the first iteration will be stored
+	std::cout << "Computing MK row " << current_MK_row_pointer << "/" << M << std::endl;  
 	
 
 	//this->reduce_network->configureSignals(tile1, this->dnn_layer, this->num_ms, this->iter_K);
@@ -497,14 +498,14 @@ void GustavsonsSpGEMMSDMemory::cycle() {
                   if(this->sorting_iterations == 1) {
                       this->current_state = CONFIGURING;
 		      //std::cout << "Controller transiting from WAITING_NEXT_STA_ITER to CONFIGURING" << std::endl;
-		      std::cout << "A new row has been completed" << std::endl;
+		      std::cout << "The row has been completed" << std::endl;
 
 		      this->current_sorting_iteration = 0;
 		      //std::cout << "GOING TO CONFIGURING" << std::endl;
 		  }
 
 		  else {
-		      
+		      std::cout << "The row is going to be sorted" << std::endl;
                       this->current_state = CONFIGURING_SORTING_PSUMS_DOWN;
 		      this->current_sorting_iteration = 0;
 		      //std::cout << "Controller transiting from WAITING_NEXT_STA_ITER to CONFIGURING_SORTING_PSUMS_DOWN" << std::endl;

@@ -71,8 +71,8 @@ address_c=$(echo "$output_cmd" | grep "Offset matrix C" | tr -d ' ' | cut -f 2 -
 #running inner product
 sst temporal_sst_stonne_bitmapSpMSpM.py > /dev/null 
 cycles_inner=$(cat *.counters | head -1 | cut -f 2 -d=)
-l1_hits_inner=$(cat output.csv | grep hit | grep -o "Sum.u64 = [0-9]*" | cut -f 2 -d= | tr -d ' ' | paste -s -d'+' | bc)
-l1_miss_inner=$(cat output.csv | grep miss | grep -o "Sum.u64 = [0-9]*" | cut -f 2 -d= | tr -d ' ' | paste -s -d'+' | bc)
+l1_hits_inner=$(cat output.csv | grep hit | grep -o "Count.u64 = [0-9]*" | cut -f 2 -d= | tr -d ' ' | paste -s -d'+' | bc)
+l1_miss_inner=$(cat output.csv | grep miss | grep -o "Count.u64 = [0-9]*" | cut -f 2 -d= | tr -d ' ' | paste -s -d'+' | bc)
 idle_cycles_ms_inner=$(cat *.txt | grep "Idle_cycles_mswitch" | tr -d , | tr -d ' ' | cut -f 2 -d: | paste -d+ -s | bc)
 idle_cycles_as_inner=$(cat *.txt | grep "Idle_cycles_aswitch" | tr -d , | tr -d ' ' | cut -f 2 -d: | paste -d+ -s | bc)
 rm *.counters
@@ -81,8 +81,8 @@ rm output.csv
 # Running outer product
 sst temporal_sst_stonne_outerProduct.py > /dev/null
 cycles_outer=$(cat *.counters | head -1 | cut -f 2 -d=)
-l1_hits_outer=$(cat output.csv | grep hit | grep -o "Sum.u64 = [0-9]*" | cut -f 2 -d= | tr -d ' ' | paste -s -d'+' | bc)
-l1_miss_outer=$(cat output.csv | grep miss | grep -o "Sum.u64 = [0-9]*" | cut -f 2 -d= | tr -d ' ' | paste -s -d'+' | bc)
+l1_hits_outer=$(cat output.csv | grep hit | grep -o "Count.u64 = [0-9]*" | cut -f 2 -d= | tr -d ' ' | paste -s -d'+' | bc)
+l1_miss_outer=$(cat output.csv | grep miss | grep -o "Count.u64 = [0-9]*" | cut -f 2 -d= | tr -d ' ' | paste -s -d'+' | bc)
 n_cycles_multiplying_outer=$(cat *.txt | grep N_cycles_multiplying | tr -d , | tr -d ' ' | cut -f 2 -d:)
 n_cycles_merging_outer=$(cat *.txt | grep N_cycles_merging | tr -d , | tr -d ' ' | cut -f 2 -d:)
 idle_cycles_ms_outer=$(cat *.txt | grep "Idle_cycles_mswitch" | tr -d , | tr -d ' ' | cut -f 2 -d: | paste -d+ -s | bc)
@@ -95,8 +95,8 @@ rm output.csv
 # Running gustavsons
 sst temporal_sst_stonne_gustavsons.py > /dev/null
 cycles_gustavsons=$(cat *.counters | head -1 | cut -f 2 -d=)
-l1_hits_gustavsons=$(cat output.csv | grep hit | grep -o "Sum.u64 = [0-9]*" | cut -f 2 -d= | tr -d ' ' | paste -s -d'+' | bc)
-l1_miss_gustavsons=$(cat output.csv | grep miss | grep -o "Sum.u64 = [0-9]*" | cut -f 2 -d= | tr -d ' ' | paste -s -d'+' | bc)
+l1_hits_gustavsons=$(cat output.csv | grep hit | grep -o "Count.u64 = [0-9]*" | cut -f 2 -d= | tr -d ' ' | paste -s -d'+' | bc)
+l1_miss_gustavsons=$(cat output.csv | grep miss | grep -o "Count.u64 = [0-9]*" | cut -f 2 -d= | tr -d ' ' | paste -s -d'+' | bc)
 #n_cycles_multiplying_gustavsons=$(cat *.txt | grep N_cycles_multiplying | tr -d , | tr -d ' ' | cut -f 2 -d:)
 #n_cycles_merging_gustavsons=$(cat *.txt | grep N_cycles_merging | tr -d , | tr -d ' ' | cut -f 2 -d:)
 idle_cycles_ms_gustavsons=$(cat *.txt | grep "Idle_cycles_mswitch" | tr -d , | tr -d ' ' | cut -f 2 -d: | paste -d+ -s | bc)

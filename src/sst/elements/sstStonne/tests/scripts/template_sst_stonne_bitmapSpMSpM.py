@@ -29,17 +29,17 @@ comp_stonne.addParams({
 
 df_l1cache = sst.Component("l1cache", "memHierarchy.Cache")
 df_l1cache.addParams({
-    "access_latency_cycles" : "2",
+    "access_latency_cycles" : "100",
     "cache_frequency" : str(tile_clk_mhz) + "GHz",
     "replacement_policy" : "lru",
     "coherence_protocol" : "MESI",
     "associativity" : "1",
-    "cache_line_size" : "16",
+    "cache_line_size" : "64",
     "verbose" : 10,
     "debug" : 1,
     "debug_level" : 100,
     "L1" : "1",
-    "cache_size" : "512B"
+    "cache_size" : "1GiB"
 })
 
 df_memory = sst.Component("memory", "memHierarchy.MemController")
@@ -53,7 +53,7 @@ df_memory.addParams({
 
 backend = df_memory.setSubComponent("backend", "memHierarchy.simpleMem")
 backend.addParams({
-    "access_time" : "400 ns",
+    "access_time" : "80 ns",
     "mem_size" : str(max_addr_gb) + "GiB"
     #"mem_size" : str(1048576) + "B", # 1 MB
 })

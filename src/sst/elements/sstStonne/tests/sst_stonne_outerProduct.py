@@ -8,22 +8,26 @@ statLevel = 16
 max_addr_gb = 1
 tile_clk_mhz = 1
 
-
 # Define the simulation components
 comp_stonne = sst.Component("stonne1", "sstStonne.MAERI")
 comp_stonne.addParams({
-    "hardware_configuration" : "sigma_128mses_128_bw.cfg",
-    "kernelOperation" : "bitmapSpMSpM",
+    "hardware_configuration" : "sparseflex_op_128mses_128_bw.cfg",
+    "kernelOperation" : "outerProductGEMM",
     "GEMM_K" : 512,
     "GEMM_N" : 64,
     "GEMM_M" : 64,
-    "bitmap_matrix_a_init" : "bitmapSpMSpM_file_bitmapA_64_64_512.in",
-    "bitmap_matrix_b_init" : "bitmapSpMSpM_file_bitmapB_64_64_512.in",
-    "mem_init" : "bitmapSpMSpM_gemm_mem.ini",
+    "GEMM_T_K" :4,
+    "GEMM_T_N" : 1,
+    "mem_init" : "outerproduct/outerproduct_gemm_mem.ini",
+    "mem_matrix_c_file_name" : "result.out",
     "matrix_a_dram_address" : 0,
-    "matrix_b_dram_address" : 129972,
-    "matrix_c_dram_address" : 259676,
-    "mem_matrix_c_file_name" : "result.out"
+    "matrix_b_dram_address" : 12444,
+    "matrix_c_dram_address" : 24608,
+    "rowpointer_matrix_a_init" : "outerproduct/outerproduct_gemm_rowpointerA.in",
+    "colpointer_matrix_a_init" : "outerproduct/outerproduct_gemm_colpointerA.in",
+    "rowpointer_matrix_b_init" : "outerproduct/outerproduct_gemm_rowpointerB.in",
+    "colpointer_matrix_b_init" : "outerproduct/outerproduct_gemm_colpointerB.in",
+
 
 })
 
@@ -77,4 +81,5 @@ link_mem_bus_link.connect( (df_l1cache, "low_network_0", "5ps"), (df_memory, "di
 
 
 # Enable statistics outputs
+
 
