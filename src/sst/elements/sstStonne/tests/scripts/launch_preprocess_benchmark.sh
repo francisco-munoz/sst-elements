@@ -38,6 +38,9 @@ STONNE_GUSTAVSONS_CONF_FILE=$4
 
 name_benchmark=$(echo $PATH_BENCHMARK | sed -r "s/.+\/(.+)\..+/\1/")
 DEST_DIR="bench_$name_benchmark"  # Destination where the files will be
+DEST_DIR_INNER="$DEST_DIR/inner_product"
+DEST_DIR_OUTER="$DEST_DIR/outer_product"
+DEST_DIR_GUSTAVSONS="$DEST_DIR/gustavsons"
 
 if test -d "$DEST_DIR"
 then
@@ -45,7 +48,8 @@ then
     rm -rf $DEST_DIR
 fi
 
-mkdir $DEST_DIR 
+mkdir $DEST_DIR
+
 
 
 #echo "Generating temporal files"
@@ -84,6 +88,19 @@ sed -i "s/STONNE_GUSTAVSONS_FILE/$STONNE_GUSTAVSONS_CONF_FILE/g" $DEST_DIR/tempo
 sed -i "s/MATRIX_B_DRAM_ADDRESS_PARAMETER/$address_b/g" $DEST_DIR/temporal_*
 sed -i "s/MATRIX_C_DRAM_ADDRESS_PARAMETER/$address_c/g" $DEST_DIR/temporal_*
 
+# Moving final files to the specific folders to separate the simulations
+mkdir -p $DEST_DIR_INNER
+mkdir -p $DEST_DIR_OUTER
+mkdir -p $DEST_DIR_GUSTAVSONS
+mv $DEST_DIR/bitmapSpMSpM* $DEST_DIR_INNER
+mv $DEST_DIR/outerproduct_gemm_* $DEST_DIR_OUTER
+mv $DEST_DIR/gustavsons_gemm_* $DEST_DIR_GUSTAVSONS
+mv $DEST_DIR/*bitmapSpMSpM.py $DEST_DIR_INNER
+mv $DEST_DIR/*outerProduct.py $DEST_DIR_OUTER
+mv $DEST_DIR/*gustavsons.py $DEST_DIR_GUSTAVSONS
+mv $DEST_DIR/$STONNE_INNER_CONF_FILE $DEST_DIR_INNER
+mv $DEST_DIR/$STONNE_OUTER_CONF_FILE $DEST_DIR_OUTER
+mv $DEST_DIR/$STONNE_GUSTAVSONS_CONF_FILE $DEST_DIR_GUSTAVSONS
 
 
 
