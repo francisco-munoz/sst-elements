@@ -5,6 +5,46 @@ import sys
 import struct
 
 
+def ensureNoEmptyRows(array_data, array_pointers, array_indices):
+    # Calculating the size of the new array
+    nnz=array_data.shape[0]
+    n_rows=array_pointers.shape[0]-1
+    new_size=nnz
+    for i in range(n_rows):
+        size_row=array_pointers[i+1]-array_pointers[i]
+        #print("Size row "+str(i)+":"+str(size_row))
+        if(size_row < 3):
+            gap=3 - size_row;
+            new_size+=gap
+            #print("Detected an empty row. nedded to increase "+str(gap))
+
+    # Creating the new modified arrays
+    new_array_data = np.zeros(new_size, dtype=np.float32)
+    new_array_pointers = np.zeros(n_rows+1, dtype=np.int32)
+    new_array_indices = np.zeros(new_size, dtype=np.int32)
+
+    # Allocating data into the new arrays
+    new_index=0
+    new_array_pointers[0]=0 # Initializing the first pointer to the first element
+    for i in range(n_rows):
+        size_row=array_pointers[i+1]-array_pointers[i]
+        if(size_row > 0): # If there are elements, copy them
+            for j in range(array_pointers[i], array_pointers[i+1]):
+                new_array_data[new_index]=array_data[j]
+                new_array_indices[new_index]=array_indices[j]
+                new_index+=1;
+        if(size_row < 3):
+            gap = 3 - size_row
+            for j in range(gap): # Introduces the remaining elements
+                new_array_data[new_index]=4.0 # 4 is just a random number
+                new_array_indices[new_index]=j # WATCH OUT! This might collide with a current index?
+                new_index+=1
+
+        new_array_pointers[i+1]=new_index # Updating the row pointer
+
+    return new_array_data,new_array_pointers, new_array_indices
+
+
 if len(sys.argv) != 2:
     print("Usage: ./script name_benchmark");
     exit(1)
@@ -84,19 +124,25 @@ elif type(mat['Problem'][0][0][5]) == scipy.sparse.csc.csc_matrix:
 matrixA_data_csr = matrixA_csr.data;
 matrixA_pointers_csr = matrixA_csr.indptr;
 matrixA_indices_csr = matrixA_csr.indices;
+#Preprocess
+matrixA_data_csr, matrixA_pointers_csr, matrixA_indices_csr = ensureNoEmptyRows(matrixA_data_csr, matrixA_pointers_csr, matrixA_indices_csr);
 
 matrixB_data_csr = matrixB_csr.data;
 matrixB_pointers_csr = matrixB_csr.indptr; # it includes the row n with elelements elements+1
 matrixB_indices_csr = matrixB_csr.indices;
-
+#Preprocess
+matrixB_data_csr, matrixB_pointers_csr, matrixB_indices_csr = ensureNoEmptyRows(matrixB_data_csr, matrixB_pointers_csr, matrixB_indices_csr);
 
 matrixA_data_csc = matrixA_csc.data;
 matrixA_pointers_csc = matrixA_csc.indptr;
 matrixA_indices_csc = matrixA_csc.indices;
+#Preprocess
+matrixA_data_csc, matrixA_pointers_csc, matrixA_indices_csc = ensureNoEmptyRows(matrixA_data_csc, matrixA_pointers_csc, matrixA_indices_csc);
 
 matrixB_data_csc = matrixB_csc.data;
 matrixB_pointers_csc = matrixB_csc.indptr;
 matrixB_indices_csc = matrixB_csc.indices;
+matrixB_data_csc, matrixB_pointers_csc, matrixB_indices_csc = ensureNoEmptyRows(matrixB_data_csc, matrixB_pointers_csc, matrixB_indices_csc);
 
 # Calculating memory addresses
 n_nnz_A=matrixA_data_csr.shape[0];
