@@ -423,7 +423,7 @@ void sstStonne::dumpMemoryToFile(std::string fileName, float* array, unsigned in
     if( outputStream.is_open()) {
       for(unsigned i=0; i<size; i++) {
          float value = array[i];
-         outputStream << std::fixed << std::setprecision(1) << value << ","; 
+         outputStream << std::fixed << std::setprecision(4) << value << ","; 
       }
 
       outputStream.close();
