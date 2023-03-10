@@ -507,6 +507,8 @@ void SparseSDMemory::cycle() {
 	    unsigned int addr_offset = (sta_current_index_metadata+vn)*OUT_DIST_VN + vnat_table[vn]*OUT_DIST_VN_ITERATION; 
 	    uint64_t new_addr = this->output_dram_location + addr_offset*this->data_width;
 	    pck_received->set_address(new_addr);
+
+        // note: comment this store to hide write latency, but simulation won't return a result file
 	    doStore(new_addr, pck_received);
 	    vnat_table[vn]++; 
             //this->output_address[addr_offset]=data; //ofmap or psum, it does not matter.

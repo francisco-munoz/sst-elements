@@ -113,6 +113,7 @@ private:
     bool sort_down_iteration_finished; 
     bool sort_up_iteration_finished;
     bool sort_up_received_first_value;
+    bool sort_up_exception_row_empty;
     
     
     bool metadata_loaded;   //Flag that indicates whether the metadata has been loaded 

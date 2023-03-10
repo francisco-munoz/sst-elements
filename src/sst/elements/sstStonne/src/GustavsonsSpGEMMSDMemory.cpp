@@ -402,6 +402,8 @@ void GustavsonsSpGEMMSDMemory::cycle() {
 	      //std::cout << "Writing element in address " << new_addr << std::endl;
 	      //this->output_address[this->n_values_stored]=pck_received->get_data();
 	      pck_received->set_address(new_addr);
+
+          // note: comment this store to hide write latency, but simulation won't return a result file
 	      doStore(new_addr, pck_received);
 	      this->sdmemoryStats.n_DRAM_psum_writes++;
 	      n_values_stored++;
@@ -456,6 +458,14 @@ void GustavsonsSpGEMMSDMemory::cycle() {
 	      }
 
 	}
+    }
+
+    if((current_state==CONFIGURING_SORTING_PSUMS_DOWN) || (current_state==SENDING_SORT_TREE_DOWN) || (current_state==RECEIVING_SORT_TREE_UP)) {
+        this->sdmemoryStats.n_cycles_merging++;
+    }
+
+    else {
+        this->sdmemoryStats.n_cycles_multiplying++;
     }
 
      

@@ -76,6 +76,7 @@ OuterLoopSpGEMMSDMemory::OuterLoopSpGEMMSDMemory(id_t id, std::string name, Conf
     this->sort_down_iteration_finished = false;
     this->sort_up_iteration_finished = false;
     this->sort_up_received_first_value = false;
+    this->sort_up_exception_row_empty = false;
     this->sort_sub_block_id = 0;
     this->sort_num_blocks = 0;
     for(int i=0; i<this->num_ms; i++) {
@@ -314,20 +315,28 @@ void OuterLoopSpGEMMSDMemory::cycle() {
 
 	//Updating variables
 	if(!found) { // Continue to the next row
-            this->current_sorting_iteration++;
-	    if(this->current_sorting_iteration == this->sorting_iterations) {
-		if(this->sorting_iterations == 1){
-                    this->sort_row_id++;
-		    this->swap_memory_enabled = false;
-	            if(this->sort_row_id == this->M) {
-                        this->sort_down_last_iteration_finished = true;
-		        std::cout << "ALL THE ELEMENTS HAVE BEEN STREAMED DOWN" << std::endl;
-                    } 
-		}
-	    }
+        this->current_sorting_iteration++;
+	    if(this->current_sorting_iteration >= this->sorting_iterations) {
+            if(this->sorting_iterations <= 1){
+                if((pointer_current_memory->size() == 0)) { //For empty rows there will be no data to receive so we enable
+                //the flag in order to go directly to the next row
+                    this->sort_up_exception_row_empty = true;
+                    if(sort_down_last_iteration_finished) { //If the last iteration has been streamed down before
+                        this->execution_finished = true;
+                        std::cout << "The execution has finished" << std::endl;
+                    }
 
-            this->sort_down_iteration_finished=true;
-
+                    this->current_sorting_iteration=0;
+                }
+                this->sort_row_id++;
+                this->swap_memory_enabled = false;
+                if(this->sort_row_id == this->M) {
+                    this->sort_down_last_iteration_finished = true;
+                    std::cout << "ALL THE ELEMENTS HAVE BEEN STREAMED DOWN" << std::endl;
+                } 
+            }
+        }
+        this->sort_down_iteration_finished=true;
 	}
 
 
@@ -360,6 +369,8 @@ void OuterLoopSpGEMMSDMemory::cycle() {
 	      unsigned int new_addr = this->output_dram_location + this->n_values_stored*this->data_width;
 	      //this->output_address[this->n_values_stored]=pck_received->get_data();
 	      pck_received->set_address(new_addr);
+
+          // note: comment this store to hide write latency, but simulation won't return a result file
 	      doStore(new_addr, pck_received);
 	      this->sdmemoryStats.n_DRAM_psum_writes++;
 	      n_values_stored++;
@@ -482,10 +493,11 @@ void OuterLoopSpGEMMSDMemory::cycle() {
 
 
     else if(current_state == RECEIVING_SORT_TREE_UP) {
-        if(this->sort_up_iteration_finished) {
+        if((this->sort_up_iteration_finished) || (this->sort_up_exception_row_empty)) {
             this->current_state = CONFIGURING_SORTING_PSUMS_DOWN;
-	    this->sort_up_iteration_finished = false;
-	}
+            this->sort_up_iteration_finished = false;
+            this->sort_up_exception_row_empty = false;
+	    }
     }
 
 
