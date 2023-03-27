@@ -325,7 +325,7 @@ void SparseSDMemory::cycle() {
 	    
 	    }
 
-	    if(this->configurationVNs.size()==0) { //If any entire cluster fits, then folding is needed to manage this cluster
+	    if(this->configurationVNs.size()==0 && n_current_cluster > 0) { //If any entire cluster fits (and it is not empty), then folding is needed to manage this cluster
 		   /*
 		if((K-j) < 3) { //The next cluster must have cluster size greater or equal than 3
                     int n_elements_to_make_cluster_3 = 3-(K-j);
@@ -354,8 +354,13 @@ void SparseSDMemory::cycle() {
               
 	    }
 
-	    else { //If there is at least one cluster, then all of them has size K and it is necessary to stream K
-		   //K elements
+            else if (this->configurationVNs.size() == 0 && n_current_cluster == 0) { // Row is empty
+                // TODO: state modification should not be done here
+                std::cout << "Row " << i << " is empty" << std::endl;
+                current_state = EMPTY_ROW_FOUND;
+            }
+
+	    else { //If there is at least one cluster, then all of them has size K and it is necessary to stream K elements
 		   this->sta_last_j_metadata=this->K;
 
             }
@@ -379,7 +384,7 @@ void SparseSDMemory::cycle() {
 
 	//Once the VNs has been selected, lets configure the RN and MN
         // Configuring the multiplier network
-	if(this->configurationVNs.size()==0) {
+	if(this->configurationVNs.size()==0 && n_current_cluster > 0) { // Not enough MSs to fill the VN cluster
             std::cout << "Cluster size exceeds the number of multipliers in row " << this->sta_current_index_metadata << std::endl;
 	    assert(false);
 	}
@@ -571,6 +576,32 @@ void SparseSDMemory::cycle() {
 	    }
         }
 	this->sta_current_index_matrix+=total_size;
+
+	if(sta_current_index_metadata>=this->dim_sta) {
+	    //Calculating sparsity values  and some final stats
+	    unsigned int sta_metadata_size = this->dim_sta*K;
+	    unsigned int str_metadata_size = this->dim_str*K;
+	    unsigned int sta_zeros = sta_metadata_size - this->n_ones_sta_matrix;
+	    unsigned int str_zeros = str_metadata_size - this->n_ones_str_matrix;
+            sdmemoryStats.sta_sparsity=(counter_t)((100*sta_zeros) / sta_metadata_size);
+	    sdmemoryStats.str_sparsity=(counter_t)((100*str_zeros) / str_metadata_size);
+	    this->sdmemoryStats.n_sta_vectors_at_once_avg = this->sdmemoryStats.n_sta_vectors_at_once_avg / this->sdmemoryStats.n_reconfigurations;
+            this->execution_finished = true; //if the last sta cluster has already be calculated then finish the sim
+	    current_state = ALL_DATA_SENT;
+	}
+
+	else  { 
+            current_state=CONFIGURING;
+	}
+    }
+
+    else if (current_state == EMPTY_ROW_FOUND) {
+        this->str_current_index = 0;
+	this->sta_iter_completed=false;
+	this->sta_current_index_metadata += 1;
+	this->sta_current_j_metadata = 0;
+
+	std::cout << "STONNE: STA dimensions completed (" << this->sta_current_index_metadata << "/" << this->dim_sta << ")" << std::endl;
 
 	if(sta_current_index_metadata>=this->dim_sta) {
 	    //Calculating sparsity values  and some final stats
