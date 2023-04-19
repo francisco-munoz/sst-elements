@@ -182,6 +182,7 @@ void sstStonne::setup() {
     matrixA = NULL; //TODO: remove when everything is done
     matrixB = NULL;
     matrixC = new float[matrixC_size];
+    memset(matrixC, 0, matrixC_size*sizeof(float));
 
   } //End initializing dense operation
 
@@ -203,6 +204,7 @@ void sstStonne::setup() {
       unsigned int nActiveValuesA=constructBitmap(bitmapMatrixAFileName, bitmapMatrixA, matrixA_size);
       unsigned int nActiveValuesB=constructBitmap(bitmapMatrixBFileName, bitmapMatrixB, matrixB_size);
       matrixC=new float[matrixC_size];
+      memset(matrixC, 0, matrixC_size*sizeof(float));
 
 
     } //End bitmapSpMSpM operation
@@ -226,6 +228,7 @@ void sstStonne::setup() {
       matrixA=NULL; //TODO fix this
       matrixB=NULL;
       matrixC=new float[matrixC_size];
+      memset(matrixC, 0, matrixC_size*sizeof(float));
       // Data is not mandatory
 
     } //End csrSpMM operation
@@ -273,6 +276,7 @@ void sstStonne::setup() {
       delete [] colpointerMatrixB;
 
       matrixC=new float[matrixC_size];
+      memset(matrixC, 0, matrixC_size*sizeof(float));
     } //End innerProductGEMM operation
 
       else if((kernelOperation==outerProductGEMM) || (kernelOperation==gustavsonsGEMM)) {
@@ -308,6 +312,7 @@ void sstStonne::setup() {
       matrixA=NULL; //TODO fix this
       matrixB=NULL;
       matrixC=new float[matrixC_size];
+      memset(matrixC, 0, matrixC_size*sizeof(float));
       // Data is not mandatory
 
     }
