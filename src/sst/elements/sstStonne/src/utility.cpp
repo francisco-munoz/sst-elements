@@ -46,7 +46,9 @@ std::string get_string_layer_t(Layer_t kernelOperation) {
 	    return "bitmapSpMSpM";
 
 	case csrSpMM: 
-	    return "csrSpMM";
+        return "csrSpMM";
+    case innerProductGEMM:
+        return "innerProductGEMM";
 	case outerProductGEMM:
 	    return "outerProductGEMM";
 	case gustavsonsGEMM:
@@ -72,6 +74,10 @@ Layer_t get_type_layer_t(std::string kernelOperation) {
 	else if(kernelOperation=="csrSpMM") {
             return csrSpMM;
 	}
+
+    else if (kernelOperation == "innerProductGEMM") {
+        return innerProductGEMM;
+    }
 
 	else if(kernelOperation=="outerProductGEMM") {
             return outerProductGEMM;

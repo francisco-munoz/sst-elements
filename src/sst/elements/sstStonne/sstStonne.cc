@@ -230,6 +230,51 @@ void sstStonne::setup() {
 
     } //End csrSpMM operation
 
+    else if(kernelOperation==innerProductGEMM) {
+      if(rowpointerMatrixAFileName=="") {
+        output_->fatal(CALL_INFO, -1, "rowpointer_matrix_a_init parameter is not introduced\n");
+      }
+      if(colpointerMatrixAFileName=="") {
+        output_->fatal(CALL_INFO, -1, "colpointer_matrix_a_init parameter is not introduced\n");
+      }
+
+      if(rowpointerMatrixBFileName=="") {
+        output_->fatal(CALL_INFO, -1, "rowpointer_matrix_b_init parameter is not introduced\n");
+      }
+      if(colpointerMatrixBFileName=="") {
+        output_->fatal(CALL_INFO, -1, "colpointer_matrix_b_init parameter is not introduced\n");
+      }
+
+      matrixA_size=GEMM_M*GEMM_K;
+      matrixB_size=GEMM_N*GEMM_K;
+      matrixC_size=GEMM_M*GEMM_N;
+      bitmapMatrixA=new unsigned int[matrixA_size];
+      bitmapMatrixB=new unsigned int[matrixB_size];
+      bitmapMatrixC=new unsigned int[matrixC_size];
+
+      rowpointerMatrixA=new unsigned int[matrixA_size+1]; //Change to the minimum using vector class
+      colpointerMatrixA=new unsigned int[matrixA_size+1];
+      rowpointerMatrixB = new unsigned int[matrixB_size+1];
+      colpointerMatrixB = new unsigned int[matrixB_size+1];
+
+      // read the CSR structure
+      constructCSRStructure(rowpointerMatrixAFileName,rowpointerMatrixA);
+      constructCSRStructure(colpointerMatrixAFileName, colpointerMatrixA);
+      constructCSRStructure(rowpointerMatrixBFileName, rowpointerMatrixB);
+      constructCSRStructure(colpointerMatrixBFileName, colpointerMatrixB);
+
+      // transform the values into bitmaps
+      transformCSRtoBitmap(rowpointerMatrixA, colpointerMatrixA, bitmapMatrixA, GEMM_M, GEMM_K);
+      transformCSCtoBitmap(rowpointerMatrixB, colpointerMatrixB, bitmapMatrixB, GEMM_K, GEMM_N);
+
+      delete [] rowpointerMatrixA;
+      delete [] colpointerMatrixA;
+      delete [] rowpointerMatrixB;
+      delete [] colpointerMatrixB;
+
+      matrixC=new float[matrixC_size];
+    } //End innerProductGEMM operation
+
       else if((kernelOperation==outerProductGEMM) || (kernelOperation==gustavsonsGEMM)) {
       if(rowpointerMatrixAFileName=="") {
         output_->fatal(CALL_INFO, -1, "rowpointer_matrix_a_init parameter is not introduced\n");
@@ -286,6 +331,7 @@ void sstStonne::setup() {
           stonne_instance->loadGEMMTile(GEMM_T_N, GEMM_T_K, GEMM_T_M);
 	  break;
       case bitmapSpMSpM:
+      case innerProductGEMM:
           stonne_instance->loadGEMM(layer_name, GEMM_N, GEMM_K, GEMM_M, matrixA, matrixB, bitmapMatrixA, bitmapMatrixB, matrixC, bitmapMatrixC, MK_STA_KN_STR );
 	  break;
       case csrSpMM: 
@@ -390,6 +436,24 @@ unsigned int sstStonne::constructCSRStructure(std::string fileName, unsigned int
 
 }
 
+void sstStonne::transformCSRtoBitmap(unsigned int * rowpointer, unsigned int * colpointer, unsigned int * bitmap, unsigned int nRows, unsigned int nCols) {
+    memset(bitmap, 0, nRows*nCols*sizeof(unsigned int));
+    for (unsigned int i = 1; i <= nRows; i++) {
+        for (unsigned int j = rowpointer[i-1]; j < rowpointer[i]; j++) {
+            bitmap[(i-1) * nCols + colpointer[j]] = 1;
+        }
+    }
+}
+
+void sstStonne::transformCSCtoBitmap(unsigned int * rowpointer, unsigned int * colpointer, unsigned int * bitmap, unsigned int nRows, unsigned int nCols) {
+    memset(bitmap, 0, nRows*nCols*sizeof(unsigned int));
+    for (unsigned int i = 1; i <= nCols; i++) {
+        for (unsigned int j = rowpointer[i-1]; j < rowpointer[i]; j++) {
+            bitmap[colpointer[j] * nCols + (i-1)] = 1;
+        }
+    }
+}
+
 
 void sstStonne::finish() {
     //This code should have the logic to write the output memory into a certain file passed by parameter. TODO
@@ -398,7 +462,7 @@ void sstStonne::finish() {
     //delete stonne_instance;
     //delete[] matrixC; 
     
-    if(kernelOperation==bitmapSpMSpM) {
+    if(kernelOperation==bitmapSpMSpM || kernelOperation==innerProductGEMM) {
      delete[] bitmapMatrixA;
       delete[] bitmapMatrixB;
     }

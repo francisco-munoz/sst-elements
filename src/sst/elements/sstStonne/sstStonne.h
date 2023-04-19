@@ -28,7 +28,7 @@ public:
     SST_ELI_DOCUMENT_PARAMS(
         {"clock","Clock frequency", "1GHz" },
 	{"hardware_configuration","stonne hardware configuration file", "hardware.cfg"},
-	{ "kernelOperation", "Type of the kernel to execute (CONV,GEMM,bitmapSpMSpM,csrSpMM)", "CONV"},
+	{ "kernelOperation", "Type of the kernel to execute (CONV,GEMM,bitmapSpMSpM,csrSpMM,innerProductGEMM,outerProductGEMM,gustavsonsGEMM)", "CONV"},
         { "R", "Number of filter rows in a CONV operation", "3"},
 	{ "S", "Number of filter cols in a CONV operation", "3"},
 	{ "C", "Number of input channels in a CONV operation", "1"},
@@ -208,7 +208,8 @@ private:
     unsigned int constructBitmap(std::string fileName, unsigned int * array, unsigned int size);
     void dumpMemoryToFile(std::string fileName, float* array, unsigned int size);
     unsigned int constructCSRStructure(std::string fileName, unsigned int * array);
-
+    void transformCSRtoBitmap(unsigned int * rowpointer, unsigned int * colpointer, unsigned int * bitmap, unsigned int nRows, unsigned int nCols);
+    void transformCSCtoBitmap(unsigned int * rowpointer, unsigned int * colpointer, unsigned int * bitmap, unsigned int nRows, unsigned int nCols);
 
 
 };
