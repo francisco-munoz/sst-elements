@@ -196,6 +196,9 @@ void GustavsonsSpGEMMSDMemory::cycle() {
       delete pck;
     }
 
+    // If the GEMM has been already completed, then skip the rest of the steps (just wait until write_queue_ is completely empty)
+    if (this->execution_finished) return;
+
     if((load_queue_->getNumPendingEntries() == 0) ){ //&& (write_queue_->getNumPendingEntries() < this->n_write_mshr)) {
 
     if(current_state==CONFIGURING) {
