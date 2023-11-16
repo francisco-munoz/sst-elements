@@ -412,7 +412,7 @@ void GustavsonsSpGEMMSDMemory::cycle() {
           }
 	  else {
 	      //std::cout << "Writing element into the array with position " << n_values_stored << std::endl;
-	      unsigned int  new_addr = this->output_dram_location + this->n_values_stored*this->data_width;
+	      unsigned int  new_addr = this->output_dram_location + (pck_received->getRow() * this->N + pck_received->getCol()) * this->data_width;
 	      //std::cout << "Writing element in address " << new_addr << std::endl;
 	      //this->output_address[this->n_values_stored]=pck_received->get_data();
 	      pck_received->set_address(new_addr);

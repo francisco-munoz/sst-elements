@@ -379,7 +379,7 @@ void OuterLoopSpGEMMSDMemory::cycle() {
 	      this->sdmemoryStats.n_SRAM_psum_writes++;
           }
 	  else { //Sending the result to DRAM as it is completed
-	      unsigned int new_addr = this->output_dram_location + this->n_values_stored*this->data_width;
+	      unsigned int new_addr = this->output_dram_location + (pck_received->getRow() * this->N + pck_received->getCol()) * this->data_width;
 	      //this->output_address[this->n_values_stored]=pck_received->get_data();
 	      pck_received->set_address(new_addr);
 
