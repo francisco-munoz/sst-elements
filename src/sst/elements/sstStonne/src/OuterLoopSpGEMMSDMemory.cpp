@@ -141,6 +141,7 @@ void OuterLoopSpGEMMSDMemory::setLayer(DNNLayer* dnn_layer, address_t MK_address
 }
 
 //Load CSR
+// Warning: this method must be called after a layer has been set with setLayer
 void OuterLoopSpGEMMSDMemory::setSparseMatrixMetadata(metadata_address_t MK_metadata_id, metadata_address_t MK_metadata_pointer, metadata_address_t KN_metadata_id, metadata_address_t KN_metadata_pointer) {
     this->MK_row_id = MK_metadata_id;
     this->MK_col_pointer = MK_metadata_pointer;
@@ -150,6 +151,13 @@ void OuterLoopSpGEMMSDMemory::setSparseMatrixMetadata(metadata_address_t MK_meta
     this->MK_number_nnz = MK_col_pointer[K];
     this->metadata_loaded = true;
 
+    // Initialize index variables according to the first non-empty column
+    for (int i = 0; i < this->K; i++) {
+        if (MK_col_pointer[i] != MK_col_pointer[i+1]) {
+            this->current_MK_col_pointer = i;
+            break;
+        }
+    }
 }
 
 
@@ -229,10 +237,12 @@ void OuterLoopSpGEMMSDMemory::cycle() {
 		   //Update variables
 		   current_MK_row_id++;
 		   if(current_MK_row_id >= MK_col_pointer[current_MK_col_pointer+1]) {
-                       current_MK_col_pointer+=1; 
+                do {
+                    current_MK_col_pointer+=1; 
+                } while(current_MK_col_pointer <= K && MK_col_pointer[current_MK_col_pointer] == MK_col_pointer[current_MK_col_pointer + 1]);
 		   } 
 
-		   if(current_MK_col_pointer == K) {
+		   if(current_MK_col_pointer >= K) {
 		       //this->execution_finished=true; //The execution finishes here
 		       this->last_sta_iteration_completed = true;
                        break;

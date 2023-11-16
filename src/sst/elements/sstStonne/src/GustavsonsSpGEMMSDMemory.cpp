@@ -146,6 +146,7 @@ void GustavsonsSpGEMMSDMemory::setLayer(DNNLayer* dnn_layer, address_t MK_addres
 }
 
 //Load CSR
+// Warning: this method must be called after a layer has been set with setLayer
 void GustavsonsSpGEMMSDMemory::setSparseMatrixMetadata(metadata_address_t MK_metadata_id, metadata_address_t MK_metadata_pointer, metadata_address_t KN_metadata_id, metadata_address_t KN_metadata_pointer) {
     this->MK_col_id = MK_metadata_id;
     this->MK_row_pointer = MK_metadata_pointer;
@@ -154,6 +155,14 @@ void GustavsonsSpGEMMSDMemory::setSparseMatrixMetadata(metadata_address_t MK_met
     //Calculating number of nonzeros
     this->MK_number_nnz = MK_row_pointer[K];
     this->metadata_loaded = true;
+
+    // Initialize index variables according to the first non-empty row
+    for (int i = 0; i < this->M; i++) {
+        if (MK_row_pointer[i] != MK_row_pointer[i+1]) {
+            this->current_MK_row_pointer = i;
+            break;
+        }
+    } 
 
 }
 
@@ -250,8 +259,10 @@ void GustavsonsSpGEMMSDMemory::cycle() {
 		   //Update variables
 		   current_MK_col_id++;
 		   if(current_MK_col_id >= MK_row_pointer[current_MK_row_pointer+1]) {
-                       current_MK_row_pointer+=1; 
-		       if(current_MK_row_pointer == M) {
+                do {
+                    current_MK_row_pointer+=1; 
+                } while(current_MK_row_pointer <= K && MK_row_pointer[current_MK_row_pointer] == MK_row_pointer[current_MK_row_pointer + 1]);
+		       if(current_MK_row_pointer >= M) {
                        //this->execution_finished=true; //The execution finishes here
                            this->last_sta_iteration_completed = true;
                        }
