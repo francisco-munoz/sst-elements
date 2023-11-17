@@ -420,7 +420,18 @@ void OuterLoopSpGEMMSDMemory::cycle() {
     } //End write_fifo
 
     else { //If nothing is received
-        if((current_state == RECEIVING_SORT_TREE_UP) && this->sort_up_received_first_value) {
+
+	// Special case: STR has an empty row, thus the write fifo is empty but that row was processed
+	if(this->current_state == WAITING_FOR_NEXT_STA_ITER) {
+		if(this->n_str_data_received == n_str_data_sent) { //If we receive all the partial sums, then we go to the next state
+			this->STR_complete = true;
+			if(last_sta_iteration_completed) {
+				this->multiplication_phase_finished = true;
+			}
+        	}
+	}
+
+        else if((current_state == RECEIVING_SORT_TREE_UP) && this->sort_up_received_first_value) {
               if(sort_down_last_iteration_finished) { //If the last iteration has been streamed down before
                   this->execution_finished = true;
                   std::cout << "The execution has finished" << std::endl;
