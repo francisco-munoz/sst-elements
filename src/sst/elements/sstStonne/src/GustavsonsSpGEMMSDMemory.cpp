@@ -261,7 +261,7 @@ void GustavsonsSpGEMMSDMemory::cycle() {
 		   if(current_MK_col_id >= MK_row_pointer[current_MK_row_pointer+1]) {
                 do {
                     current_MK_row_pointer+=1; 
-                } while(current_MK_row_pointer <= K && MK_row_pointer[current_MK_row_pointer] == MK_row_pointer[current_MK_row_pointer + 1]);
+                } while(current_MK_row_pointer < M && MK_row_pointer[current_MK_row_pointer] == MK_row_pointer[current_MK_row_pointer + 1]);
 		       if(current_MK_row_pointer >= M) {
                        //this->execution_finished=true; //The execution finishes here
                            this->last_sta_iteration_completed = true;
@@ -302,13 +302,18 @@ void GustavsonsSpGEMMSDMemory::cycle() {
                 
 	    }
 	}
-	this->current_KN+=1;
-	
-
 	if(!found) {
            STR_complete = true;
 	   this->current_sorting_iteration+=1;
+
+           // If we haven't read any data along the first iteration, then there is no STR data matching
+	   // the current STA row. Thus, we can skip next phases and go directly to the next STA row
+	   if (current_KN == 0) {
+		this->sort_up_received_first_value = true;
+	   }
 	}
+
+	this->current_KN+=1;
     }
 
     else if(current_state == WAITING_FOR_NEXT_STA_ITER) {

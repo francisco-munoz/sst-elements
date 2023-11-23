@@ -239,7 +239,7 @@ void OuterLoopSpGEMMSDMemory::cycle() {
 		   if(current_MK_row_id >= MK_col_pointer[current_MK_col_pointer+1]) {
                 do {
                     current_MK_col_pointer+=1; 
-                } while(current_MK_col_pointer <= K && MK_col_pointer[current_MK_col_pointer] == MK_col_pointer[current_MK_col_pointer + 1]);
+                } while(current_MK_col_pointer < K && MK_col_pointer[current_MK_col_pointer] == MK_col_pointer[current_MK_col_pointer + 1]);
 		   } 
 
 		   if(current_MK_col_pointer >= K) {
