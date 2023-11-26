@@ -18,6 +18,9 @@ We use a Stat empty class as the parent class of the rest ones. This is so to pu
 class Stats {
 
 public:
+    Stats() = default;
+    virtual ~Stats() {}
+    
     virtual void reset() = 0;
     virtual void print(std::ofstream& out, unsigned int indent) = 0;
 

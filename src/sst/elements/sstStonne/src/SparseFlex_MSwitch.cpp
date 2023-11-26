@@ -74,23 +74,23 @@ void SparseFlex_MSwitch::resetSignals() {
 
     this->VN=-1; //Not configured 
         while(!weight_fifo->isEmpty()) {
-        weight_fifo->pop();
+            delete weight_fifo->pop();
     }
 
     while(!activation_fifo->isEmpty()) {
-        activation_fifo->pop();
+        delete activation_fifo->pop();
     }
 
       while(!psum_fifo->isEmpty()) {
-        psum_fifo->pop();
+        delete psum_fifo->pop();
     }
 
       while(!forwarding_output_fifo->isEmpty()) {
-        forwarding_output_fifo->pop();
+        delete forwarding_output_fifo->pop();
     }
 
      while(!forwarding_input_fifo->isEmpty()) {
-        forwarding_input_fifo->pop();
+        delete forwarding_input_fifo->pop();
     }
 
 
@@ -330,6 +330,8 @@ void SparseFlex_MSwitch::cycle() { //Computing a cycle
                        //data_t data_read = activation->get_data();
                         //std::cout << "Data Received by MS " << this->num << ": " << data_read << std::endl; 
 
+            delete activation;
+
             this->send(); //Sending to the Adder Network //TODO check flow control
    
         }
@@ -404,6 +406,8 @@ void SparseFlex_MSwitch::cycle() { //Computing a cycle
             psum_fifo->push(pck_result); //Sending to the output fifo to be read in next cycle
                        //data_t data_read = activation->get_data();
                         //std::cout << "Data Received by MS " << this->num << ": " << data_read << std::endl; 
+
+            delete activation;
 
             this->send(); //Sending to the Adder Network //TODO check flow control
             //if(this->outputForwardingEnabled) { //If the multiplexer is configured to send the current activation to the fw connection

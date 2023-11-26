@@ -106,23 +106,23 @@ void ASwitch::resetSignals() {
     this->fw_enabled = false; 
     this->forward_to_memory=false;
           while(!input_psum_left_fifo->isEmpty()) {
-        input_psum_left_fifo->pop();
+        delete input_psum_left_fifo->pop();
     }
 
       while(!input_psum_right_fifo->isEmpty()) {
-        input_psum_right_fifo->pop();
+        delete input_psum_right_fifo->pop();
     }
 
       while(!output_psum_fifo->isEmpty()) {
-        output_psum_fifo->pop();
+        delete output_psum_fifo->pop();
     }
 
       while(!input_fw_fifo->isEmpty()) {
-        input_fw_fifo->pop();
+        delete input_fw_fifo->pop();
     }
 
       while(!output_fw_fifo->isEmpty()) {
-        output_fw_fifo->pop();
+        delete output_fw_fifo->pop();
     }
 
 }

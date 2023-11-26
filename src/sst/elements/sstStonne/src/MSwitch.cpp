@@ -70,23 +70,23 @@ void MSwitch::resetSignals() {
 
     this->VN=-1; //Not configured 
         while(!weight_fifo->isEmpty()) {
-        weight_fifo->pop();
+        delete weight_fifo->pop();
     }
 
     while(!activation_fifo->isEmpty()) {
-        activation_fifo->pop();
+        delete activation_fifo->pop();
     }
 
       while(!psum_fifo->isEmpty()) {
-        psum_fifo->pop();
+        delete psum_fifo->pop();
     }
 
       while(!forwarding_output_fifo->isEmpty()) {
-        forwarding_output_fifo->pop();
+        delete forwarding_output_fifo->pop();
     }
 
      while(!forwarding_input_fifo->isEmpty()) {
-        forwarding_input_fifo->pop();
+        delete forwarding_input_fifo->pop();
     }
 
 
