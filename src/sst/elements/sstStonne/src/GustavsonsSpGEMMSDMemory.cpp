@@ -405,7 +405,7 @@ void GustavsonsSpGEMMSDMemory::cycle() {
               //If there are more than 1 iterations, we have to keep the data in the intermediate memory 
 	      int group = pck_received->get_source();
 	      //std::cout << "Group: " << group << std::endl;
-	      if(pointer_next_memory->size() == group) { //We have to create the space if a new group of psums are coming
+	      while(pointer_next_memory->size() <= group) { //We have to create the space if a new group of psums are coming
 		  std::queue<DataPackage*> new_group;
                   pointer_next_memory->push_back(new_group);
 	      }
