@@ -106,6 +106,7 @@ public:
         auto entry = completed_.find( id );
 
 	if(entry != completed_.end()) {
+        delete entry->second;
 	    completed_.erase(entry);
 	}
     }
